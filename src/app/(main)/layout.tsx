@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { MainNav } from "@/components/shared/main-nav";
-import { MobileNav } from "@/components/shared/mobile-nav";
+import { MainLayoutClient } from "@/components/layouts/main-layout-client";
 
 export default async function MainLayout({
   children,
@@ -26,12 +25,8 @@ export default async function MainLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <MainNav profile={profile} />
-      <main className="container mx-auto px-4 py-6 pb-20 md:pb-6">
-        {children}
-      </main>
-      <MobileNav />
-    </div>
+    <MainLayoutClient profile={profile}>
+      {children}
+    </MainLayoutClient>
   );
 }

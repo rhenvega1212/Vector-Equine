@@ -176,15 +176,15 @@ INSERT INTO challenge_modules (id, challenge_id, title, description, sort_order)
 
 -- Create lessons for the first module
 INSERT INTO challenge_lessons (id, module_id, title, description, requires_submission, sort_order) VALUES
-  ('g0000000-0000-0000-0000-000000000001', 'f0000000-0000-0000-0000-000000000001', 'Introduction to Groundwork', 'Learn why groundwork is essential and what equipment you''ll need.', FALSE, 0),
-  ('g0000000-0000-0000-0000-000000000002', 'f0000000-0000-0000-0000-000000000001', 'Leading Basics', 'Master the art of leading with purpose and intention.', TRUE, 1),
-  ('g0000000-0000-0000-0000-000000000003', 'f0000000-0000-0000-0000-000000000001', 'Halting and Standing', 'Teach your horse to halt promptly and stand quietly.', TRUE, 2),
-  ('g0000000-0000-0000-0000-000000000004', 'f0000000-0000-0000-0000-000000000001', 'Backing Up', 'Learn to ask your horse to back up with lightness.', TRUE, 3),
-  ('g0000000-0000-0000-0000-000000000005', 'f0000000-0000-0000-0000-000000000001', 'Week 1 Reflection', 'Reflect on your progress this week.', TRUE, 4);
+  ('aa000000-0000-0000-0000-000000000001', 'f0000000-0000-0000-0000-000000000001', 'Introduction to Groundwork', 'Learn why groundwork is essential and what equipment you''ll need.', FALSE, 0),
+  ('aa000000-0000-0000-0000-000000000002', 'f0000000-0000-0000-0000-000000000001', 'Leading Basics', 'Master the art of leading with purpose and intention.', TRUE, 1),
+  ('aa000000-0000-0000-0000-000000000003', 'f0000000-0000-0000-0000-000000000001', 'Halting and Standing', 'Teach your horse to halt promptly and stand quietly.', TRUE, 2),
+  ('aa000000-0000-0000-0000-000000000004', 'f0000000-0000-0000-0000-000000000001', 'Backing Up', 'Learn to ask your horse to back up with lightness.', TRUE, 3),
+  ('aa000000-0000-0000-0000-000000000005', 'f0000000-0000-0000-0000-000000000001', 'Week 1 Reflection', 'Reflect on your progress this week.', TRUE, 4);
 
 -- Create content blocks for the first lesson
 INSERT INTO lesson_content_blocks (id, lesson_id, block_type, content, sort_order) VALUES
-  ('h0000000-0000-0000-0000-000000000001', 'g0000000-0000-0000-0000-000000000001', 'rich_text', '# Welcome to the 30-Day Groundwork Challenge!
+  ('bb000000-0000-0000-0000-000000000001', 'aa000000-0000-0000-0000-000000000001', 'rich_text', '# Welcome to the 30-Day Groundwork Challenge!
 
 Groundwork is the foundation of all horse training. It establishes communication, trust, and respect between you and your horse. In this challenge, we''ll build skills progressively, starting with the basics and working towards more advanced exercises.
 
@@ -203,8 +203,8 @@ Groundwork is the foundation of all horse training. It establishes communication
 4. A safe, enclosed space to work
 
 Let''s get started on this journey together!', 0),
-  ('h0000000-0000-0000-0000-000000000002', 'g0000000-0000-0000-0000-000000000001', 'video', 'https://example.com/videos/groundwork-intro.mp4', 1),
-  ('h0000000-0000-0000-0000-000000000003', 'g0000000-0000-0000-0000-000000000001', 'rich_text', '## Key Principles
+  ('bb000000-0000-0000-0000-000000000002', 'aa000000-0000-0000-0000-000000000001', 'video', 'https://example.com/videos/groundwork-intro.mp4', 1),
+  ('bb000000-0000-0000-0000-000000000003', 'aa000000-0000-0000-0000-000000000001', 'rich_text', '## Key Principles
 
 1. **Consistency**: Use the same cues every time
 2. **Timing**: Release pressure the moment your horse responds
@@ -213,22 +213,22 @@ Let''s get started on this journey together!', 0),
 
 -- Create an assignment for the leading basics lesson
 INSERT INTO assignments (id, lesson_id, title, instructions, submission_type) VALUES
-  ('i0000000-0000-0000-0000-000000000001', 'g0000000-0000-0000-0000-000000000002', 'Leading Practice Video', 'Record a short video (1-2 minutes) showing you leading your horse through a simple course: walk forward, halt, walk again, turn left, turn right, and halt. Share what went well and what you''d like to improve.', 'video'),
-  ('i0000000-0000-0000-0000-000000000002', 'g0000000-0000-0000-0000-000000000003', 'Halting Exercise', 'Take a photo of your horse standing quietly on a loose lead after practicing halting. Write a brief description of how long they stood before fidgeting.', 'image'),
-  ('i0000000-0000-0000-0000-000000000003', 'g0000000-0000-0000-0000-000000000004', 'Backing Up Progress', 'Share a video or description of your backing up practice. How many steps can your horse back up smoothly?', 'text'),
-  ('i0000000-0000-0000-0000-000000000004', 'g0000000-0000-0000-0000-000000000005', 'Week 1 Reflection', 'Write about your experience this week. What was easy? What was challenging? What did you learn about your horse?', 'text');
+  ('cc000000-0000-0000-0000-000000000001', 'aa000000-0000-0000-0000-000000000002', 'Leading Practice Video', 'Record a short video (1-2 minutes) showing you leading your horse through a simple course: walk forward, halt, walk again, turn left, turn right, and halt. Share what went well and what you''d like to improve.', 'video'),
+  ('cc000000-0000-0000-0000-000000000002', 'aa000000-0000-0000-0000-000000000003', 'Halting Exercise', 'Take a photo of your horse standing quietly on a loose lead after practicing halting. Write a brief description of how long they stood before fidgeting.', 'image'),
+  ('cc000000-0000-0000-0000-000000000003', 'aa000000-0000-0000-0000-000000000004', 'Backing Up Progress', 'Share a video or description of your backing up practice. How many steps can your horse back up smoothly?', 'text'),
+  ('cc000000-0000-0000-0000-000000000004', 'aa000000-0000-0000-0000-000000000005', 'Week 1 Reflection', 'Write about your experience this week. What was easy? What was challenging? What did you learn about your horse?', 'text');
 
 -- Create some enrollments
 INSERT INTO challenge_enrollments (id, user_id, challenge_id) VALUES
-  ('j0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000001'),
-  ('j0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000004', 'e0000000-0000-0000-0000-000000000001');
+  ('dd000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000001'),
+  ('dd000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000004', 'e0000000-0000-0000-0000-000000000001');
 
 -- Create some lesson completions
 INSERT INTO lesson_completions (user_id, lesson_id) VALUES
-  ('a0000000-0000-0000-0000-000000000003', 'g0000000-0000-0000-0000-000000000001'),
-  ('a0000000-0000-0000-0000-000000000003', 'g0000000-0000-0000-0000-000000000002'),
-  ('a0000000-0000-0000-0000-000000000004', 'g0000000-0000-0000-0000-000000000001');
+  ('a0000000-0000-0000-0000-000000000003', 'aa000000-0000-0000-0000-000000000001'),
+  ('a0000000-0000-0000-0000-000000000003', 'aa000000-0000-0000-0000-000000000002'),
+  ('a0000000-0000-0000-0000-000000000004', 'aa000000-0000-0000-0000-000000000001');
 
 -- Create a sample submission
 INSERT INTO submissions (id, assignment_id, user_id, content, admin_feedback, is_feedback_pinned) VALUES
-  ('k0000000-0000-0000-0000-000000000001', 'i0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000003', 'Here''s my leading practice! Luna was a bit distracted at first but settled in nicely. The turns were tricky - she kept cutting corners. Any tips?', 'Great first attempt, Alex! I can see Luna is starting to understand. For the corners, try using a slightly longer lead and positioning your body more to the outside of the turn. This will encourage her to take a wider arc. Keep up the good work!', TRUE);
+  ('ee000000-0000-0000-0000-000000000001', 'cc000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000003', 'Here''s my leading practice! Luna was a bit distracted at first but settled in nicely. The turns were tricky - she kept cutting corners. Any tips?', 'Great first attempt, Alex! I can see Luna is starting to understand. For the corners, try using a slightly longer lead and positioning your body more to the outside of the turn. This will encourage her to take a wider arc. Keep up the good work!', TRUE);

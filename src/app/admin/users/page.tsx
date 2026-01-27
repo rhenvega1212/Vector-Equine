@@ -28,7 +28,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
-import { Loader2, Check, X } from "lucide-react";
+import { Loader2, Check, X, Shield, Users, UserCog } from "lucide-react";
 
 interface User {
   id: string;
@@ -127,17 +127,40 @@ export default function AdminUsersPage() {
     }
   }
 
+  const getRoleBadgeVariant = (role: string) => {
+    switch (role) {
+      case "admin":
+        return "destructive";
+      case "trainer":
+        return "default";
+      default:
+        return "secondary";
+    }
+  };
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case "admin":
+        return <Shield className="h-3 w-3" />;
+      case "trainer":
+        return <UserCog className="h-3 w-3" />;
+      default:
+        return <Users className="h-3 w-3" />;
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">User Management</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-xl sm:text-2xl font-bold">User Management</h2>
+          <p className="text-sm text-muted-foreground">
             Manage users, roles, and trainer approvals
           </p>
         </div>
         <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Filter by role" />
           </SelectTrigger>
           <SelectContent>
@@ -149,92 +172,109 @@ export default function AdminUsersPage() {
         </Select>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex justify-center py-10">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => {
-                  const initials = user.display_name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .toUpperCase()
-                    .slice(0, 2);
+      {/* Loading State */}
+      {isLoading ? (
+        <div className="flex justify-center py-10">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <>
+          {/* Mobile Card View */}
+          <div className="space-y-4 md:hidden">
+            {users.length === 0 ? (
+              <Card>
+                <CardContent className="py-10 text-center text-muted-foreground">
+                  No users found.
+                </CardContent>
+              </Card>
+            ) : (
+              users.map((user) => {
+                const initials = user.display_name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2);
 
-                  return (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={user.avatar_url || undefined} />
-                            <AvatarFallback className="text-xs">
-                              {initials}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-medium">{user.display_name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              @{user.username}
-                            </p>
-                          </div>
+                return (
+                  <Card key={user.id}>
+                    <CardContent className="p-4">
+                      {/* User Info */}
+                      <div className="flex items-start gap-3 mb-4">
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage src={user.avatar_url || undefined} />
+                          <AvatarFallback>{initials}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold truncate">{user.display_name}</p>
+                          <p className="text-sm text-muted-foreground truncate">
+                            @{user.username}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Joined {formatDate(user.created_at)}
+                          </p>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={user.role}
-                          onValueChange={(value) =>
-                            handleChangeRole(user.id, value)
-                          }
-                          disabled={actionLoading === user.id}
-                        >
-                          <SelectTrigger className="w-[120px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="rider">Rider</SelectItem>
-                            <SelectItem value="trainer">Trainer</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        {user.role === "trainer" && (
-                          <Badge
-                            variant={
-                              user.trainer_approved ? "default" : "secondary"
-                            }
+                        <Badge variant={getRoleBadgeVariant(user.role)} className="gap-1">
+                          {getRoleIcon(user.role)}
+                          {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                        </Badge>
+                      </div>
+
+                      {/* Role Change */}
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">
+                            Change Role
+                          </label>
+                          <Select
+                            value={user.role}
+                            onValueChange={(value) => handleChangeRole(user.id, value)}
+                            disabled={actionLoading === user.id}
                           >
-                            {user.trainer_approved
-                              ? "Approved"
-                              : "Pending Approval"}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>{formatDate(user.created_at)}</TableCell>
-                      <TableCell>
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="rider">
+                                <div className="flex items-center gap-2">
+                                  <Users className="h-4 w-4" />
+                                  Rider
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="trainer">
+                                <div className="flex items-center gap-2">
+                                  <UserCog className="h-4 w-4" />
+                                  Trainer
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="admin">
+                                <div className="flex items-center gap-2">
+                                  <Shield className="h-4 w-4" />
+                                  Admin
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Trainer Approval */}
                         {user.role === "trainer" && (
-                          <div className="flex gap-2">
+                          <div className="flex items-center justify-between pt-2 border-t">
+                            <div>
+                              <p className="text-sm font-medium">Trainer Status</p>
+                              <Badge
+                                variant={user.trainer_approved ? "default" : "secondary"}
+                                className="mt-1"
+                              >
+                                {user.trainer_approved ? "Approved" : "Pending Approval"}
+                              </Badge>
+                            </div>
                             {!user.trainer_approved ? (
                               <Button
                                 size="sm"
-                                onClick={() =>
-                                  handleApproveTrainer(user.id, true)
-                                }
+                                onClick={() => handleApproveTrainer(user.id, true)}
                                 disabled={actionLoading === user.id}
+                                className="touch-target"
                               >
                                 {actionLoading === user.id ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -249,10 +289,9 @@ export default function AdminUsersPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() =>
-                                  handleApproveTrainer(user.id, false)
-                                }
+                                onClick={() => handleApproveTrainer(user.id, false)}
                                 disabled={actionLoading === user.id}
+                                className="touch-target"
                               >
                                 {actionLoading === user.id ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -266,15 +305,165 @@ export default function AdminUsersPage() {
                             )}
                           </div>
                         )}
-                      </TableCell>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop Table View */}
+          <Card className="hidden md:block">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Joined</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {users.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                          No users found.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      users.map((user) => {
+                        const initials = user.display_name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 2);
+
+                        return (
+                          <TableRow key={user.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-10 w-10">
+                                  <AvatarImage src={user.avatar_url || undefined} />
+                                  <AvatarFallback className="text-xs">
+                                    {initials}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-medium">{user.display_name}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    @{user.username}
+                                  </p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                value={user.role}
+                                onValueChange={(value) =>
+                                  handleChangeRole(user.id, value)
+                                }
+                                disabled={actionLoading === user.id}
+                              >
+                                <SelectTrigger className="w-[130px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="rider">
+                                    <div className="flex items-center gap-2">
+                                      <Users className="h-4 w-4" />
+                                      Rider
+                                    </div>
+                                  </SelectItem>
+                                  <SelectItem value="trainer">
+                                    <div className="flex items-center gap-2">
+                                      <UserCog className="h-4 w-4" />
+                                      Trainer
+                                    </div>
+                                  </SelectItem>
+                                  <SelectItem value="admin">
+                                    <div className="flex items-center gap-2">
+                                      <Shield className="h-4 w-4" />
+                                      Admin
+                                    </div>
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              {user.role === "trainer" && (
+                                <Badge
+                                  variant={
+                                    user.trainer_approved ? "default" : "secondary"
+                                  }
+                                >
+                                  {user.trainer_approved
+                                    ? "Approved"
+                                    : "Pending Approval"}
+                                </Badge>
+                              )}
+                              {user.role === "admin" && (
+                                <Badge variant="destructive">Full Access</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>{formatDate(user.created_at)}</TableCell>
+                            <TableCell>
+                              {user.role === "trainer" && (
+                                <div className="flex gap-2">
+                                  {!user.trainer_approved ? (
+                                    <Button
+                                      size="sm"
+                                      onClick={() =>
+                                        handleApproveTrainer(user.id, true)
+                                      }
+                                      disabled={actionLoading === user.id}
+                                    >
+                                      {actionLoading === user.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <>
+                                          <Check className="h-4 w-4 mr-1" />
+                                          Approve
+                                        </>
+                                      )}
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() =>
+                                        handleApproveTrainer(user.id, false)
+                                      }
+                                      disabled={actionLoading === user.id}
+                                    >
+                                      {actionLoading === user.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <>
+                                          <X className="h-4 w-4 mr-1" />
+                                          Revoke
+                                        </>
+                                      )}
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
