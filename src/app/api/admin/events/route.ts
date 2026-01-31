@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get host profiles separately to avoid join issues
-    const hostIds = [...new Set(events.map((e: any) => e.host_id))];
+    const hostIds = Array.from(new Set(events.map((e: any) => e.host_id)));
     const { data: profiles } = await adminClient
       .from("profiles")
       .select("id, username, display_name")
