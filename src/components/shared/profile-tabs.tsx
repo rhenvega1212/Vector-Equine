@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { PostCard } from "@/components/feed/post-card";
 import { formatDate } from "@/lib/utils";
-import { Calendar, Trophy, Grid3X3, Image, Play, Heart, MessageCircle } from "lucide-react";
+import { Calendar, Trophy, Grid3X3, Image as ImageIcon, Play, Heart, MessageCircle } from "lucide-react";
 
 interface ProfileTabsProps {
   posts: any[];
@@ -114,7 +114,7 @@ export function ProfileTabs({
                           {post.post_media.length > 1 && (
                             <div className="absolute top-2 right-2">
                               <div className="bg-black/70 backdrop-blur-sm rounded-md p-1.5">
-                                <Image className="h-3 w-3 text-white" />
+                                <ImageIcon className="h-3 w-3 text-white" />
                               </div>
                             </div>
                           )}

@@ -40,7 +40,7 @@ import {
   GripVertical,
   BookOpen,
   FileText,
-  Image,
+  Image as ImageIcon,
   Video,
   File,
 } from "lucide-react";
@@ -239,7 +239,7 @@ export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditor
   function getBlockIcon(type: string) {
     switch (type) {
       case "rich_text": return <FileText className="h-4 w-4" />;
-      case "image": return <Image className="h-4 w-4" />;
+      case "image": return <ImageIcon className="h-4 w-4" />;
       case "video": return <Video className="h-4 w-4" />;
       case "file": return <File className="h-4 w-4" />;
       default: return <FileText className="h-4 w-4" />;
@@ -523,7 +523,7 @@ export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditor
                                 variant="outline"
                                 onClick={() => addContentBlock(lesson.id, "image", lesson.lesson_content_blocks.length)}
                               >
-                                <Image className="h-3 w-3 mr-1" />
+                                <ImageIcon className="h-3 w-3 mr-1" />
                                 Image
                               </Button>
                               <Button
