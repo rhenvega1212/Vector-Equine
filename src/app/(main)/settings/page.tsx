@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -24,11 +25,12 @@ import {
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { AvatarCropper } from "@/components/shared/avatar-cropper";
 import { updateProfileSchema, type UpdateProfileInput } from "@/lib/validations/profile";
 import { createClient } from "@/lib/supabase/client";
 import { uploadFile, isValidImageType, MAX_IMAGE_SIZE_MB } from "@/lib/uploads/storage";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload } from "lucide-react";
+import { Loader2, Upload, ArrowLeft, Settings, Camera } from "lucide-react";
 import type { Profile } from "@/types/database";
 
 const DISCIPLINES = [
@@ -57,6 +59,11 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  
+  // Avatar cropper state
+  const [showCropper, setShowCropper] = useState(false);
+  const [cropperImageSrc, setCropperImageSrc] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -99,7 +106,8 @@ export default function SettingsPage() {
     loadProfile();
   }, [router, setValue]);
 
-  async function handleAvatarUpload(event: React.ChangeEvent<HTMLInputElement>) {
+  // Handle file selection - opens cropper
+  function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file || !profile) return;
 
@@ -121,14 +129,37 @@ export default function SettingsPage() {
       return;
     }
 
+    // Read the file and open the cropper
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropperImageSrc(reader.result as string);
+      setShowCropper(true);
+    };
+    reader.readAsDataURL(file);
+    
+    // Reset the input so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  // Handle cropped image upload
+  async function handleCroppedImage(croppedBlob: Blob) {
+    if (!profile) return;
+
     setIsUploadingAvatar(true);
     try {
+      // Create a File from the Blob
+      const file = new File([croppedBlob], `avatar-${Date.now()}.jpg`, {
+        type: "image/jpeg",
+      });
+
       const { url } = await uploadFile("avatars", file, `${profile.id}/${file.name}`);
       setValue("avatar_url", url);
       setProfile((prev) => prev ? { ...prev, avatar_url: url } : null);
       toast({
         title: "Avatar uploaded",
-        description: "Your avatar has been updated.",
+        description: "Your profile photo has been updated.",
       });
     } catch (error) {
       toast({
@@ -192,30 +223,60 @@ export default function SettingsPage() {
   const avatarUrl = watch("avatar_url");
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Settings</h1>
+    <div className="max-w-2xl mx-auto px-2 sm:px-4 py-4">
+      {/* Header */}
+      <div className="glass rounded-xl p-4 mb-6">
+        <div className="flex items-center gap-4">
+          <Link 
+            href={`/profile/${profile.username}`}
+            className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-cyan-400/10 border border-cyan-400/20">
+              <Settings className="h-5 w-5 text-cyan-400" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold">Settings</h1>
+              <p className="text-xs text-muted-foreground">Edit your profile</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <Card className="mb-6">
+      <Card className="mb-6 bg-slate-800/30 border-cyan-400/10">
         <CardHeader>
           <CardTitle>Profile Picture</CardTitle>
           <CardDescription>
-            Upload a profile picture to personalize your account
+            Upload and crop a profile picture to personalize your account
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-6">
-            <Avatar className="h-24 w-24">
-              <AvatarImage src={avatarUrl || undefined} />
-              <AvatarFallback className="text-xl">{initials}</AvatarFallback>
-            </Avatar>
-            <div>
-              <Label htmlFor="avatar" className="cursor-pointer">
-                <div className="flex items-center gap-2">
+            {/* Avatar with camera overlay */}
+            <div className="relative group">
+              <Avatar className="h-24 w-24 ring-2 ring-cyan-400/20">
+                <AvatarImage src={avatarUrl || undefined} />
+                <AvatarFallback className="text-xl">{initials}</AvatarFallback>
+              </Avatar>
+              {/* Camera overlay on hover */}
+              <label
+                htmlFor="avatar"
+                className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              >
+                <Camera className="h-8 w-8 text-white" />
+              </label>
+            </div>
+            <div className="flex-1">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Label htmlFor="avatar" className="cursor-pointer">
                   <Button
                     type="button"
                     variant="outline"
                     disabled={isUploadingAvatar}
                     asChild
+                    className="hover:bg-cyan-400/10 hover:border-cyan-400/30"
                   >
                     <span>
                       {isUploadingAvatar ? (
@@ -223,29 +284,55 @@ export default function SettingsPage() {
                       ) : (
                         <Upload className="h-4 w-4 mr-2" />
                       )}
-                      Upload Image
+                      {isUploadingAvatar ? "Uploading..." : "Choose Photo"}
                     </span>
                   </Button>
-                </div>
-              </Label>
+                </Label>
+                {avatarUrl && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setValue("avatar_url", "");
+                      setProfile((prev) => prev ? { ...prev, avatar_url: null } : null);
+                    }}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
               <Input
+                ref={fileInputRef}
                 id="avatar"
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/gif,image/webp"
                 className="hidden"
-                onChange={handleAvatarUpload}
+                onChange={handleFileSelect}
                 disabled={isUploadingAvatar}
               />
               <p className="text-xs text-muted-foreground mt-2">
                 JPG, PNG, GIF or WebP. Max {MAX_IMAGE_SIZE_MB}MB.
+              </p>
+              <p className="text-xs text-cyan-400/70 mt-1">
+                You can crop and adjust after selecting
               </p>
             </div>
           </div>
         </CardContent>
       </Card>
 
+      {/* Avatar Cropper Dialog */}
+      <AvatarCropper
+        open={showCropper}
+        onOpenChange={setShowCropper}
+        imageSrc={cropperImageSrc}
+        onCropComplete={handleCroppedImage}
+      />
+
       <form onSubmit={handleSubmit(onSubmit)}>
-        <Card>
+        <Card className="bg-slate-800/30 border-cyan-400/10">
           <CardHeader>
             <CardTitle>Profile Information</CardTitle>
             <CardDescription>

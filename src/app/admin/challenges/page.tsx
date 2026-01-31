@@ -3,10 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -16,9 +14,27 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
-import { Loader2, Plus, Pencil, Eye, EyeOff } from "lucide-react";
+import { 
+  Loader2, 
+  Plus, 
+  Pencil, 
+  Eye, 
+  EyeOff, 
+  Trash2, 
+  MoreHorizontal,
+  FileText,
+  CheckCircle,
+  Clock
+} from "lucide-react";
 
 interface Challenge {
   id: string;
@@ -37,6 +53,7 @@ export default function AdminChallengesPage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("all");
 
   useEffect(() => {
     fetchChallenges();
@@ -86,117 +103,228 @@ export default function AdminChallengesPage() {
     }
   }
 
+  async function handleDelete(challengeId: string, title: string) {
+    if (!confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setActionLoading(challengeId);
+    try {
+      const response = await fetch(`/api/admin/challenges/${challengeId}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Challenge deleted",
+          description: "The challenge has been permanently removed.",
+        });
+        fetchChallenges();
+      } else {
+        throw new Error("Failed to delete");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete challenge.",
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  const filteredChallenges = challenges.filter((challenge) => {
+    if (activeTab === "all") return true;
+    if (activeTab === "drafts") return challenge.status === "draft";
+    if (activeTab === "published") return challenge.status === "published";
+    return true;
+  });
+
+  const draftCount = challenges.filter((c) => c.status === "draft").length;
+  const publishedCount = challenges.filter((c) => c.status === "published").length;
+
+  function renderChallengeTable(items: Challenge[]) {
+    if (items.length === 0) {
+      return (
+        <div className="text-center py-10 text-muted-foreground">
+          {activeTab === "drafts" 
+            ? "No draft challenges. Create a new challenge to get started!"
+            : activeTab === "published"
+            ? "No published challenges yet."
+            : "No challenges yet. Create your first challenge!"}
+        </div>
+      );
+    }
+
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Title</TableHead>
+            <TableHead>Difficulty</TableHead>
+            <TableHead>Duration</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Enrollments</TableHead>
+            <TableHead>Created</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((challenge) => (
+            <TableRow key={challenge.id}>
+              <TableCell>
+                <div>
+                  <p className="font-medium">{challenge.title}</p>
+                  {challenge.is_private && (
+                    <Badge variant="outline" className="mt-1 text-xs">
+                      Private
+                    </Badge>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell>
+                {challenge.difficulty ? (
+                  <Badge variant="secondary">{challenge.difficulty}</Badge>
+                ) : (
+                  "-"
+                )}
+              </TableCell>
+              <TableCell>
+                {challenge.duration_days
+                  ? `${challenge.duration_days} days`
+                  : "-"}
+              </TableCell>
+              <TableCell>
+                <Badge
+                  variant={challenge.status === "published" ? "default" : "secondary"}
+                  className={challenge.status === "draft" ? "bg-yellow-500/20 text-yellow-500 border-yellow-500/40" : ""}
+                >
+                  {challenge.status === "draft" && <Clock className="h-3 w-3 mr-1" />}
+                  {challenge.status === "published" && <CheckCircle className="h-3 w-3 mr-1" />}
+                  {challenge.status}
+                </Badge>
+              </TableCell>
+              <TableCell>{challenge.enrollment_count}</TableCell>
+              <TableCell>{formatDate(challenge.created_at)}</TableCell>
+              <TableCell className="text-right">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      size="sm" 
+                      variant="ghost"
+                      disabled={actionLoading === challenge.id}
+                    >
+                      {actionLoading === challenge.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <MoreHorizontal className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <Link href={`/admin/challenges/${challenge.id}/edit`}>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Edit Challenge
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href={`/challenges/${challenge.id}`}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        Preview
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {challenge.status === "draft" ? (
+                      <DropdownMenuItem
+                        onClick={() => handleToggleStatus(challenge.id, true)}
+                        className="text-green-500"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Publish Challenge
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem
+                        onClick={() => handleToggleStatus(challenge.id, false)}
+                      >
+                        <EyeOff className="h-4 w-4 mr-2" />
+                        Unpublish (Move to Drafts)
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => handleDelete(challenge.id, challenge.title)}
+                      className="text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Challenge
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Challenge Management</h2>
           <p className="text-muted-foreground">
-            Create and manage challenges
+            Create, edit, and manage challenges
           </p>
         </div>
         <Link href="/admin/challenges/create">
-          <Button>
+          <Button className="bg-cyan-500 hover:bg-cyan-400 text-black">
             <Plus className="h-4 w-4 mr-2" />
             Create Challenge
           </Button>
         </Link>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex justify-center py-10">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : challenges.length === 0 ? (
-            <div className="text-center py-10 text-muted-foreground">
-              No challenges yet. Create your first challenge!
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Difficulty</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Enrollments</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {challenges.map((challenge) => (
-                  <TableRow key={challenge.id}>
-                    <TableCell>
-                      <p className="font-medium">{challenge.title}</p>
-                      {challenge.is_private && (
-                        <Badge variant="outline" className="mt-1 text-xs">
-                          Private
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {challenge.difficulty ? (
-                        <Badge variant="secondary">{challenge.difficulty}</Badge>
-                      ) : (
-                        "-"
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {challenge.duration_days
-                        ? `${challenge.duration_days} days`
-                        : "-"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          challenge.status === "published"
-                            ? "default"
-                            : "secondary"
-                        }
-                      >
-                        {challenge.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{challenge.enrollment_count}</TableCell>
-                    <TableCell>{formatDate(challenge.created_at)}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Link href={`/admin/challenges/${challenge.id}/edit`}>
-                          <Button size="sm" variant="outline">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            handleToggleStatus(
-                              challenge.id,
-                              challenge.status !== "published"
-                            )
-                          }
-                          disabled={actionLoading === challenge.id}
-                        >
-                          {actionLoading === challenge.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : challenge.status === "published" ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="all" className="gap-2">
+            <FileText className="h-4 w-4" />
+            All ({challenges.length})
+          </TabsTrigger>
+          <TabsTrigger value="drafts" className="gap-2">
+            <Clock className="h-4 w-4" />
+            Drafts ({draftCount})
+          </TabsTrigger>
+          <TabsTrigger value="published" className="gap-2">
+            <CheckCircle className="h-4 w-4" />
+            Published ({publishedCount})
+          </TabsTrigger>
+        </TabsList>
+
+        <Card className="mt-4">
+          <CardContent className="p-0">
+            {isLoading ? (
+              <div className="flex justify-center py-10">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                <TabsContent value="all" className="m-0">
+                  {renderChallengeTable(filteredChallenges)}
+                </TabsContent>
+                <TabsContent value="drafts" className="m-0">
+                  {renderChallengeTable(filteredChallenges)}
+                </TabsContent>
+                <TabsContent value="published" className="m-0">
+                  {renderChallengeTable(filteredChallenges)}
+                </TabsContent>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </Tabs>
     </div>
   );
 }

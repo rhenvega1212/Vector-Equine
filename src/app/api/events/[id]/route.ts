@@ -81,12 +81,32 @@ export async function PATCH(
     const body = await request.json();
     const validatedData = updateEventSchema.parse(body);
 
+    // Convert datetime-local format to ISO string for database if provided
+    const updateData: any = {
+      ...validatedData,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (validatedData.start_time) {
+      updateData.start_time = new Date(validatedData.start_time).toISOString();
+    }
+    if (validatedData.end_time) {
+      updateData.end_time = new Date(validatedData.end_time).toISOString();
+    }
+
+    // Validate that end time is after start time if both are provided
+    if (updateData.start_time && updateData.end_time) {
+      if (new Date(updateData.end_time) <= new Date(updateData.start_time)) {
+        return NextResponse.json(
+          { error: "End time must be after start time" },
+          { status: 400 }
+        );
+      }
+    }
+
     const { data: updatedEvent, error } = await supabase
       .from("events")
-      .update({
-        ...validatedData,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq("id", id)
       .select()
       .single();
@@ -98,7 +118,11 @@ export async function PATCH(
     return NextResponse.json(updatedEvent);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
+      // Return first error message as a string for better UX
+      return NextResponse.json(
+        { error: error.errors[0]?.message || "Invalid input" },
+        { status: 400 }
+      );
     }
     return NextResponse.json(
       { error: "Internal server error" },

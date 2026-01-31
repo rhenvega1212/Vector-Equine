@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createPostSchema } from "@/lib/validations/post";
 import { z } from "zod";
+import {
+  checkRateLimit,
+  getClientIdentifier,
+  rateLimitExceededResponse,
+  RATE_LIMITS,
+} from "@/lib/security/rate-limit";
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +23,7 @@ export async function GET(request: NextRequest) {
       .from("posts")
       .select(`
         *,
-        profiles!posts_author_id_fkey (id, username, display_name, avatar_url),
+        profiles!posts_author_id_fkey (id, username, display_name, avatar_url, role),
         post_media (*),
         post_likes (user_id),
         comments (id)
@@ -59,6 +65,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limit: 30 posts per minute per user
+  const clientId = getClientIdentifier(request);
+  const rateCheck = checkRateLimit(`post:${clientId}`, RATE_LIMITS.write);
+  
+  if (!rateCheck.success) {
+    return rateLimitExceededResponse(rateCheck);
+  }
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -114,7 +128,7 @@ export async function POST(request: NextRequest) {
       .from("posts")
       .select(`
         *,
-        profiles!posts_author_id_fkey (id, username, display_name, avatar_url),
+        profiles!posts_author_id_fkey (id, username, display_name, avatar_url, role),
         post_media (*),
         post_likes (user_id),
         comments (id)

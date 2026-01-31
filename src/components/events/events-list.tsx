@@ -21,9 +21,12 @@ export async function EventsList({ type, date, userId }: EventsListProps) {
       profiles!events_host_id_fkey (id, username, display_name, avatar_url),
       event_rsvps (user_id, status)
     `)
-    .eq("is_published", true)
     .gte("end_time", new Date().toISOString())
     .order("start_time", { ascending: true });
+
+  // Main platform page ALWAYS shows only published events
+  // Admins can manage all events (including drafts) from the Admin Panel
+  query = query.or("status.eq.published,is_published.eq.true");
 
   // Filter by type
   if (type && type !== "all") {
@@ -81,12 +84,12 @@ export async function EventsList({ type, date, userId }: EventsListProps) {
 
   return (
     <div className="grid gap-4 md:grid-cols-2 mt-6">
-      {events.map((event) => {
-        const goingCount = event.event_rsvps.filter(
+      {events.map((event: any) => {
+        const goingCount = event.event_rsvps?.filter(
           (r: any) => r.status === "going"
-        ).length;
+        ).length || 0;
         const userRsvp = userId
-          ? event.event_rsvps.find((r: any) => r.user_id === userId)
+          ? event.event_rsvps?.find((r: any) => r.user_id === userId)
           : null;
 
         return (
@@ -125,7 +128,7 @@ export async function EventsList({ type, date, userId }: EventsListProps) {
                 </h3>
 
                 <p className="text-sm text-muted-foreground mt-1">
-                  Hosted by {event.profiles.display_name}
+                  Hosted by {event.profiles?.display_name || "Unknown"}
                 </p>
 
                 <div className="space-y-1 mt-3 text-sm text-muted-foreground">

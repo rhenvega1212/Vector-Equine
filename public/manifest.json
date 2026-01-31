@@ -1,21 +1,29 @@
 {
   "name": "Equinti",
   "short_name": "Equinti",
-  "description": "A platform for equestrians to connect, learn, and participate in events.",
+  "description": "A platform for equestrians to connect, learn, and compete.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#16a34a",
+  "background_color": "#0a0f1a",
+  "theme_color": "#22d3ee",
   "orientation": "portrait-primary",
+  "categories": ["social", "sports", "lifestyle"],
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
       "type": "image/png"
     }
   ]

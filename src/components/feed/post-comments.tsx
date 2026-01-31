@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdminBadge } from "@/components/shared/admin-badge";
 import { formatRelativeTime } from "@/lib/utils";
 import { Loader2, Reply, Trash2 } from "lucide-react";
 
@@ -21,6 +22,7 @@ interface Comment {
     username: string;
     display_name: string;
     avatar_url: string | null;
+    role?: string;
   };
 }
 
@@ -37,6 +39,7 @@ export function PostComments({ postId, currentUserId }: PostCommentsProps) {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchComments();
@@ -61,6 +64,7 @@ export function PostComments({ postId, currentUserId }: PostCommentsProps) {
     if (!content.trim() || !currentUserId) return;
 
     setIsSubmitting(true);
+    setError(null);
     try {
       const response = await fetch(`/api/posts/${postId}/comments`, {
         method: "POST",
@@ -80,9 +84,17 @@ export function PostComments({ postId, currentUserId }: PostCommentsProps) {
         }
         fetchComments();
         queryClient.invalidateQueries({ queryKey: ["feed"] });
+      } else {
+        const data = await response.json();
+        // Handle error that might be an object or string
+        const errorMsg = typeof data.error === 'string' 
+          ? data.error 
+          : (Array.isArray(data.error) ? data.error[0]?.message : "Failed to post comment");
+        setError(errorMsg || "Failed to post comment");
       }
-    } catch (error) {
-      console.error("Failed to submit comment:", error);
+    } catch (err) {
+      console.error("Failed to submit comment:", err);
+      setError("Failed to post comment. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -131,24 +143,31 @@ export function PostComments({ postId, currentUserId }: PostCommentsProps) {
       <Separator className="mb-4" />
 
       {currentUserId && (
-        <div className="flex gap-3 mb-4">
-          <Textarea
-            placeholder="Write a comment..."
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            className="min-h-[60px] resize-none"
-          />
-          <Button
-            size="sm"
-            onClick={() => handleSubmitComment()}
-            disabled={!newComment.trim() || isSubmitting}
-          >
-            {isSubmitting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Post"
-            )}
-          </Button>
+        <div className="space-y-2 mb-4">
+          {error && (
+            <div className="p-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-md">
+              {error}
+            </div>
+          )}
+          <div className="flex gap-3">
+            <Textarea
+              placeholder="Write a comment..."
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              className="min-h-[60px] resize-none"
+            />
+            <Button
+              size="sm"
+              onClick={() => handleSubmitComment()}
+              disabled={!newComment.trim() || isSubmitting}
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Post"
+              )}
+            </Button>
+          </div>
         </div>
       )}
 
@@ -222,6 +241,7 @@ function CommentItem({
 
   const isOwnComment = comment.profiles.id === currentUserId;
   const isReplying = replyingTo === comment.id;
+  const isAdmin = comment.profiles.role === "admin";
 
   return (
     <div className="space-y-3">
@@ -234,12 +254,15 @@ function CommentItem({
         </Link>
         <div className="flex-1">
           <div className="bg-muted rounded-lg px-3 py-2">
-            <Link
-              href={`/profile/${comment.profiles.username}`}
-              className="font-medium text-sm hover:underline"
-            >
-              {comment.profiles.display_name}
-            </Link>
+            <div className="flex items-center gap-1.5">
+              <Link
+                href={`/profile/${comment.profiles.username}`}
+                className="font-medium text-sm hover:underline"
+              >
+                {comment.profiles.display_name}
+              </Link>
+              {isAdmin && <AdminBadge />}
+            </div>
             <p className="text-sm">{comment.content}</p>
           </div>
           <div className="flex items-center gap-4 mt-1">
@@ -277,6 +300,7 @@ function CommentItem({
               .toUpperCase()
               .slice(0, 2);
             const isOwnReply = reply.profiles.id === currentUserId;
+            const isReplyAdmin = reply.profiles.role === "admin";
 
             return (
               <div key={reply.id} className="flex gap-3">
@@ -290,12 +314,15 @@ function CommentItem({
                 </Link>
                 <div className="flex-1">
                   <div className="bg-muted rounded-lg px-3 py-2">
-                    <Link
-                      href={`/profile/${reply.profiles.username}`}
-                      className="font-medium text-sm hover:underline"
-                    >
-                      {reply.profiles.display_name}
-                    </Link>
+                    <div className="flex items-center gap-1.5">
+                      <Link
+                        href={`/profile/${reply.profiles.username}`}
+                        className="font-medium text-sm hover:underline"
+                      >
+                        {reply.profiles.display_name}
+                      </Link>
+                      {isReplyAdmin && <AdminBadge />}
+                    </div>
                     <p className="text-sm">{reply.content}</p>
                   </div>
                   <div className="flex items-center gap-4 mt-1">

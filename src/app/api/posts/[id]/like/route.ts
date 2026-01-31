@@ -17,6 +17,13 @@ export async function POST(
       );
     }
 
+    // Get post author to send notification
+    const { data: post } = await supabase
+      .from("posts")
+      .select("author_id")
+      .eq("id", postId)
+      .single();
+
     const { error } = await supabase
       .from("post_likes")
       .insert({
@@ -33,6 +40,18 @@ export async function POST(
         );
       }
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    // Create notification for post author (don't notify yourself)
+    if (post && post.author_id !== user.id) {
+      await (supabase as any)
+        .from("notifications")
+        .insert({
+          user_id: post.author_id,
+          type: "like",
+          actor_id: user.id,
+          post_id: postId,
+        });
     }
 
     return NextResponse.json({ success: true });

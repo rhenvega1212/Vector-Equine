@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Card,
   CardContent,
@@ -43,8 +44,10 @@ export default function CreateEventPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [canCreate, setCanCreate] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [publishStatus, setPublishStatus] = useState<"draft" | "published">("draft");
 
   const {
     register,
@@ -54,7 +57,7 @@ export default function CreateEventPage() {
   } = useForm<CreateEventInput>({
     resolver: zodResolver(createEventSchema),
     defaultValues: {
-      is_published: true,
+      is_published: false,
     },
   });
 
@@ -74,11 +77,12 @@ export default function CreateEventPage() {
         .eq("id", user.id)
         .single() as { data: any };
 
-      if (
-        profile?.role === "admin" ||
-        (profile?.role === "trainer" && profile?.trainer_approved)
-      ) {
+      if (profile?.role === "admin") {
         setCanCreate(true);
+        setIsAdmin(true);
+      } else if (profile?.role === "trainer" && profile?.trainer_approved) {
+        setCanCreate(true);
+        setIsAdmin(false);
       } else {
         router.push("/events");
         toast({
@@ -132,17 +136,26 @@ export default function CreateEventPage() {
   async function onSubmit(data: CreateEventInput) {
     setIsLoading(true);
     try {
+      // Trainers can only create drafts, admins can choose
+      const eventData = {
+        ...data,
+        status: isAdmin ? publishStatus : "draft",
+        is_published: isAdmin ? publishStatus === "published" : false,
+      };
+
       const response = await fetch("/api/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(eventData),
       });
 
       if (response.ok) {
         const event = await response.json();
         toast({
           title: "Event created",
-          description: "Your event has been published.",
+          description: publishStatus === "published" 
+            ? "Your event has been published."
+            : "Your event has been saved as a draft.",
         });
         router.push(`/events/${event.id}`);
       } else {
@@ -332,9 +345,36 @@ export default function CreateEventPage() {
               </div>
             </div>
 
+            {isAdmin && (
+              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                <div>
+                  <p className="font-medium">Publish Event</p>
+                  <p className="text-sm text-muted-foreground">
+                    {publishStatus === "published" 
+                      ? "Event will be visible to all users"
+                      : "Only admins will see this event"}
+                  </p>
+                </div>
+                <Switch
+                  checked={publishStatus === "published"}
+                  onCheckedChange={(checked) =>
+                    setPublishStatus(checked ? "published" : "draft")
+                  }
+                />
+              </div>
+            )}
+
+            {!isAdmin && (
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  Your event will be saved as a draft and requires admin approval to publish.
+                </p>
+              </div>
+            )}
+
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Create Event
+              {isAdmin && publishStatus === "published" ? "Create & Publish" : "Create Draft"}
             </Button>
           </form>
         </CardContent>

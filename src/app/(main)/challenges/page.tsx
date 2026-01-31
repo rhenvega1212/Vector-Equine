@@ -1,15 +1,24 @@
-import { Suspense } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Trophy, Clock, Users } from "lucide-react";
+import { Trophy, Clock, Users, Plus, PenTool } from "lucide-react";
 
 export default async function ChallengesPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+
+  // Check if user is admin
+  let isAdmin = false;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single() as { data: any };
+    isAdmin = profile?.role === "admin";
+  }
 
   // Get user's enrollments
   let enrolledChallengeIds: string[] = [];
@@ -21,7 +30,8 @@ export default async function ChallengesPage() {
     enrolledChallengeIds = enrollments?.map((e: any) => e.challenge_id) || [];
   }
 
-  // Get published challenges
+  // Main platform page ALWAYS shows only published challenges
+  // Admins can manage all challenges (including drafts) from the Admin Panel
   const { data: challenges } = await supabase
     .from("challenges")
     .select(`
@@ -42,24 +52,61 @@ export default async function ChallengesPage() {
             Structured courses to improve your skills
           </p>
         </div>
-        {enrolledChallengeIds.length > 0 && (
-          <Link href="/challenges/my">
-            <Button variant="outline">My Challenges</Button>
-          </Link>
-        )}
+        <div className="flex gap-2">
+          {enrolledChallengeIds.length > 0 && (
+            <Link href="/challenges/my">
+              <Button variant="outline">My Challenges</Button>
+            </Link>
+          )}
+          {isAdmin && (
+            <>
+              <Link href="/admin/challenges">
+                <Button variant="outline">
+                  Manage Challenges
+                </Button>
+              </Link>
+              <Link href="/admin/challenges/create">
+                <Button className="bg-cyan-500 hover:bg-cyan-400 text-black">
+                  <PenTool className="h-4 w-4 mr-2" />
+                  Build Challenge
+                </Button>
+              </Link>
+            </>
+          )}
+        </div>
       </div>
 
       {!challenges || challenges.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-muted-foreground">
-            No challenges available yet. Check back soon!
+            {isAdmin ? (
+              <div className="space-y-4">
+                <p>No published challenges yet.</p>
+                <p className="text-sm">Create and publish challenges from the admin panel.</p>
+                <div className="flex gap-2 justify-center">
+                  <Link href="/admin/challenges">
+                    <Button variant="outline">
+                      Manage Challenges
+                    </Button>
+                  </Link>
+                  <Link href="/admin/challenges/create">
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Challenge
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              "No challenges available yet. Check back soon!"
+            )}
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2">
           {challenges.map((challenge) => {
             const isEnrolled = enrolledChallengeIds.includes(challenge.id);
-            const enrollmentCount = challenge.challenge_enrollments.length;
+            const enrollmentCount = challenge.challenge_enrollments?.length || 0;
 
             return (
               <Link key={challenge.id} href={`/challenges/${challenge.id}`}>
@@ -76,7 +123,7 @@ export default async function ChallengesPage() {
                     </div>
                   )}
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start justify-between gap-2 flex-wrap">
                       {challenge.difficulty && (
                         <Badge variant="outline" className="text-xs">
                           {challenge.difficulty}

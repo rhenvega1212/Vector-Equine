@@ -26,6 +26,17 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  // Check if user is admin
+  let isAdmin = false;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single() as { data: any };
+    isAdmin = profile?.role === "admin";
+  }
+
   // Get challenge with modules and lessons
   const { data: challenge } = await supabase
     .from("challenges")
@@ -51,6 +62,12 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
     .single() as { data: any };
 
   if (!challenge) {
+    notFound();
+  }
+
+  // Check if challenge is draft - only admins can view draft challenges
+  const isDraft = challenge.status === "draft";
+  if (isDraft && !isAdmin) {
     notFound();
   }
 
@@ -111,6 +128,21 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
           Back to Challenges
         </Button>
       </Link>
+
+      {/* Draft indicator for admins */}
+      {isDraft && isAdmin && (
+        <div className="mb-4 p-3 bg-yellow-500/20 border border-yellow-500/50 rounded-lg flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Badge className="bg-yellow-500 text-black">Draft</Badge>
+            <span className="text-sm text-yellow-200">This challenge is not yet published. Only admins can see it.</span>
+          </div>
+          <Link href={`/admin/challenges/${challenge.id}/edit`}>
+            <Button size="sm" variant="outline" className="border-yellow-500/50 text-yellow-200 hover:bg-yellow-500/20">
+              Edit & Publish
+            </Button>
+          </Link>
+        </div>
+      )}
 
       {challenge.cover_image_url && (
         <img

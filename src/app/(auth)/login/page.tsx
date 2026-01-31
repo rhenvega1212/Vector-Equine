@@ -136,6 +136,14 @@ function LoginForm() {
               Sign up
             </Link>
           </p>
+          <div className="flex gap-4 text-xs text-muted-foreground">
+            <Link href="/privacy" className="hover:text-cyan-400 transition-colors">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="hover:text-cyan-400 transition-colors">
+              Terms of Service
+            </Link>
+          </div>
         </CardFooter>
       </form>
     </Card>

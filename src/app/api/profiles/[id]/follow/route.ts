@@ -62,6 +62,15 @@ export async function POST(
       );
     }
 
+    // Create notification for the followed user
+    await (supabase as any)
+      .from("notifications")
+      .insert({
+        user_id: followingId,
+        type: "follow",
+        actor_id: user.id,
+      });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json(

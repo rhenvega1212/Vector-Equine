@@ -25,8 +25,8 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     notFound();
   }
 
-  // Get follow counts
-  const [followersResult, followingResult] = await Promise.all([
+  // Get counts in parallel
+  const [followersResult, followingResult, postsCountResult] = await Promise.all([
     supabase
       .from("follows")
       .select("*", { count: "exact", head: true })
@@ -35,9 +35,16 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
       .from("follows")
       .select("*", { count: "exact", head: true })
       .eq("follower_id", profile.id),
+    supabase
+      .from("posts")
+      .select("*", { count: "exact", head: true })
+      .eq("author_id", profile.id)
+      .eq("is_hidden", false),
   ]) as any[];
-  const followersCount = followersResult.count;
-  const followingCount = followingResult.count;
+  
+  const followersCount = followersResult.count || 0;
+  const followingCount = followingResult.count || 0;
+  const postsCount = postsCountResult.count || 0;
 
   // Check if current user follows this profile
   let isFollowing = false;
@@ -51,22 +58,33 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     isFollowing = !!followData;
   }
 
-  // Get user's posts
+  // Get unread notifications count for own profile
+  let unreadNotifications = 0;
+  if (user && user.id === profile.id) {
+    const { count } = await supabase
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("is_read", false);
+    unreadNotifications = count || 0;
+  }
+
+  // Get user's posts with role info
   const { data: posts } = await supabase
     .from("posts")
     .select(`
       *,
       post_media (*),
-      profiles!posts_author_id_fkey (id, username, display_name, avatar_url),
+      profiles!posts_author_id_fkey (id, username, display_name, avatar_url, role),
       post_likes (user_id),
       comments (id)
     `)
     .eq("author_id", profile.id)
     .eq("is_hidden", false)
     .order("created_at", { ascending: false })
-    .limit(20) as { data: any[] | null };
+    .limit(50) as { data: any[] | null };
 
-  // Get user's challenge enrollments
+  // Get user's challenge enrollments (only published challenges for non-admins)
   const { data: enrollments } = await supabase
     .from("challenge_enrollments")
     .select(`
@@ -74,35 +92,51 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
       challenges (id, title, cover_image_url, difficulty, status)
     `)
     .eq("user_id", profile.id)
-    .limit(10) as { data: any[] | null };
+    .limit(20) as { data: any[] | null };
+
+  // Filter out draft challenges if not the user's own profile or not an admin
+  const filteredEnrollments = enrollments?.filter((e: any) => 
+    e.challenges?.status === "published" || 
+    (user && user.id === profile.id) ||
+    profile.role === "admin"
+  ) || [];
 
   // Get user's event RSVPs
   const { data: rsvps } = await supabase
     .from("event_rsvps")
     .select(`
       *,
-      events (id, title, start_time, event_type, location_city, location_state)
+      events (id, title, start_time, event_type, location_city, location_state, status)
     `)
     .eq("user_id", profile.id)
     .eq("status", "going")
-    .limit(10) as { data: any[] | null };
+    .limit(20) as { data: any[] | null };
+
+  // Filter out draft events
+  const filteredRsvps = rsvps?.filter((r: any) => 
+    r.events?.status === "published" || r.events?.is_published === true ||
+    (user && user.id === profile.id) ||
+    profile.role === "admin"
+  ) || [];
 
   const isOwnProfile = user?.id === profile.id;
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto px-2 sm:px-4 py-4">
       <ProfileHeader
         profile={profile}
-        followersCount={followersCount || 0}
-        followingCount={followingCount || 0}
+        followersCount={followersCount}
+        followingCount={followingCount}
+        postsCount={postsCount}
         isOwnProfile={isOwnProfile}
         isFollowing={isFollowing}
         currentUserId={user?.id}
+        unreadNotifications={unreadNotifications}
       />
       <ProfileTabs
         posts={posts || []}
-        enrollments={enrollments || []}
-        rsvps={rsvps || []}
+        enrollments={filteredEnrollments}
+        rsvps={filteredRsvps}
         currentUserId={user?.id}
       />
     </div>

@@ -11,6 +11,9 @@ export const eventTypeEnum = z.enum([
 
 export const rsvpStatusEnum = z.enum(["going", "interested", "not_going"]);
 
+// Regex to accept both datetime-local format (YYYY-MM-DDTHH:mm) and ISO 8601 format
+const datetimeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{3})?)?Z?$/;
+
 export const createEventSchema = z.object({
   title: z
     .string()
@@ -21,12 +24,13 @@ export const createEventSchema = z.object({
   location_city: z.string().max(100, "City must be less than 100 characters").optional(),
   location_state: z.string().max(100, "State must be less than 100 characters").optional(),
   location_address: z.string().max(200, "Address must be less than 200 characters").optional(),
-  start_time: z.string().datetime("Invalid start time"),
-  end_time: z.string().datetime("Invalid end time"),
+  start_time: z.string().regex(datetimeRegex, "Invalid start time format"),
+  end_time: z.string().regex(datetimeRegex, "Invalid end time format"),
   capacity: z.number().int().positive("Capacity must be a positive number").optional(),
   price_display: z.string().max(50, "Price display must be less than 50 characters").optional(),
   banner_image_url: z.string().url("Invalid banner image URL").optional(),
   is_published: z.boolean().optional(),
+  status: z.enum(["draft", "published", "archived"]).optional(),
 });
 
 export const updateEventSchema = createEventSchema.partial();

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { updateChallengeSchema } from "@/lib/validations/challenge";
 import { z } from "zod";
 
@@ -30,7 +31,9 @@ export async function GET(
       return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     }
 
-    const { data: challenge, error } = await supabase
+    // Use admin client to bypass RLS
+    const adminClient = createAdminClient();
+    const { data: challenge, error } = await adminClient
       .from("challenges")
       .select(`
         *,
@@ -89,7 +92,9 @@ export async function PATCH(
     const body = await request.json();
     const validatedData = updateChallengeSchema.parse(body);
 
-    const { data: challenge, error } = await (supabase as any)
+    // Use admin client for updates
+    const adminClient = createAdminClient();
+    const { data: challenge, error } = await adminClient
       .from("challenges")
       .update({
         ...validatedData,
@@ -142,7 +147,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     }
 
-    const { error } = await supabase
+    // Use admin client for deletion
+    const adminClient = createAdminClient();
+    const { error } = await adminClient
       .from("challenges")
       .delete()
       .eq("id", id);

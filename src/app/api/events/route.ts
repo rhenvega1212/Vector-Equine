@@ -75,11 +75,32 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createEventSchema.parse(body);
 
-    const { data: event, error } = await supabase
+    // Convert datetime-local format to ISO string for database
+    const start_time = new Date(validatedData.start_time).toISOString();
+    const end_time = new Date(validatedData.end_time).toISOString();
+
+    // Validate that end time is after start time
+    if (new Date(end_time) <= new Date(start_time)) {
+      return NextResponse.json(
+        { error: "End time must be after start time" },
+        { status: 400 }
+      );
+    }
+
+    // Only admins can publish directly, trainers create drafts
+    const isAdmin = profile?.role === "admin";
+    const status = isAdmin && body.status === "published" ? "published" : "draft";
+    const is_published = status === "published";
+
+    const { data: event, error } = await (supabase as any)
       .from("events")
       .insert({
         host_id: user.id,
         ...validatedData,
+        start_time,
+        end_time,
+        status,
+        is_published,
       })
       .select()
       .single();
@@ -91,7 +112,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(event, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
+      // Return first error message as a string for better UX
+      return NextResponse.json(
+        { error: error.errors[0]?.message || "Invalid input" },
+        { status: 400 }
+      );
     }
     return NextResponse.json(
       { error: "Internal server error" },

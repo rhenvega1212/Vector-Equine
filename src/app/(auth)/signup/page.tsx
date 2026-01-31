@@ -53,12 +53,8 @@ export default function SignUpPage() {
         return;
       }
 
+      // Show success message - user needs to verify email before proceeding
       setSuccess(true);
-      // Redirect to onboarding after a short delay
-      setTimeout(() => {
-        router.push("/onboarding");
-        router.refresh();
-      }, 1500);
     } catch {
       setError("An unexpected error occurred. Please try again.");
     } finally {
@@ -70,14 +66,27 @@ export default function SignUpPage() {
     return (
       <Card>
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 text-primary">
+          <div className="mx-auto mb-4 h-12 w-12 text-cyan-400">
             <CheckCircle className="h-12 w-12" />
           </div>
-          <CardTitle className="text-2xl">Account created!</CardTitle>
-          <CardDescription>
-            Redirecting you to complete your profile...
+          <CardTitle className="text-2xl">Check your email!</CardTitle>
+          <CardDescription className="space-y-2">
+            <p>
+              We&apos;ve sent a verification link to your email address.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Click the link in the email to verify your account and complete signup.
+              If you don&apos;t see it, check your spam folder.
+            </p>
           </CardDescription>
         </CardHeader>
+        <CardContent>
+          <div className="text-center">
+            <Link href="/login" className="text-sm text-cyan-400 hover:underline">
+              Already verified? Sign in
+            </Link>
+          </div>
+        </CardContent>
       </Card>
     );
   }
@@ -126,6 +135,16 @@ export default function SignUpPage() {
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
+          <p className="text-xs text-muted-foreground text-center">
+            By creating an account, you agree to our{" "}
+            <Link href="/terms" className="text-cyan-400 hover:underline">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="text-cyan-400 hover:underline">
+              Privacy Policy
+            </Link>
+          </p>
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create Account

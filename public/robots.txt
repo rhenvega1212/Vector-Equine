@@ -1,0 +1,23 @@
+# Equinti Robots.txt
+# https://www.robotstxt.org/robotstxt.html
+
+User-agent: *
+Allow: /
+
+# Disallow admin and API routes
+Disallow: /admin/
+Disallow: /api/
+
+# Disallow auth pages from being indexed
+Disallow: /login
+Disallow: /signup
+Disallow: /onboarding
+
+# Allow specific public pages
+Allow: /privacy
+Allow: /terms
+Allow: /events
+Allow: /challenges
+
+# Sitemap location
+Sitemap: https://equinti.com/sitemap.xml

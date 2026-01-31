@@ -16,7 +16,8 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Check if user can create events
+  // Check user role and permissions
+  let isAdmin = false;
   let canCreateEvents = false;
   if (user) {
     const { data: profile } = await supabase
@@ -25,6 +26,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       .eq("id", user.id)
       .single() as { data: any };
 
+    isAdmin = profile?.role === "admin";
     canCreateEvents =
       profile?.role === "admin" ||
       (profile?.role === "trainer" && profile?.trainer_approved);
@@ -39,14 +41,23 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
             Discover clinics, shows, and meetups near you
           </p>
         </div>
-        {canCreateEvents && (
-          <Link href="/events/create">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Event
-            </Button>
-          </Link>
-        )}
+        <div className="flex gap-2">
+          {isAdmin && (
+            <Link href="/admin/events">
+              <Button variant="outline">
+                Manage Events
+              </Button>
+            </Link>
+          )}
+          {canCreateEvents && (
+            <Link href="/events/create">
+              <Button className={isAdmin ? "bg-cyan-500 hover:bg-cyan-400 text-black" : ""}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Event
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       <EventFilters currentType={params.type} currentDate={params.date} />

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createChallengeSchema } from "@/lib/validations/challenge";
 import { z } from "zod";
 
@@ -26,7 +27,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     }
 
-    const { data: challenges, error } = await supabase
+    // Use admin client to bypass RLS and fetch ALL challenges
+    const adminClient = createAdminClient();
+    const { data: challenges, error } = await adminClient
       .from("challenges")
       .select(`
         *,
