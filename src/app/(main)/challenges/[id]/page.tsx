@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ChallengeEnroll } from "@/components/challenges/challenge-enroll";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -69,6 +69,35 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
   const isDraft = challenge.status === "draft";
   if (isDraft && !isAdmin) {
     notFound();
+  }
+
+  // When archived, show ended message and link to public archive (participant content only)
+  const isArchived = challenge.status === "archived";
+  if (isArchived) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <Link href="/challenges">
+          <Button variant="ghost" className="mb-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Challenges
+          </Button>
+        </Link>
+        <Card>
+          <CardHeader>
+            <CardTitle>{challenge.title}</CardTitle>
+            <CardDescription>
+              This challenge has ended and is archived. No new enrollments or submissions are allowed.
+              You can browse participant submissions in the archive.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href={`/challenges/${challenge.id}/archive`}>
+              <Button>View archive (participant submissions)</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   // Check enrollment

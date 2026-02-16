@@ -126,7 +126,7 @@ export function NotificationsList({ notifications, userId }: NotificationsListPr
       case "reply":
         return notification.post ? `/feed?post=${notification.post.id}` : "#";
       case "event_rsvp":
-        return notification.event ? `/events/${notification.event.id}` : "#";
+        return notification.event ? "/train" : "#";
       case "challenge_enrollment":
         return notification.challenge ? `/challenges/${notification.challenge.id}` : "#";
       default:

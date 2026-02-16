@@ -92,12 +92,35 @@ export async function PATCH(
     const body = await request.json();
     const validatedData = updateChallengeSchema.parse(body);
 
-    // Use admin client for updates
     const adminClient = createAdminClient();
+    const { data: existing } = await adminClient
+      .from("challenges")
+      .select("status, schedule_type")
+      .eq("id", id)
+      .single() as { data: { status?: string; schedule_type?: string } | null };
+
+    if (existing?.status === "archived") {
+      return NextResponse.json(
+        { error: "Archived challenges are locked and cannot be updated." },
+        { status: 400 }
+      );
+    }
+
+    const scheduleType = validatedData.schedule_type ?? existing?.schedule_type;
+    const payload = {
+      ...validatedData,
+      open_at: validatedData.open_at !== undefined ? (validatedData.open_at || null) : undefined,
+      close_at: validatedData.close_at !== undefined ? (validatedData.close_at || null) : undefined,
+      start_at: validatedData.start_at !== undefined ? (validatedData.start_at || null) : undefined,
+      end_at: validatedData.end_at !== undefined
+        ? (scheduleType === "evergreen" ? null : (validatedData.end_at || null))
+        : undefined,
+    };
+
     const { data: challenge, error } = await adminClient
       .from("challenges")
       .update({
-        ...validatedData,
+        ...payload,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)

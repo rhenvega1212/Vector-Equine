@@ -25,7 +25,7 @@ INSERT INTO auth.users (
   (
     'a0000000-0000-0000-0000-000000000001',
     '00000000-0000-0000-0000-000000000000',
-    'admin@equinti.com',
+    'admin@vectorequine.com',
     crypt('password123', gen_salt('bf')),
     NOW(),
     NOW(),
@@ -39,7 +39,7 @@ INSERT INTO auth.users (
   (
     'a0000000-0000-0000-0000-000000000002',
     '00000000-0000-0000-0000-000000000000',
-    'trainer@equinti.com',
+    'trainer@vectorequine.com',
     crypt('password123', gen_salt('bf')),
     NOW(),
     NOW(),
@@ -53,7 +53,7 @@ INSERT INTO auth.users (
   (
     'a0000000-0000-0000-0000-000000000003',
     '00000000-0000-0000-0000-000000000000',
-    'rider1@equinti.com',
+    'rider1@vectorequine.com',
     crypt('password123', gen_salt('bf')),
     NOW(),
     NOW(),
@@ -66,7 +66,7 @@ INSERT INTO auth.users (
   (
     'a0000000-0000-0000-0000-000000000004',
     '00000000-0000-0000-0000-000000000000',
-    'rider2@equinti.com',
+    'rider2@vectorequine.com',
     crypt('password123', gen_salt('bf')),
     NOW(),
     NOW(),
@@ -79,7 +79,7 @@ INSERT INTO auth.users (
   (
     'a0000000-0000-0000-0000-000000000005',
     '00000000-0000-0000-0000-000000000000',
-    'rider3@equinti.com',
+    'rider3@vectorequine.com',
     crypt('password123', gen_salt('bf')),
     NOW(),
     NOW(),
@@ -101,19 +101,19 @@ INSERT INTO auth.identities (
   created_at,
   updated_at
 ) VALUES
-  ('a0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', '{"sub": "a0000000-0000-0000-0000-000000000001", "email": "admin@equinti.com"}', 'email', 'a0000000-0000-0000-0000-000000000001', NOW(), NOW(), NOW()),
-  ('a0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000002', '{"sub": "a0000000-0000-0000-0000-000000000002", "email": "trainer@equinti.com"}', 'email', 'a0000000-0000-0000-0000-000000000002', NOW(), NOW(), NOW()),
-  ('a0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000003', '{"sub": "a0000000-0000-0000-0000-000000000003", "email": "rider1@equinti.com"}', 'email', 'a0000000-0000-0000-0000-000000000003', NOW(), NOW(), NOW()),
-  ('a0000000-0000-0000-0000-000000000004', 'a0000000-0000-0000-0000-000000000004', '{"sub": "a0000000-0000-0000-0000-000000000004", "email": "rider2@equinti.com"}', 'email', 'a0000000-0000-0000-0000-000000000004', NOW(), NOW(), NOW()),
-  ('a0000000-0000-0000-0000-000000000005', 'a0000000-0000-0000-0000-000000000005', '{"sub": "a0000000-0000-0000-0000-000000000005", "email": "rider3@equinti.com"}', 'email', 'a0000000-0000-0000-0000-000000000005', NOW(), NOW(), NOW());
+  ('a0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', '{"sub": "a0000000-0000-0000-0000-000000000001", "email": "admin@vectorequine.com"}', 'email', 'a0000000-0000-0000-0000-000000000001', NOW(), NOW(), NOW()),
+  ('a0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000002', '{"sub": "a0000000-0000-0000-0000-000000000002", "email": "trainer@vectorequine.com"}', 'email', 'a0000000-0000-0000-0000-000000000002', NOW(), NOW(), NOW()),
+  ('a0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000003', '{"sub": "a0000000-0000-0000-0000-000000000003", "email": "rider1@vectorequine.com"}', 'email', 'a0000000-0000-0000-0000-000000000003', NOW(), NOW(), NOW()),
+  ('a0000000-0000-0000-0000-000000000004', 'a0000000-0000-0000-0000-000000000004', '{"sub": "a0000000-0000-0000-0000-000000000004", "email": "rider2@vectorequine.com"}', 'email', 'a0000000-0000-0000-0000-000000000004', NOW(), NOW(), NOW()),
+  ('a0000000-0000-0000-0000-000000000005', 'a0000000-0000-0000-0000-000000000005', '{"sub": "a0000000-0000-0000-0000-000000000005", "email": "rider3@vectorequine.com"}', 'email', 'a0000000-0000-0000-0000-000000000005', NOW(), NOW(), NOW());
 
 -- Create profiles for test users
 INSERT INTO profiles (id, email, username, display_name, bio, location, discipline, rider_level, role, trainer_approved, trainer_approved_at) VALUES
-  ('a0000000-0000-0000-0000-000000000001', 'admin@equinti.com', 'admin', 'Equinti Admin', 'Platform administrator and equestrian enthusiast.', 'San Francisco, CA', 'dressage', 'professional', 'admin', FALSE, NULL),
-  ('a0000000-0000-0000-0000-000000000002', 'trainer@equinti.com', 'sarahjohnson', 'Sarah Johnson', 'Professional dressage trainer with 15 years of experience. Passionate about helping riders achieve their goals.', 'Wellington, FL', 'dressage', 'professional', 'trainer', TRUE, NOW()),
-  ('a0000000-0000-0000-0000-000000000003', 'rider1@equinti.com', 'alexrider', 'Alex Thompson', 'Weekend warrior eventer. Love my horse Luna!', 'Lexington, KY', 'eventing', 'intermediate', 'rider', FALSE, NULL),
-  ('a0000000-0000-0000-0000-000000000004', 'rider2@equinti.com', 'emmawilson', 'Emma Wilson', 'Hunter/jumper rider working towards my goals. Always learning!', 'Ocala, FL', 'jumping', 'beginner', 'rider', FALSE, NULL),
-  ('a0000000-0000-0000-0000-000000000005', 'rider3@equinti.com', 'mikebrown', 'Mike Brown', 'Western pleasure and trail riding. Love the outdoors!', 'Austin, TX', 'western', 'advanced', 'rider', FALSE, NULL);
+  ('a0000000-0000-0000-0000-000000000001', 'admin@vectorequine.com', 'admin', 'Vector Equine Admin', 'Platform administrator and equestrian enthusiast.', 'San Francisco, CA', 'dressage', 'professional', 'admin', FALSE, NULL),
+  ('a0000000-0000-0000-0000-000000000002', 'trainer@vectorequine.com', 'sarahjohnson', 'Sarah Johnson', 'Professional dressage trainer with 15 years of experience. Passionate about helping riders achieve their goals.', 'Wellington, FL', 'dressage', 'professional', 'trainer', TRUE, NOW()),
+  ('a0000000-0000-0000-0000-000000000003', 'rider1@vectorequine.com', 'alexrider', 'Alex Thompson', 'Weekend warrior eventer. Love my horse Luna!', 'Lexington, KY', 'eventing', 'intermediate', 'rider', FALSE, NULL),
+  ('a0000000-0000-0000-0000-000000000004', 'rider2@vectorequine.com', 'emmawilson', 'Emma Wilson', 'Hunter/jumper rider working towards my goals. Always learning!', 'Ocala, FL', 'jumping', 'beginner', 'rider', FALSE, NULL),
+  ('a0000000-0000-0000-0000-000000000005', 'rider3@vectorequine.com', 'mikebrown', 'Mike Brown', 'Western pleasure and trail riding. Love the outdoors!', 'Austin, TX', 'western', 'advanced', 'rider', FALSE, NULL);
 
 -- Create some follows
 INSERT INTO follows (follower_id, following_id) VALUES
@@ -153,7 +153,7 @@ INSERT INTO comments (id, post_id, author_id, content) VALUES
 INSERT INTO events (id, host_id, title, description, event_type, location_city, location_state, location_address, start_time, end_time, capacity, price_display, is_published) VALUES
   ('d0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', 'Dressage Fundamentals Clinic', 'Join me for a day of focused dressage training. We''ll cover the basics of collection, straightness, and rhythm. Suitable for Training through Second Level riders.', 'clinic', 'Wellington', 'FL', '123 Equestrian Way', NOW() + INTERVAL '14 days', NOW() + INTERVAL '14 days' + INTERVAL '6 hours', 12, '$150/rider', TRUE),
   ('d0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000002', 'Evening Lecture: Mental Preparation for Competition', 'An interactive lecture on mental strategies for competition success. Learn visualization techniques and how to manage competition nerves.', 'networking', 'Wellington', 'FL', 'Palm Beach Equine Center', NOW() + INTERVAL '7 days', NOW() + INTERVAL '7 days' + INTERVAL '2 hours', 30, 'Free', TRUE),
-  ('d0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000001', 'Equinti Community Movie Night', 'Join fellow equestrians for a screening of "Buck" followed by discussion. Snacks provided!', 'movie_night', 'San Francisco', 'CA', 'Equinti HQ', NOW() + INTERVAL '21 days', NOW() + INTERVAL '21 days' + INTERVAL '3 hours', 50, 'Free', TRUE);
+  ('d0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000001', 'Vector Equine Community Movie Night', 'Join fellow equestrians for a screening of "Buck" followed by discussion. Snacks provided!', 'movie_night', 'San Francisco', 'CA', 'Vector Equine HQ', NOW() + INTERVAL '21 days', NOW() + INTERVAL '21 days' + INTERVAL '3 hours', 50, 'Free', TRUE);
 
 -- Create some RSVPs
 INSERT INTO event_rsvps (user_id, event_id, status) VALUES

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 
-export type StorageBucket = "avatars" | "post-media" | "event-banners" | "challenge-media" | "submissions";
+export type StorageBucket = "avatars" | "post-media" | "event-banners" | "challenge-media" | "submissions" | "ai-training-videos";
 
 export interface UploadResult {
   url: string;

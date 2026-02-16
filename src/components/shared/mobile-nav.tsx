@@ -3,30 +3,56 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Home, Calendar, Trophy, User } from "lucide-react";
+import { Home, Trophy, User } from "lucide-react";
+import { HorseHeadIcon } from "@/components/icons/horse-head";
+import type { Profile } from "@/types/database";
 
 const navItems = [
   { href: "/feed", label: "Feed", icon: Home },
-  { href: "/events", label: "Events", icon: Calendar },
+  { href: "/train", label: "Train", icon: HorseHeadIcon, adminOnly: true },
   { href: "/challenges", label: "Challenges", icon: Trophy },
   { href: "/profile", label: "Profile", icon: User },
 ];
 
-export function MobileNav() {
+interface MobileNavProps {
+  profile: Profile;
+}
+
+export function MobileNav({ profile }: MobileNavProps) {
   const pathname = usePathname();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t glass md:hidden safe-area-bottom">
-      <div 
+      <div
         className="flex items-center justify-around"
-        style={{ 
-          height: 'calc(68px + env(safe-area-inset-bottom))',
-          paddingBottom: 'env(safe-area-inset-bottom)'
+        style={{
+          height: "calc(68px + env(safe-area-inset-bottom))",
+          paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname.startsWith(item.href);
+          const isTrain = item.href === "/train";
+          const canAccessTrain = isTrain && profile.role === "admin";
+          const showAsDisabled = isTrain && !canAccessTrain;
+          const isActive = !showAsDisabled && pathname.startsWith(item.href);
+
+          if (showAsDisabled) {
+            return (
+              <div
+                key={item.href}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1 px-4 py-2 text-xs touch-target cursor-not-allowed opacity-70 text-muted-foreground"
+                )}
+                title="Coming soon"
+              >
+                <Icon className="h-6 w-6" />
+                <span className="font-medium">{item.label}</span>
+                <span className="text-[10px] text-muted-foreground/80">Soon</span>
+              </div>
+            );
+          }
+
           return (
             <Link
               key={item.href}
@@ -40,6 +66,7 @@ export function MobileNav() {
             >
               <Icon className={cn("h-6 w-6", isActive && "animate-pulse")} />
               <span className={cn("font-medium", isActive && "magical-text")}>{item.label}</span>
+              {isTrain && <span className="text-[10px] text-muted-foreground/80">Soon</span>}
             </Link>
           );
         })}

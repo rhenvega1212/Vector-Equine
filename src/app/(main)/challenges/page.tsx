@@ -5,7 +5,32 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Trophy, Clock, Users, Plus, PenTool } from "lucide-react";
 
-export default async function ChallengesPage() {
+const NICHE_OPTIONS = [
+  { value: "dressage", label: "Dressage" },
+  { value: "rider", label: "Rider" },
+  { value: "reining", label: "Reining" },
+  { value: "young_horse", label: "Young Horse" },
+] as const;
+
+const VALID_NICHES = new Set(NICHE_OPTIONS.map((o) => o.value));
+
+function nicheLabel(niche: string | null | undefined): string {
+  if (!niche) return "";
+  const opt = NICHE_OPTIONS.find((o) => o.value === niche);
+  return opt?.label ?? niche;
+}
+
+interface ChallengesPageProps {
+  searchParams: Promise<{ niche?: string }> | { niche?: string };
+}
+
+export default async function ChallengesPage({ searchParams }: ChallengesPageProps) {
+  const resolvedParams = await Promise.resolve(searchParams);
+  const nicheFilter =
+    resolvedParams.niche && VALID_NICHES.has(resolvedParams.niche as any)
+      ? resolvedParams.niche
+      : null;
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -31,17 +56,21 @@ export default async function ChallengesPage() {
   }
 
   // Main platform page ALWAYS shows only published challenges
-  // Admins can manage all challenges (including drafts) from the Admin Panel
-  const { data: challenges } = await supabase
+  let query = supabase
     .from("challenges")
     .select(`
       *,
       profiles!challenges_creator_id_fkey (id, display_name),
       challenge_enrollments (id)
     `)
-    .eq("status", "published")
-    .eq("is_private", false)
-    .order("created_at", { ascending: false }) as { data: any[] | null };
+    .in("status", ["published", "active"])
+    .eq("is_private", false);
+
+  if (nicheFilter) {
+    query = query.eq("niche", nicheFilter);
+  }
+
+  const { data: challenges } = await query.order("created_at", { ascending: false }) as { data: any[] | null };
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -74,6 +103,31 @@ export default async function ChallengesPage() {
             </>
           )}
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 mb-6">
+        <Link
+          href="/challenges"
+          className={!nicheFilter ? "pointer-events-none" : undefined}
+        >
+          <Button variant={!nicheFilter ? "default" : "outline"} size="sm">
+            All
+          </Button>
+        </Link>
+        {NICHE_OPTIONS.map((opt) => (
+          <Link
+            key={opt.value}
+            href={`/challenges?niche=${opt.value}`}
+            className={nicheFilter === opt.value ? "pointer-events-none" : undefined}
+          >
+            <Button
+              variant={nicheFilter === opt.value ? "default" : "outline"}
+              size="sm"
+            >
+              {opt.label}
+            </Button>
+          </Link>
+        ))}
       </div>
 
       {!challenges || challenges.length === 0 ? (
@@ -124,11 +178,18 @@ export default async function ChallengesPage() {
                   )}
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2 flex-wrap">
-                      {challenge.difficulty && (
-                        <Badge variant="outline" className="text-xs">
-                          {challenge.difficulty}
-                        </Badge>
-                      )}
+                      <div className="flex flex-wrap gap-1">
+                        {challenge.niche && (
+                          <Badge variant="secondary" className="text-xs">
+                            {nicheLabel(challenge.niche)}
+                          </Badge>
+                        )}
+                        {challenge.difficulty && (
+                          <Badge variant="outline" className="text-xs">
+                            {challenge.difficulty}
+                          </Badge>
+                        )}
+                      </div>
                       {isEnrolled && (
                         <Badge className="text-xs">Enrolled</Badge>
                       )}

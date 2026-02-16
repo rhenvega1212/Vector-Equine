@@ -28,7 +28,7 @@ import { createChallengeSchema, type CreateChallengeInput } from "@/lib/validati
 import { uploadFile, isValidImageType } from "@/lib/uploads/storage";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ArrowLeft, Upload, X } from "lucide-react";
+import { Loader2, ArrowLeft, Upload, X, Calendar, Infinity } from "lucide-react";
 
 export default function CreateChallengePage() {
   const router = useRouter();
@@ -48,8 +48,12 @@ export default function CreateChallengePage() {
     defaultValues: {
       status: "draft",
       is_private: false,
+      schedule_type: "scheduled",
     },
   });
+
+  const scheduleType = watch("schedule_type") ?? "scheduled";
+  const isEvergreen = scheduleType === "evergreen";
 
   async function handleCoverUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -204,6 +208,26 @@ export default function CreateChallengePage() {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="niche">Niche</Label>
+              <Select
+                onValueChange={(value) => setValue("niche", value === "" ? undefined : (value as any))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select niche (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dressage">Dressage</SelectItem>
+                  <SelectItem value="rider">Rider</SelectItem>
+                  <SelectItem value="reining">Reining</SelectItem>
+                  <SelectItem value="young_horse">Young Horse</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Who this course is meant for (used to filter and sort challenges).
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="difficulty">Difficulty</Label>
@@ -235,6 +259,93 @@ export default function CreateChallengePage() {
                 placeholder="e.g., $49 or Free"
                 {...register("price_display")}
               />
+            </div>
+
+            {/* Schedule */}
+            <div className="space-y-4 rounded-lg border p-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">Schedule</span>
+              </div>
+              <div className="flex gap-4">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    value="scheduled"
+                    {...register("schedule_type")}
+                    onChange={(e) => {
+                      setValue("schedule_type", "scheduled");
+                    }}
+                    className="h-4 w-4"
+                  />
+                  <span>Scheduled (fixed dates)</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    value="evergreen"
+                    {...register("schedule_type")}
+                    onChange={(e) => {
+                      setValue("schedule_type", "evergreen");
+                      setValue("end_at", null);
+                      setValue("start_at", null);
+                      setValue("open_at", null);
+                      setValue("close_at", null);
+                    }}
+                    className="h-4 w-4"
+                  />
+                  <Infinity className="h-4 w-4 text-muted-foreground" />
+                  <span>Evergreen (self paced, no end date)</span>
+                </label>
+              </div>
+              {!isEvergreen && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="open_at">Enrollment open date/time (optional)</Label>
+                    <Input
+                      id="open_at"
+                      type="datetime-local"
+                      {...register("open_at")}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="close_at">Enrollment close date/time (optional)</Label>
+                    <Input
+                      id="close_at"
+                      type="datetime-local"
+                      {...register("close_at")}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="start_at">Challenge start date/time</Label>
+                    <Input
+                      id="start_at"
+                      type="datetime-local"
+                      {...register("start_at")}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="end_at">Challenge end date/time *</Label>
+                    <Input
+                      id="end_at"
+                      type="datetime-local"
+                      {...register("end_at")}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      When this passes, the challenge is automatically archived (no new enrollments or submissions).
+                    </p>
+                    {errors.end_at && (
+                      <p className="text-sm text-destructive">{errors.end_at.message}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              {isEvergreen && (
+                <p className="text-sm text-muted-foreground">
+                  Evergreen challenges have no end date. Users can enroll anytime (unless you manually close enrollment).
+                  No automatic archiving.
+                </p>
+              )}
             </div>
 
             <div className="flex items-center space-x-2">

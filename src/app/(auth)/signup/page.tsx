@@ -95,7 +95,7 @@ export default function SignUpPage() {
     <Card>
       <CardHeader className="text-center">
         <CardTitle className="text-2xl">Create an account</CardTitle>
-        <CardDescription>Join the Equinti community</CardDescription>
+        <CardDescription>Join the Vector Equine community</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
         <CardContent className="space-y-4">

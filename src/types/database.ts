@@ -304,8 +304,14 @@ export type Database = {
           duration_days: number | null;
           price_display: string | null;
           cover_image_url: string | null;
-          status: "draft" | "published";
+          status: "draft" | "published" | "active" | "archived";
           is_private: boolean;
+          niche: "dressage" | "rider" | "reining" | "young_horse" | null;
+          schedule_type: "scheduled" | "evergreen";
+          open_at: string | null;
+          close_at: string | null;
+          start_at: string | null;
+          end_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -318,8 +324,14 @@ export type Database = {
           duration_days?: number | null;
           price_display?: string | null;
           cover_image_url?: string | null;
-          status?: "draft" | "published";
+          status?: "draft" | "published" | "active" | "archived";
           is_private?: boolean;
+          niche?: "dressage" | "rider" | "reining" | "young_horse" | null;
+          schedule_type?: "scheduled" | "evergreen";
+          open_at?: string | null;
+          close_at?: string | null;
+          start_at?: string | null;
+          end_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -332,8 +344,14 @@ export type Database = {
           duration_days?: number | null;
           price_display?: string | null;
           cover_image_url?: string | null;
-          status?: "draft" | "published";
+          status?: "draft" | "published" | "active" | "archived";
           is_private?: boolean;
+          niche?: "dressage" | "rider" | "reining" | "young_horse" | null;
+          schedule_type?: "scheduled" | "evergreen";
+          open_at?: string | null;
+          close_at?: string | null;
+          start_at?: string | null;
+          end_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -563,6 +581,152 @@ export type Database = {
           created_at?: string;
         };
       };
+      training_sessions: {
+        Row: {
+          id: string;
+          user_id: string;
+          session_date: string;
+          horse: string;
+          session_type: string;
+          overall_feel: number;
+          discipline: string | null;
+          exercises: string | null;
+          notes: string | null;
+          rhythm: number | null;
+          relaxation: number | null;
+          connection: number | null;
+          impulsion: number | null;
+          straightness: number | null;
+          collection: number | null;
+          competition_prep: boolean;
+          focused_goal_session: boolean;
+          video_link_url: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          session_date: string;
+          horse: string;
+          session_type: string;
+          overall_feel: number;
+          discipline?: string | null;
+          exercises?: string | null;
+          notes?: string | null;
+          rhythm?: number | null;
+          relaxation?: number | null;
+          connection?: number | null;
+          impulsion?: number | null;
+          straightness?: number | null;
+          collection?: number | null;
+          competition_prep?: boolean;
+          focused_goal_session?: boolean;
+          video_link_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          session_date?: string;
+          horse?: string;
+          session_type?: string;
+          overall_feel?: number;
+          discipline?: string | null;
+          exercises?: string | null;
+          notes?: string | null;
+          rhythm?: number | null;
+          relaxation?: number | null;
+          connection?: number | null;
+          impulsion?: number | null;
+          straightness?: number | null;
+          collection?: number | null;
+          competition_prep?: boolean;
+          focused_goal_session?: boolean;
+          video_link_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      ai_video_uploads: {
+        Row: {
+          id: string;
+          user_id: string;
+          file_url: string;
+          horse: string | null;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          file_url: string;
+          horse?: string | null;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          file_url?: string;
+          horse?: string | null;
+          notes?: string | null;
+          created_at?: string;
+        };
+      };
+      ai_analyses: {
+        Row: {
+          id: string;
+          video_id: string;
+          status: "pending" | "processing" | "complete" | "error";
+          result_json: Json | null;
+          error_message: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          video_id: string;
+          status?: "pending" | "processing" | "complete" | "error";
+          result_json?: Json | null;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          video_id?: string;
+          status?: "pending" | "processing" | "complete" | "error";
+          result_json?: Json | null;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      ai_chat_messages: {
+        Row: {
+          id: string;
+          analysis_id: string;
+          role: "user" | "assistant";
+          content: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          analysis_id: string;
+          role: "user" | "assistant";
+          content: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          analysis_id?: string;
+          role?: "user" | "assistant";
+          content?: string;
+          created_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;
@@ -604,6 +768,10 @@ export type Assignment = Tables<"assignments">;
 export type Submission = Tables<"submissions">;
 export type SubmissionLike = Tables<"submission_likes">;
 export type SubmissionComment = Tables<"submission_comments">;
+export type TrainingSession = Tables<"training_sessions">;
+export type AiVideoUpload = Tables<"ai_video_uploads">;
+export type AiAnalysis = Tables<"ai_analyses">;
+export type AiChatMessage = Tables<"ai_chat_messages">;
 
 export type UserRole = "rider" | "trainer" | "admin";
 export type EventType = "clinic" | "show" | "run_club" | "workout_group" | "movie_night" | "networking";

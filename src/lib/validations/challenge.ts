@@ -1,11 +1,13 @@
 import { z } from "zod";
 
 export const difficultyEnum = z.enum(["beginner", "intermediate", "advanced"]);
-export const challengeStatusEnum = z.enum(["draft", "published"]);
+export const challengeStatusEnum = z.enum(["draft", "published", "active", "archived"]);
+export const scheduleTypeEnum = z.enum(["scheduled", "evergreen"]);
+export const nicheEnum = z.enum(["dressage", "rider", "reining", "young_horse"]);
 export const contentBlockTypeEnum = z.enum(["rich_text", "image", "video", "file"]);
 export const submissionTypeEnum = z.enum(["text", "image", "video", "link"]);
 
-export const createChallengeSchema = z.object({
+const createChallengeBaseSchema = z.object({
   title: z
     .string()
     .min(3, "Title must be at least 3 characters")
@@ -15,11 +17,35 @@ export const createChallengeSchema = z.object({
   duration_days: z.number().int().positive("Duration must be a positive number").optional(),
   price_display: z.string().max(50, "Price display must be less than 50 characters").optional(),
   cover_image_url: z.string().url("Invalid cover image URL").optional(),
+  niche: nicheEnum.optional().nullable(),
   status: challengeStatusEnum.optional(),
   is_private: z.boolean().optional(),
+  schedule_type: scheduleTypeEnum.optional(),
+  open_at: z.string().optional().nullable(),
+  close_at: z.string().optional().nullable(),
+  start_at: z.string().optional().nullable(),
+  end_at: z.string().optional().nullable(),
 });
 
-export const updateChallengeSchema = createChallengeSchema.partial();
+export const createChallengeSchema = createChallengeBaseSchema
+  .refine(
+    (data) => {
+      if (data.schedule_type === "evergreen") return true;
+      if (data.schedule_type !== "scheduled") return true;
+      return !!data.end_at;
+    },
+    { message: "End date is required for scheduled challenges", path: ["end_at"] }
+  )
+  .refine(
+    (data) => {
+      if (data.schedule_type !== "scheduled") return true;
+      if (!data.start_at || !data.end_at) return true;
+      return new Date(data.start_at) <= new Date(data.end_at);
+    },
+    { message: "Start must be before end", path: ["end_at"] }
+  );
+
+export const updateChallengeSchema = createChallengeBaseSchema.partial();
 
 export const createModuleSchema = z.object({
   title: z

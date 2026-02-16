@@ -17,13 +17,14 @@ import type { Profile } from "@/types/database";
 import { cn } from "@/lib/utils";
 import {
   Home,
-  Calendar,
   Trophy,
   User,
   Settings,
   LogOut,
   Shield,
 } from "lucide-react";
+import { HorseHeadIcon } from "@/components/icons/horse-head";
+import { Badge } from "@/components/ui/badge";
 
 interface MainNavProps {
   profile: Profile;
@@ -31,7 +32,7 @@ interface MainNavProps {
 
 const navItems = [
   { href: "/feed", label: "Feed", icon: Home },
-  { href: "/events", label: "Events", icon: Calendar },
+  { href: "/train", label: "Train", icon: HorseHeadIcon, comingSoon: true, adminOnly: true },
   { href: "/challenges", label: "Challenges", icon: Trophy },
 ];
 
@@ -57,13 +58,34 @@ export function MainNav({ profile }: MainNavProps) {
     <header className="sticky top-0 z-50 w-full border-b glass">
       <div className="container mx-auto flex h-16 items-center px-4">
         <Link href="/feed" className="mr-6 flex items-center space-x-2">
-          <span className="text-2xl font-bold magical-text">Equinti</span>
+          <span className="text-2xl font-bold magical-text">Vector Equine</span>
         </Link>
 
         <nav className="hidden md:flex items-center space-x-1 flex-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname.startsWith(item.href);
+            const isTrain = item.href === "/train";
+            const canAccessTrain = isTrain && profile.role === "admin";
+            const showAsDisabled = isTrain && !canAccessTrain;
+
+            if (showAsDisabled) {
+              return (
+                <Button
+                  key={item.href}
+                  variant="ghost"
+                  className="gap-2 cursor-not-allowed opacity-70"
+                  disabled
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
+                    Coming soon
+                  </Badge>
+                </Button>
+              );
+            }
+
             return (
               <Link key={item.href} href={item.href}>
                 <Button
@@ -75,6 +97,11 @@ export function MainNav({ profile }: MainNavProps) {
                 >
                   <Icon className="h-4 w-4" />
                   {item.label}
+                  {isTrain && (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
+                      Coming soon
+                    </Badge>
+                  )}
                 </Button>
               </Link>
             );
@@ -122,17 +149,6 @@ export function MainNav({ profile }: MainNavProps) {
                     <Link href="/admin" className="cursor-pointer">
                       <Shield className="mr-2 h-4 w-4" />
                       Admin Dashboard
-                    </Link>
-                  </DropdownMenuItem>
-                </>
-              )}
-              {(profile.role === "trainer" && profile.trainer_approved) && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/trainer/events" className="cursor-pointer">
-                      <Calendar className="mr-2 h-4 w-4" />
-                      My Events
                     </Link>
                   </DropdownMenuItem>
                 </>

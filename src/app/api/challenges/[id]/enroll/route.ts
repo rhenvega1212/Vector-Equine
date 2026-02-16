@@ -17,20 +17,32 @@ export async function POST(
       );
     }
 
-    // Check if challenge exists and is published
+    // Check if challenge exists, is live (active/published), and not archived
     const { data: challenge } = await supabase
       .from("challenges")
-      .select("id, status")
+      .select("id, status, schedule_type, open_at, close_at")
       .eq("id", challengeId)
-      .eq("status", "published")
       .single();
 
     if (!challenge) {
+      return NextResponse.json(
+        { error: "Challenge not found" },
+        { status: 404 }
+      );
+    }
+    if (challenge.status === "archived") {
+      return NextResponse.json(
+        { error: "This challenge has ended and is no longer accepting enrollments." },
+        { status: 403 }
+      );
+    }
+    if (challenge.status !== "published" && challenge.status !== "active") {
       return NextResponse.json(
         { error: "Challenge not found or not available" },
         { status: 404 }
       );
     }
+    // Enrollment window is enforced by RLS (challenge_enrollment_open); optional: check open_at/close_at here for clearer error
 
     // Check if already enrolled
     const { data: existingEnrollment } = await supabase

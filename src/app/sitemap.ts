@@ -1,7 +1,7 @@
 import { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://equinti.com";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://vectorequine.com";
 
   // Static pages
   const staticPages = [
@@ -24,7 +24,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.3,
     },
     {
-      url: `${baseUrl}/events`,
+      url: `${baseUrl}/train`,
       lastModified: new Date(),
       changeFrequency: "daily" as const,
       priority: 0.8,

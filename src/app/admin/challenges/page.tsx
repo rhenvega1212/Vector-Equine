@@ -33,8 +33,16 @@ import {
   MoreHorizontal,
   FileText,
   CheckCircle,
-  Clock
+  Clock,
+  Archive
 } from "lucide-react";
+
+const NICHE_LABELS: Record<string, string> = {
+  dressage: "Dressage",
+  rider: "Rider",
+  reining: "Reining",
+  young_horse: "Young Horse",
+};
 
 interface Challenge {
   id: string;
@@ -42,7 +50,8 @@ interface Challenge {
   description: string | null;
   difficulty: string | null;
   duration_days: number | null;
-  status: "draft" | "published";
+  niche: string | null;
+  status: "draft" | "published" | "active" | "archived";
   is_private: boolean;
   created_at: string;
   enrollment_count: number;
@@ -80,7 +89,7 @@ export default function AdminChallengesPage() {
       const response = await fetch(`/api/admin/challenges/${challengeId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: publish ? "published" : "draft" }),
+        body: JSON.stringify({ status: publish ? "active" : "draft" }),
       });
 
       if (response.ok) {
@@ -137,12 +146,14 @@ export default function AdminChallengesPage() {
   const filteredChallenges = challenges.filter((challenge) => {
     if (activeTab === "all") return true;
     if (activeTab === "drafts") return challenge.status === "draft";
-    if (activeTab === "published") return challenge.status === "published";
+    if (activeTab === "published") return challenge.status === "published" || challenge.status === "active";
+    if (activeTab === "archived") return challenge.status === "archived";
     return true;
   });
 
   const draftCount = challenges.filter((c) => c.status === "draft").length;
-  const publishedCount = challenges.filter((c) => c.status === "published").length;
+  const publishedCount = challenges.filter((c) => c.status === "published" || c.status === "active").length;
+  const archivedCount = challenges.filter((c) => c.status === "archived").length;
 
   function renderChallengeTable(items: Challenge[]) {
     if (items.length === 0) {
@@ -152,6 +163,8 @@ export default function AdminChallengesPage() {
             ? "No draft challenges. Create a new challenge to get started!"
             : activeTab === "published"
             ? "No published challenges yet."
+            : activeTab === "archived"
+            ? "No archived challenges."
             : "No challenges yet. Create your first challenge!"}
         </div>
       );
@@ -162,6 +175,7 @@ export default function AdminChallengesPage() {
         <TableHeader>
           <TableRow>
             <TableHead>Title</TableHead>
+            <TableHead>Niche</TableHead>
             <TableHead>Difficulty</TableHead>
             <TableHead>Duration</TableHead>
             <TableHead>Status</TableHead>
@@ -184,6 +198,13 @@ export default function AdminChallengesPage() {
                 </div>
               </TableCell>
               <TableCell>
+                {challenge.niche ? (
+                  <Badge variant="outline">{NICHE_LABELS[challenge.niche] ?? challenge.niche}</Badge>
+                ) : (
+                  "-"
+                )}
+              </TableCell>
+              <TableCell>
                 {challenge.difficulty ? (
                   <Badge variant="secondary">{challenge.difficulty}</Badge>
                 ) : (
@@ -197,12 +218,13 @@ export default function AdminChallengesPage() {
               </TableCell>
               <TableCell>
                 <Badge
-                  variant={challenge.status === "published" ? "default" : "secondary"}
-                  className={challenge.status === "draft" ? "bg-yellow-500/20 text-yellow-500 border-yellow-500/40" : ""}
+                  variant={challenge.status === "published" || challenge.status === "active" ? "default" : "secondary"}
+                  className={challenge.status === "draft" ? "bg-yellow-500/20 text-yellow-500 border-yellow-500/40" : challenge.status === "archived" ? "bg-muted text-muted-foreground" : ""}
                 >
                   {challenge.status === "draft" && <Clock className="h-3 w-3 mr-1" />}
-                  {challenge.status === "published" && <CheckCircle className="h-3 w-3 mr-1" />}
-                  {challenge.status}
+                  {(challenge.status === "published" || challenge.status === "active") && <CheckCircle className="h-3 w-3 mr-1" />}
+                  {challenge.status === "archived" && <Archive className="h-3 w-3 mr-1" />}
+                  {challenge.status === "active" ? "Live" : challenge.status}
                 </Badge>
               </TableCell>
               <TableCell>{challenge.enrollment_count}</TableCell>
@@ -230,13 +252,18 @@ export default function AdminChallengesPage() {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href={`/challenges/${challenge.id}`}>
+                      <Link href={challenge.status === "archived" ? `/challenges/${challenge.id}/archive` : `/challenges/${challenge.id}`}>
                         <Eye className="h-4 w-4 mr-2" />
-                        Preview
+                        {challenge.status === "archived" ? "View archive" : "Preview"}
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    {challenge.status === "draft" ? (
+                    {challenge.status === "archived" ? (
+                      <DropdownMenuItem disabled className="text-muted-foreground">
+                        <Archive className="h-4 w-4 mr-2" />
+                        Archived (locked)
+                      </DropdownMenuItem>
+                    ) : challenge.status === "draft" ? (
                       <DropdownMenuItem
                         onClick={() => handleToggleStatus(challenge.id, true)}
                         className="text-green-500"
@@ -299,7 +326,11 @@ export default function AdminChallengesPage() {
           </TabsTrigger>
           <TabsTrigger value="published" className="gap-2">
             <CheckCircle className="h-4 w-4" />
-            Published ({publishedCount})
+            Live ({publishedCount})
+          </TabsTrigger>
+          <TabsTrigger value="archived" className="gap-2">
+            <Archive className="h-4 w-4" />
+            Archived ({archivedCount})
           </TabsTrigger>
         </TabsList>
 
@@ -318,6 +349,9 @@ export default function AdminChallengesPage() {
                   {renderChallengeTable(filteredChallenges)}
                 </TabsContent>
                 <TabsContent value="published" className="m-0">
+                  {renderChallengeTable(filteredChallenges)}
+                </TabsContent>
+                <TabsContent value="archived" className="m-0">
                   {renderChallengeTable(filteredChallenges)}
                 </TabsContent>
               </>

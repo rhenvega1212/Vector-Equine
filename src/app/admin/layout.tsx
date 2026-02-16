@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import {
   Users,
   Flag,
-  Calendar,
   Trophy,
   ArrowLeft,
   LayoutDashboard,
@@ -38,7 +37,6 @@ export default async function AdminLayout({
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
     { href: "/admin/users", label: "Users", icon: Users },
     { href: "/admin/reports", label: "Reports", icon: Flag },
-    { href: "/admin/events", label: "Events", icon: Calendar },
     { href: "/admin/challenges", label: "Challenges", icon: Trophy },
   ];
 

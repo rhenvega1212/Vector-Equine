@@ -12,7 +12,7 @@ const cinzel = Cinzel({
 });
 
 export const metadata: Metadata = {
-  title: "Equinti - Connect, Learn, Compete",
+  title: "Vector Equine - Connect, Learn, Compete",
   description: "A platform for equestrians to connect, learn, and compete. Join challenges, attend events, and grow your riding journey.",
   manifest: "/manifest.json",
   icons: {
@@ -28,26 +28,26 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Equinti",
+    title: "Vector Equine",
   },
   openGraph: {
     type: "website",
     locale: "en_US",
-    siteName: "Equinti",
-    title: "Equinti - Connect, Learn, Compete",
+    siteName: "Vector Equine",
+    title: "Vector Equine - Connect, Learn, Compete",
     description: "A platform for equestrians to connect, learn, and compete. Join challenges, attend events, and grow your riding journey.",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Equinti - The Equestrian Community Platform",
+        alt: "Vector Equine - The Equestrian Community Platform",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Equinti - Connect, Learn, Compete",
+    title: "Vector Equine - Connect, Learn, Compete",
     description: "A platform for equestrians to connect, learn, and compete.",
     images: ["/og-image.png"],
   },

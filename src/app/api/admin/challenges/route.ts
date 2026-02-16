@@ -83,11 +83,21 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createChallengeSchema.parse(body);
 
-    const { data: challenge, error } = await (supabase as any)
+    const scheduleType = validatedData.schedule_type ?? "scheduled";
+    const payload = {
+      ...validatedData,
+      open_at: validatedData.open_at || null,
+      close_at: validatedData.close_at || null,
+      start_at: validatedData.start_at || null,
+      end_at: scheduleType === "evergreen" ? null : (validatedData.end_at || null),
+    };
+
+    const adminClient = createAdminClient();
+    const { data: challenge, error } = await adminClient
       .from("challenges")
       .insert({
         creator_id: user.id,
-        ...validatedData,
+        ...payload,
       })
       .select()
       .single();

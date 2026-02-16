@@ -3,8 +3,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Terms of Service - Equinti",
-  description: "Terms of Service for Equinti - Rules and guidelines for using our platform.",
+  title: "Terms of Service - Vector Equine",
+  description: "Terms of Service for Vector Equine - Rules and guidelines for using our platform.",
 };
 
 export default function TermsOfServicePage() {
@@ -26,7 +26,7 @@ export default function TermsOfServicePage() {
           <section>
             <h2 className="text-xl font-semibold text-cyan-400 mb-3">1. Acceptance of Terms</h2>
             <p className="text-muted-foreground leading-relaxed">
-              By accessing or using Equinti (&quot;the Service&quot;), you agree to be bound by these Terms of 
+              By accessing or using Vector Equine (&quot;the Service&quot;), you agree to be bound by these Terms of 
               Service. If you do not agree to these terms, please do not use the Service.
             </p>
           </section>
@@ -34,7 +34,7 @@ export default function TermsOfServicePage() {
           <section>
             <h2 className="text-xl font-semibold text-cyan-400 mb-3">2. Description of Service</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Equinti is a social platform for equestrians that provides features including but not 
+              Vector Equine is a social platform for equestrians that provides features including but not 
               limited to: social networking, event management, educational challenges, and community 
               engagement tools. The Service is provided &quot;as is&quot; and we reserve the right to modify, 
               suspend, or discontinue any aspect of the Service at any time.
@@ -58,7 +58,7 @@ export default function TermsOfServicePage() {
           <section>
             <h2 className="text-xl font-semibold text-cyan-400 mb-3">4. User Content</h2>
             <p className="text-muted-foreground leading-relaxed mb-3">
-              You retain ownership of content you post on Equinti. By posting content, you grant us 
+              You retain ownership of content you post on Vector Equine. By posting content, you grant us 
               a non-exclusive, worldwide, royalty-free license to use, display, and distribute your 
               content in connection with the Service. You represent that:
             </p>
@@ -90,7 +90,7 @@ export default function TermsOfServicePage() {
           <section>
             <h2 className="text-xl font-semibold text-cyan-400 mb-3">6. Events and Challenges</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Events and challenges on Equinti are created by administrators and approved trainers. 
+              Events and challenges on Vector Equine are created by administrators and approved trainers. 
               Participation is at your own risk. We do not guarantee the quality, safety, or legality 
               of any event. You are responsible for your own safety when participating in any 
               equestrian activities mentioned or organized through the Service.
@@ -101,7 +101,7 @@ export default function TermsOfServicePage() {
             <h2 className="text-xl font-semibold text-cyan-400 mb-3">7. Intellectual Property</h2>
             <p className="text-muted-foreground leading-relaxed">
               The Service and its original content (excluding user content), features, and functionality 
-              are owned by Equinti and are protected by international copyright, trademark, and other 
+              are owned by Vector Equine and are protected by international copyright, trademark, and other 
               intellectual property laws.
             </p>
           </section>
@@ -128,7 +128,7 @@ export default function TermsOfServicePage() {
           <section>
             <h2 className="text-xl font-semibold text-cyan-400 mb-3">10. Limitation of Liability</h2>
             <p className="text-muted-foreground leading-relaxed">
-              TO THE MAXIMUM EXTENT PERMITTED BY LAW, EQUINTI SHALL NOT BE LIABLE FOR ANY INDIRECT, 
+              TO THE MAXIMUM EXTENT PERMITTED BY LAW, VECTOR EQUINE SHALL NOT BE LIABLE FOR ANY INDIRECT, 
               INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING LOSS OF PROFITS, 
               DATA, OR OTHER INTANGIBLE LOSSES, RESULTING FROM YOUR USE OF THE SERVICE.
             </p>
@@ -156,7 +156,7 @@ export default function TermsOfServicePage() {
             <p className="text-muted-foreground leading-relaxed">
               If you have questions about these Terms of Service, please contact us at:
             </p>
-            <p className="text-cyan-400 mt-2">support@equinti.com</p>
+            <p className="text-cyan-400 mt-2">support@vectorequine.com</p>
           </section>
         </div>
       </div>

@@ -26,7 +26,7 @@ export async function POST(
     const body = await request.json();
     const validatedData = submitSchema.parse(body);
 
-    // Get assignment and verify it belongs to the lesson
+    // Get assignment and verify it belongs to the lesson; also get challenge status
     const { data: assignment } = await supabase
       .from("assignments")
       .select(`
@@ -34,7 +34,7 @@ export async function POST(
         lesson_id,
         challenge_lessons!inner (
           challenge_modules!inner (
-            challenge_id
+            challenges!inner (id, status)
           )
         )
       `)
@@ -49,8 +49,15 @@ export async function POST(
       );
     }
 
-    const challengeId =
-      (assignment as any).challenge_lessons.challenge_modules.challenge_id;
+    const mod = (assignment as any).challenge_lessons?.challenge_modules;
+    const challengeId = mod?.challenges?.id ?? mod?.challenge_id;
+    const challengeStatus = mod?.challenges?.status;
+    if (challengeStatus === "archived") {
+      return NextResponse.json(
+        { error: "This challenge is archived. No new submissions or edits are allowed." },
+        { status: 403 }
+      );
+    }
 
     // Check enrollment
     const { data: enrollment } = await supabase

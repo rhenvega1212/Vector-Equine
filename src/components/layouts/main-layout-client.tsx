@@ -36,7 +36,7 @@ export function MainLayoutClient({
       >
         {children}
       </main>
-      <MobileNav />
+      <MobileNav profile={profile} />
     </div>
   );
 }

@@ -77,7 +77,7 @@ export function ProfileHeader({
     try {
       if (navigator.share) {
         await navigator.share({
-          title: `${profile.display_name} on Equinti`,
+          title: `${profile.display_name} on Vector Equine`,
           url: profileUrl,
         });
       } else {
@@ -100,7 +100,7 @@ export function ProfileHeader({
       {/* Top bar - Instagram style header */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-lg font-semibold text-foreground/80">
-          Equinti · Profile
+          Vector Equine · Profile
         </h2>
         <div className="flex items-center gap-2">
           {isOwnProfile && (

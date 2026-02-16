@@ -55,7 +55,7 @@ function AuthScreen() {
             <div className="relative w-28 h-28 mb-4">
               <Image
                 src="/logo.png"
-                alt="Equinti"
+                alt="Vector Equine"
                 fill
                 className="object-contain"
                 priority
@@ -246,7 +246,7 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <div className="text-center mb-6">
         <h1 className="text-xl font-semibold text-white mb-1">Create account</h1>
-        <p className="text-sm text-white/50">Join the Equinti community</p>
+        <p className="text-sm text-white/50">Join the Vector Equine community</p>
       </div>
 
       {error && (

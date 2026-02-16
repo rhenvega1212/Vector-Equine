@@ -3,8 +3,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy - Equinti",
-  description: "Privacy Policy for Equinti - Learn how we collect, use, and protect your data.",
+  title: "Privacy Policy - Vector Equine",
+  description: "Privacy Policy for Vector Equine - Learn how we collect, use, and protect your data.",
 };
 
 export default function PrivacyPolicyPage() {
@@ -26,7 +26,7 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2 className="text-xl font-semibold text-cyan-400 mb-3">1. Introduction</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Welcome to Equinti (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;). We are committed to protecting your 
+              Welcome to Vector Equine (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;). We are committed to protecting your 
               personal information and your right to privacy. This Privacy Policy explains how we collect, 
               use, disclose, and safeguard your information when you use our mobile application and website.
             </p>
@@ -130,7 +130,7 @@ export default function PrivacyPolicyPage() {
             <p className="text-muted-foreground leading-relaxed">
               If you have questions about this Privacy Policy or our privacy practices, please contact us at:
             </p>
-            <p className="text-cyan-400 mt-2">support@equinti.com</p>
+            <p className="text-cyan-400 mt-2">support@vectorequine.com</p>
           </section>
         </div>
       </div>

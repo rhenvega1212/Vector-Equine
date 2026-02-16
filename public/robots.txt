@@ -1,4 +1,4 @@
-# Equinti Robots.txt
+# Vector Equine Robots.txt
 # https://www.robotstxt.org/robotstxt.html
 
 User-agent: *
@@ -20,4 +20,4 @@ Allow: /events
 Allow: /challenges
 
 # Sitemap location
-Sitemap: https://equinti.com/sitemap.xml
+Sitemap: https://vectorequine.com/sitemap.xml

@@ -1,4 +1,4 @@
-# Equinti
+# Vector Equine
 
 A platform for equestrians to connect, learn, and participate in events.
 
@@ -8,6 +8,7 @@ A platform for equestrians to connect, learn, and participate in events.
 - **Events Hub**: Discover and RSVP to clinics, shows, and meetups
 - **Challenges**: Structured courses with gated progression and submissions
 - **Role-Based Access**: Riders, Trainers, and Admins with different capabilities
+- **Payments**: Stripe integration for course purchases and AI trainer subscriptions
 
 ## Tech Stack
 
@@ -17,6 +18,7 @@ A platform for equestrians to connect, learn, and participate in events.
 - **Database**: Supabase (PostgreSQL)
 - **Auth**: Supabase Auth
 - **Storage**: Supabase Storage
+- **Payments**: Stripe (Checkout, Subscriptions, Webhooks)
 - **Data Fetching**: TanStack Query
 - **Forms**: React Hook Form + Zod
 
@@ -109,17 +111,27 @@ When using the seed data, these accounts are available:
 
 | Email | Password | Role |
 |-------|----------|------|
-| admin@equinti.com | password123 | Admin |
-| trainer@equinti.com | password123 | Trainer (approved) |
-| rider1@equinti.com | password123 | Rider |
-| rider2@equinti.com | password123 | Rider |
-| rider3@equinti.com | password123 | Rider |
+| admin@vectorequine.com | password123 | Admin |
+| trainer@vectorequine.com | password123 | Trainer (approved) |
+| rider1@vectorequine.com | password123 | Rider |
+| rider2@vectorequine.com | password123 | Rider |
+| rider3@vectorequine.com | password123 | Rider |
+
+## Stripe Setup
+
+For detailed Stripe configuration, see [STRIPE_SETUP.md](./STRIPE_SETUP.md).
+
+Quick setup:
+1. Create a Stripe account at [stripe.com](https://stripe.com)
+2. Copy your API keys from the Stripe Dashboard
+3. Set up webhook endpoint in Stripe Dashboard pointing to `/api/webhooks/stripe`
+4. For local testing, use `stripe listen --forward-to localhost:3000/api/webhooks/stripe`
 
 ## Future Roadmap
 
 The architecture is designed to support:
 
-- **AI Coaching**: Personalized training recommendations
+- **AI Coaching**: Personalized training recommendations (subscription-gated)
 - **Sensor Integration**: Real-time riding metrics
 - **AR Features**: Augmented reality training experiences
 

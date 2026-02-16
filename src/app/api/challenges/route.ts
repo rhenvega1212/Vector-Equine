@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
         profiles!challenges_creator_id_fkey (id, display_name),
         challenge_enrollments (id)
       `)
-      .eq("status", "published")
+      .in("status", ["published", "active"])
       .eq("is_private", false)
       .order("created_at", { ascending: false });
 

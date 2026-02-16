@@ -12,7 +12,7 @@ export function LoadingScreen() {
         <div className="relative w-32 h-32 animate-flip-horizontal">
           <Image
             src="/logo.png"
-            alt="Equinti Logo"
+            alt="Vector Equine Logo"
             fill
             className="object-contain drop-shadow-[0_0_15px_rgba(var(--primary),0.5)]"
             priority
@@ -21,7 +21,7 @@ export function LoadingScreen() {
         
         <div className="flex flex-col items-center gap-2">
           <h2 className="text-2xl font-bold tracking-widest magical-text uppercase">
-            Equinti
+            Vector Equine
           </h2>
           <div className="flex gap-1">
             <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />

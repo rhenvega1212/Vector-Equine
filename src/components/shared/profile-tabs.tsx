@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { PostCard } from "@/components/feed/post-card";
 import { formatDate } from "@/lib/utils";
-import { Calendar, Trophy, Grid3X3, Image as ImageIcon, Play, Heart, MessageCircle } from "lucide-react";
+import { Trophy, Grid3X3, Image as ImageIcon, Play, Heart, MessageCircle } from "lucide-react";
 
 interface ProfileTabsProps {
   posts: any[];
@@ -57,13 +57,6 @@ export function ProfileTabs({
           >
             <Trophy className="h-4 w-4" />
             <span className="hidden sm:inline">Challenges</span>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="events" 
-            className="gap-2 text-xs uppercase tracking-widest font-medium data-[state=active]:text-cyan-400 data-[state=active]:border-b-2 data-[state=active]:border-cyan-400 rounded-none px-4 py-4 data-[state=active]:shadow-none data-[state=active]:bg-transparent bg-transparent text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Calendar className="h-4 w-4" />
-            <span className="hidden sm:inline">Events</span>
           </TabsTrigger>
         </TabsList>
 
@@ -227,57 +220,6 @@ export function ProfileTabs({
           )}
         </TabsContent>
 
-        <TabsContent value="events" className="mt-4">
-          {rsvps.length === 0 ? (
-            <div className="py-20 text-center">
-              <div className="w-20 h-20 mx-auto rounded-full bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center mb-4">
-                <Calendar className="h-10 w-10 text-cyan-400/50" />
-              </div>
-              <p className="text-lg font-medium text-foreground/80">No events attended yet</p>
-              <p className="text-sm text-muted-foreground mt-1">RSVP to events to see them here</p>
-              <Link 
-                href="/events"
-                className="inline-block mt-4 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
-              >
-                Browse Events →
-              </Link>
-            </div>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {rsvps.map((rsvp) => (
-                <Link key={rsvp.event_id} href={`/events/${rsvp.events.id}`}>
-                  <Card className="bg-slate-800/30 border-cyan-400/10 hover:border-cyan-400/30 hover:bg-slate-800/50 transition-all group">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-4">
-                        <div className="bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-lg p-3 border border-cyan-400/20">
-                          <Calendar className="h-6 w-6 text-cyan-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold truncate group-hover:text-cyan-400 transition-colors">
-                            {rsvp.events.title}
-                          </h3>
-                          <Badge variant="outline" className="text-xs mt-1 border-cyan-400/30 text-cyan-400">
-                            {rsvp.events.event_type.replace("_", " ")}
-                          </Badge>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            {formatDate(rsvp.events.start_time)}
-                          </p>
-                          {(rsvp.events.location_city || rsvp.events.location_state) && (
-                            <p className="text-xs text-muted-foreground">
-                              📍 {[rsvp.events.location_city, rsvp.events.location_state]
-                                .filter(Boolean)
-                                .join(", ")}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          )}
-        </TabsContent>
       </Tabs>
 
       {/* Post Detail Modal */}
