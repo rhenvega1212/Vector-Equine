@@ -11,7 +11,10 @@ const cinzel = Cinzel({
   weight: ["400", "500", "600", "700"],
 });
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://vector-equine.vercel.app";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(appUrl),
   title: "Vector Equine - Connect, Learn, Compete",
   description: "A platform for equestrians to connect, learn, and compete. Join challenges, attend events, and grow your riding journey.",
   manifest: "/manifest.json",
