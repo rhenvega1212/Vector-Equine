@@ -44,7 +44,7 @@ export default async function TrainSessionsPage({ searchParams }: SessionsPagePr
     .from("training_sessions")
     .select("horse")
     .eq("user_id", user.id);
-  const horseList = [...new Set((horses.data || []).map((r) => r.horse).filter(Boolean))].sort();
+  const horseList = Array.from(new Set((horses.data || []).map((r) => r.horse).filter(Boolean))).sort();
 
   return (
     <div className="space-y-6">

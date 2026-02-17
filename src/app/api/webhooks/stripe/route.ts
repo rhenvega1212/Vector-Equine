@@ -3,6 +3,10 @@ import { headers } from "next/headers";
 import { constructWebhookEvent, stripe } from "@/lib/stripe/server";
 import Stripe from "stripe";
 
+// Stripe SDK types can omit some fields; use extended type for webhook payloads
+type SubscriptionWithPeriod = Stripe.Subscription & { current_period_start: number; current_period_end: number };
+type InvoiceWithSubscription = Stripe.Invoice & { subscription?: string };
+
 // Disable body parsing, we need the raw body for signature verification
 export const runtime = "nodejs";
 
@@ -111,7 +115,7 @@ export async function POST(request: NextRequest) {
       // SUBSCRIPTION UPDATED
       // ============================================
       case "customer.subscription.updated": {
-        const subscription = event.data.object as Stripe.Subscription;
+        const subscription = event.data.object as SubscriptionWithPeriod;
         console.log("Subscription updated:", subscription.id, subscription.status);
 
         await supabase
@@ -147,7 +151,7 @@ export async function POST(request: NextRequest) {
       // INVOICE PAID (Subscription renewal)
       // ============================================
       case "invoice.paid": {
-        const invoice = event.data.object as Stripe.Invoice;
+        const invoice = event.data.object as InvoiceWithSubscription;
         console.log("Invoice paid:", invoice.id);
 
         if (invoice.subscription) {
@@ -168,7 +172,7 @@ export async function POST(request: NextRequest) {
       // INVOICE PAYMENT FAILED
       // ============================================
       case "invoice.payment_failed": {
-        const invoice = event.data.object as Stripe.Invoice;
+        const invoice = event.data.object as InvoiceWithSubscription;
         console.error("Invoice payment failed:", invoice.id);
 
         if (invoice.subscription) {
@@ -277,7 +281,7 @@ async function handleSubscriptionCreated(
   const subscriptionId = session.subscription as string;
 
   // Get subscription details from Stripe
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const sub = (await stripe.subscriptions.retrieve(subscriptionId)) as unknown as SubscriptionWithPeriod;
 
   // Cancel any existing active subscriptions
   await supabase
@@ -292,9 +296,9 @@ async function handleSubscriptionCreated(
     tier_id,
     stripe_subscription_id: subscriptionId,
     stripe_customer_id: session.customer as string,
-    status: mapStripeStatus(subscription.status),
-    current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-    current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+    status: mapStripeStatus(sub.status),
+    current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
+    current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
   });
 }
 

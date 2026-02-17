@@ -91,9 +91,9 @@ export default async function TrainInsightsPage() {
     if (!s.exercises) return;
     s.exercises
       .split(/[\n,]+/)
-      .map((x) => x.trim().toLowerCase())
+      .map((x: string) => x.trim().toLowerCase())
       .filter(Boolean)
-      .forEach((ex) => {
+      .forEach((ex: string) => {
         exerciseCounts[ex] = (exerciseCounts[ex] || 0) + 1;
       });
   });
