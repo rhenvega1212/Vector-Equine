@@ -1,10 +1,19 @@
 import Stripe from "stripe";
 
-// Server-side Stripe client (never expose to frontend)
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-01-28.clover",
-  typescript: true,
-});
+// Lazy-initialized so build can succeed without STRIPE_SECRET_KEY (e.g. on Vercel)
+let _stripe: Stripe | null = null;
+
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
+    _stripe = new Stripe(key, {
+      apiVersion: "2026-01-28.clover",
+      typescript: true,
+    });
+  }
+  return _stripe;
+}
 
 /**
  * Create or retrieve a Stripe customer for a user
@@ -29,7 +38,7 @@ export async function getOrCreateStripeCustomer(
   }
 
   // Create new Stripe customer
-  const customer = await stripe.customers.create({
+  const customer = await getStripe().customers.create({
     email,
     name: name || undefined,
     metadata: {
@@ -58,7 +67,7 @@ export async function createCourseCheckoutSession(params: {
   successUrl: string;
   cancelUrl: string;
 }): Promise<Stripe.Checkout.Session> {
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     customer: params.customerId,
     mode: "payment",
     payment_method_types: ["card"],
@@ -93,7 +102,7 @@ export async function createSubscriptionCheckoutSession(params: {
   cancelUrl: string;
   trialDays?: number;
 }): Promise<Stripe.Checkout.Session> {
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     customer: params.customerId,
     mode: "subscription",
     payment_method_types: ["card"],
@@ -126,11 +135,11 @@ export async function cancelSubscription(
   cancelAtPeriodEnd: boolean = true
 ): Promise<Stripe.Subscription> {
   if (cancelAtPeriodEnd) {
-    return stripe.subscriptions.update(subscriptionId, {
+    return getStripe().subscriptions.update(subscriptionId, {
       cancel_at_period_end: true,
     });
   } else {
-    return stripe.subscriptions.cancel(subscriptionId);
+    return getStripe().subscriptions.cancel(subscriptionId);
   }
 }
 
@@ -140,7 +149,7 @@ export async function cancelSubscription(
 export async function resumeSubscription(
   subscriptionId: string
 ): Promise<Stripe.Subscription> {
-  return stripe.subscriptions.update(subscriptionId, {
+  return getStripe().subscriptions.update(subscriptionId, {
     cancel_at_period_end: false,
   });
 }
@@ -151,7 +160,7 @@ export async function resumeSubscription(
 export async function getSubscription(
   subscriptionId: string
 ): Promise<Stripe.Subscription> {
-  return stripe.subscriptions.retrieve(subscriptionId);
+  return getStripe().subscriptions.retrieve(subscriptionId);
 }
 
 /**
@@ -161,7 +170,7 @@ export async function createBillingPortalSession(
   customerId: string,
   returnUrl: string
 ): Promise<Stripe.BillingPortal.Session> {
-  return stripe.billingPortal.sessions.create({
+  return getStripe().billingPortal.sessions.create({
     customer: customerId,
     return_url: returnUrl,
   });
@@ -174,11 +183,9 @@ export function constructWebhookEvent(
   payload: string | Buffer,
   signature: string
 ): Stripe.Event {
-  return stripe.webhooks.constructEvent(
-    payload,
-    signature,
-    process.env.STRIPE_WEBHOOK_SECRET!
-  );
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!secret) throw new Error("STRIPE_WEBHOOK_SECRET is not set");
+  return getStripe().webhooks.constructEvent(payload, signature, secret);
 }
 
 /**
@@ -192,7 +199,7 @@ export async function createStripeProduct(params: {
   type: "one_time" | "recurring";
   interval?: "month" | "year";
 }): Promise<{ product: Stripe.Product; price: Stripe.Price }> {
-  const product = await stripe.products.create({
+  const product = await getStripe().products.create({
     name: params.name,
     description: params.description,
   });
@@ -209,7 +216,7 @@ export async function createStripeProduct(params: {
     };
   }
 
-  const price = await stripe.prices.create(priceData);
+  const price = await getStripe().prices.create(priceData);
 
   return { product, price };
 }

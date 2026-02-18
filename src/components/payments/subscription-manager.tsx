@@ -14,6 +14,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Loader2, CreditCard, AlertTriangle, ExternalLink, Sparkles } from "lucide-react";
 import {
   useSubscription,
@@ -181,41 +192,43 @@ export function SubscriptionManager() {
           )}
 
           {isActive && tier?.price_amount > 0 && !isCanceling && (
-            <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-              <DialogTrigger asChild>
+            <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+              <AlertDialogTrigger asChild>
                 <Button variant="destructive" className="w-full">
                   Cancel Subscription
                 </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Cancel Subscription?</DialogTitle>
-                  <DialogDescription>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Cancel Subscription?</AlertDialogTitle>
+                  <AlertDialogDescription>
                     Your subscription will remain active until the end of your current billing
                     period. After that, you&apos;ll lose access to premium features.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button variant="secondary" onClick={() => setShowCancelDialog(false)}>
-                    Keep Subscription
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      cancelSubscription.mutate(false);
-                      setShowCancelDialog(false);
-                    }}
-                    disabled={cancelSubscription.isPending}
-                  >
-                    {cancelSubscription.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Cancel at Period End"
-                    )}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel asChild>
+                    <Button variant="secondary">Keep Subscription</Button>
+                  </AlertDialogCancel>
+                  <AlertDialogAction asChild>
+                    <Button
+                      variant="destructive"
+                      onClick={() => {
+                        cancelSubscription.mutate(false);
+                        setShowCancelDialog(false);
+                      }}
+                      disabled={cancelSubscription.isPending}
+                    >
+                      {cancelSubscription.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Cancel at Period End"
+                      )}
+                    </Button>
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
 
           {isCanceling && (

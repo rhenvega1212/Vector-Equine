@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { constructWebhookEvent, stripe } from "@/lib/stripe/server";
+import { constructWebhookEvent, getStripe } from "@/lib/stripe/server";
 import Stripe from "stripe";
 
 // Stripe SDK types can omit some fields; use extended type for webhook payloads
@@ -281,7 +281,7 @@ async function handleSubscriptionCreated(
   const subscriptionId = session.subscription as string;
 
   // Get subscription details from Stripe
-  const sub = (await stripe.subscriptions.retrieve(subscriptionId)) as unknown as SubscriptionWithPeriod;
+  const sub = (await getStripe().subscriptions.retrieve(subscriptionId)) as unknown as SubscriptionWithPeriod;
 
   // Cancel any existing active subscriptions
   await supabase
