@@ -175,7 +175,7 @@ async function fetchSuggestedPosts(
   cursorSeenIds: string[],
   limit: number
 ): Promise<any[]> {
-  const excludeIds = [...followingIds];
+  const excludeIds = Array.from(followingIds);
   const allExcludeAuthorIds = excludeIds.filter(Boolean);
 
   let query = supabase
