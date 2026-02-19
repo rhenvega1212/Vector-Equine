@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Home, Trophy, User } from "lucide-react";
+import { Home, Trophy, User, Compass } from "lucide-react";
 import { HorseHeadIcon } from "@/components/icons/horse-head";
 import type { Profile } from "@/types/database";
 
 const navItems = [
   { href: "/feed", label: "Feed", icon: Home },
+  { href: "/explore", label: "Explore", icon: Compass },
   { href: "/train", label: "Train", icon: HorseHeadIcon, adminOnly: true },
   { href: "/challenges", label: "Challenges", icon: Trophy },
   { href: "/profile", label: "Profile", icon: User },

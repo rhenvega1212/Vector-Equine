@@ -19,7 +19,7 @@ export async function updateSession(request: NextRequest) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseAnonKey) {
     // No env: still redirect protected paths to login
-    const protectedPaths = ["/feed", "/events", "/challenges", "/profile", "/settings", "/admin", "/trainer", "/train"];
+    const protectedPaths = ["/feed", "/explore", "/events", "/challenges", "/profile", "/settings", "/admin", "/trainer", "/train"];
     if (protectedPaths.some((p) => pathname.startsWith(p))) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
@@ -56,7 +56,7 @@ export async function updateSession(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const protectedPaths = ["/feed", "/events", "/challenges", "/profile", "/settings", "/admin", "/trainer", "/train"];
+    const protectedPaths = ["/feed", "/explore", "/events", "/challenges", "/profile", "/settings", "/admin", "/trainer", "/train"];
     const isProtectedPath = protectedPaths.some((path) =>
       pathname.startsWith(path)
     );
@@ -80,7 +80,7 @@ export async function updateSession(request: NextRequest) {
     }
   } catch {
     // On error, redirect root and protected paths to login so user always sees login when opening app
-    const protectedPaths = ["/feed", "/events", "/challenges", "/profile", "/settings", "/admin", "/trainer", "/train"];
+    const protectedPaths = ["/feed", "/explore", "/events", "/challenges", "/profile", "/settings", "/admin", "/trainer", "/train"];
     if (pathname === "/" || protectedPaths.some((p) => pathname.startsWith(p))) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";

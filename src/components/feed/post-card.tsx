@@ -20,10 +20,12 @@ import { AdminBadge } from "@/components/shared/admin-badge";
 import { formatRelativeTime } from "@/lib/utils";
 import {
   Heart,
+  Loader2,
   MessageCircle,
   MoreHorizontal,
   Flag,
   Trash2,
+  UserPlus,
 } from "lucide-react";
 
 interface PostCardProps {
@@ -32,6 +34,7 @@ interface PostCardProps {
     content: string;
     tags: string[];
     created_at: string;
+    author_id?: string;
     profiles: {
       id: string;
       username: string;
@@ -48,13 +51,22 @@ interface PostCardProps {
     comments: { id: string }[];
   };
   currentUserId?: string;
+  isSuggested?: boolean;
+  onFollowSuccess?: () => void;
 }
 
-export function PostCard({ post, currentUserId }: PostCardProps) {
+export function PostCard({
+  post,
+  currentUserId,
+  isSuggested = false,
+  onFollowSuccess,
+}: PostCardProps) {
   const queryClient = useQueryClient();
   const [showComments, setShowComments] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
-  
+  const [isFollowing, setIsFollowing] = useState(!isSuggested);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
+
   const isLiked = post.post_likes.some((like) => like.user_id === currentUserId);
   const [liked, setLiked] = useState(isLiked);
   const [likesCount, setLikesCount] = useState(post.post_likes.length);
@@ -62,6 +74,7 @@ export function PostCard({ post, currentUserId }: PostCardProps) {
 
   const isOwnPost = post.profiles.id === currentUserId;
   const isAdmin = post.profiles.role === "admin";
+  const authorId = post.profiles.id;
 
   const initials = post.profiles.display_name
     .split(" ")
@@ -115,31 +128,70 @@ export function PostCard({ post, currentUserId }: PostCardProps) {
 
   const commentCount = post.comments.length;
 
+  async function handleFollow() {
+    if (!authorId || !currentUserId || isFollowLoading) return;
+    setIsFollowLoading(true);
+    try {
+      const res = await fetch(`/api/profiles/${authorId}/follow`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        setIsFollowing(true);
+        onFollowSuccess?.();
+      }
+    } finally {
+      setIsFollowLoading(false);
+    }
+  }
+
   return (
     <>
       <Card className="transition-all duration-200 hover:bg-white/[0.02] hover:border-cyan-400/20 hover:shadow-lg hover:shadow-cyan-400/5">
         <CardContent className="pt-6">
           <div className="flex items-start justify-between">
-            <Link
-              href={`/profile/${post.profiles.username}`}
-              className="flex items-center gap-3 group"
-            >
-              <Avatar className="ring-2 ring-transparent group-hover:ring-cyan-400/30 transition-all duration-200">
-                <AvatarImage src={post.profiles.avatar_url || undefined} />
-                <AvatarFallback>{initials}</AvatarFallback>
-              </Avatar>
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold group-hover:text-cyan-400 transition-colors">
-                    {post.profiles.display_name}
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <Link
+                href={`/profile/${post.profiles.username}`}
+                className="flex items-center gap-3 group shrink-0"
+              >
+                <Avatar className="ring-2 ring-transparent group-hover:ring-cyan-400/30 transition-all duration-200">
+                  <AvatarImage src={post.profiles.avatar_url || undefined} />
+                  <AvatarFallback>{initials}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold group-hover:text-cyan-400 transition-colors truncate">
+                      {post.profiles.display_name}
+                    </p>
+                    {isSuggested && (
+                      <Badge variant="secondary" className="text-xs font-normal shrink-0">
+                        Suggested
+                      </Badge>
+                    )}
+                    {isAdmin && <AdminBadge />}
+                    {isSuggested && authorId && currentUserId && !isOwnPost && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1 shrink-0 text-cyan-400 border-cyan-400/40 hover:bg-cyan-400/10"
+                        onClick={handleFollow}
+                        disabled={isFollowLoading || isFollowing}
+                      >
+                        {isFollowLoading ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <UserPlus className="h-3 w-3" />
+                        )}
+                        {isFollowing ? "Following" : "Follow"}
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground truncate">
+                    @{post.profiles.username} · {formatRelativeTime(post.created_at)}
                   </p>
-                  {isAdmin && <AdminBadge />}
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  @{post.profiles.username} · {formatRelativeTime(post.created_at)}
-                </p>
-              </div>
-            </Link>
+              </Link>
+            </div>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

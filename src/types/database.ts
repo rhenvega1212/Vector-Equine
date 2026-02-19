@@ -727,6 +727,174 @@ export type Database = {
           created_at?: string;
         };
       };
+      post_saves: {
+        Row: {
+          user_id: string;
+          post_id: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          post_id: string;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          post_id?: string;
+          created_at?: string;
+        };
+      };
+      user_blocks: {
+        Row: {
+          blocker_id: string;
+          blocked_id: string;
+          block_type: "block" | "mute";
+          created_at: string;
+        };
+        Insert: {
+          blocker_id: string;
+          blocked_id: string;
+          block_type?: "block" | "mute";
+          created_at?: string;
+        };
+        Update: {
+          blocker_id?: string;
+          blocked_id?: string;
+          block_type?: "block" | "mute";
+          created_at?: string;
+        };
+      };
+      user_interests: {
+        Row: {
+          id: string;
+          user_id: string;
+          tag: string;
+          weight: number;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          tag: string;
+          weight?: number;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          tag?: string;
+          weight?: number;
+          updated_at?: string;
+        };
+      };
+      user_seen_items: {
+        Row: {
+          id: string;
+          user_id: string;
+          item_id: string;
+          item_type: "post" | "ad" | "account";
+          seen_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          item_id: string;
+          item_type: "post" | "ad" | "account";
+          seen_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          item_id?: string;
+          item_type?: "post" | "ad" | "account";
+          seen_at?: string;
+        };
+      };
+      user_location_bucket: {
+        Row: {
+          user_id: string;
+          city: string | null;
+          state: string | null;
+          country: string | null;
+          geohash_prefix: string | null;
+          location_enabled: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          city?: string | null;
+          state?: string | null;
+          country?: string | null;
+          geohash_prefix?: string | null;
+          location_enabled?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          city?: string | null;
+          state?: string | null;
+          country?: string | null;
+          geohash_prefix?: string | null;
+          location_enabled?: boolean;
+          updated_at?: string;
+        };
+      };
+      ads: {
+        Row: {
+          id: string;
+          advertiser_name: string;
+          title: string;
+          body: string | null;
+          image_url: string | null;
+          click_url: string;
+          tags: string[];
+          is_active: boolean;
+          daily_budget_cents: number | null;
+          total_impressions: number;
+          max_impressions_per_user: number;
+          frequency_cap_hours: number;
+          start_date: string | null;
+          end_date: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          advertiser_name: string;
+          title: string;
+          body?: string | null;
+          image_url?: string | null;
+          click_url: string;
+          tags?: string[];
+          is_active?: boolean;
+          daily_budget_cents?: number | null;
+          total_impressions?: number;
+          max_impressions_per_user?: number;
+          frequency_cap_hours?: number;
+          start_date?: string | null;
+          end_date?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          advertiser_name?: string;
+          title?: string;
+          body?: string | null;
+          image_url?: string | null;
+          click_url?: string;
+          tags?: string[];
+          is_active?: boolean;
+          daily_budget_cents?: number | null;
+          total_impressions?: number;
+          max_impressions_per_user?: number;
+          frequency_cap_hours?: number;
+          start_date?: string | null;
+          end_date?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;
@@ -772,6 +940,12 @@ export type TrainingSession = Tables<"training_sessions">;
 export type AiVideoUpload = Tables<"ai_video_uploads">;
 export type AiAnalysis = Tables<"ai_analyses">;
 export type AiChatMessage = Tables<"ai_chat_messages">;
+export type PostSave = Tables<"post_saves">;
+export type UserBlock = Tables<"user_blocks">;
+export type UserInterest = Tables<"user_interests">;
+export type UserSeenItem = Tables<"user_seen_items">;
+export type UserLocationBucket = Tables<"user_location_bucket">;
+export type Ad = Tables<"ads">;
 
 export type UserRole = "rider" | "trainer" | "admin";
 export type EventType = "clinic" | "show" | "run_club" | "workout_group" | "movie_night" | "networking";

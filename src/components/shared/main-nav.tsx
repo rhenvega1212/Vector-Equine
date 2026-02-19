@@ -22,6 +22,7 @@ import {
   Settings,
   LogOut,
   Shield,
+  Compass,
 } from "lucide-react";
 import { HorseHeadIcon } from "@/components/icons/horse-head";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +33,7 @@ interface MainNavProps {
 
 const navItems = [
   { href: "/feed", label: "Feed", icon: Home },
+  { href: "/explore", label: "Explore", icon: Compass },
   { href: "/train", label: "Train", icon: HorseHeadIcon, comingSoon: true, adminOnly: true },
   { href: "/challenges", label: "Challenges", icon: Trophy },
 ];

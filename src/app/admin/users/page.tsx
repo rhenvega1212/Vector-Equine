@@ -28,7 +28,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
-import { Loader2, Check, X, Shield, Users, UserCog } from "lucide-react";
+import { Loader2, Check, X, Shield, Users, UserCog, LogIn } from "lucide-react";
 
 interface User {
   id: string;
@@ -257,6 +257,24 @@ export default function AdminUsersPage() {
                           </Select>
                         </div>
 
+                        {/* Login as user (impersonate) */}
+                        <form
+                          action="/api/admin/impersonate"
+                          method="POST"
+                          className="pt-2 border-t"
+                        >
+                          <input type="hidden" name="userId" value={user.id} />
+                          <Button
+                            type="submit"
+                            size="sm"
+                            variant="outline"
+                            className="w-full gap-1"
+                          >
+                            <LogIn className="h-4 w-4" />
+                            Login as user
+                          </Button>
+                        </form>
+
                         {/* Trainer Approval */}
                         {user.role === "trainer" && (
                           <div className="flex items-center justify-between pt-2 border-t">
@@ -412,8 +430,24 @@ export default function AdminUsersPage() {
                             </TableCell>
                             <TableCell>{formatDate(user.created_at)}</TableCell>
                             <TableCell>
+                              <form
+                                action="/api/admin/impersonate"
+                                method="POST"
+                                className="inline"
+                              >
+                                <input type="hidden" name="userId" value={user.id} />
+                                <Button
+                                  type="submit"
+                                  size="sm"
+                                  variant="ghost"
+                                  className="gap-1"
+                                >
+                                  <LogIn className="h-4 w-4" />
+                                  Login as
+                                </Button>
+                              </form>
                               {user.role === "trainer" && (
-                                <div className="flex gap-2">
+                                <div className="inline-flex gap-2 ml-2">
                                   {!user.trainer_approved ? (
                                     <Button
                                       size="sm"

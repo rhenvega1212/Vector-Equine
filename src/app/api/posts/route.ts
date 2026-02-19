@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getEffectiveUserId } from "@/lib/admin/impersonate";
 import { createPostSchema } from "@/lib/validations/post";
 import { z } from "zod";
 import {
@@ -12,13 +13,14 @@ import {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const effectiveUserId = await getEffectiveUserId(request);
 
     const searchParams = request.nextUrl.searchParams;
-    const type = searchParams.get("type") || "explore";
+    const type = searchParams.get("type") || "feed";
     const offset = parseInt(searchParams.get("offset") || "0");
     const limit = parseInt(searchParams.get("limit") || "10");
 
+    // Feed shows all posts (room for future algorithm: sort by score, boost, etc.)
     let query = supabase
       .from("posts")
       .select(`
@@ -32,20 +34,17 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (type === "following" && user) {
-      // Get list of users the current user follows
+    if (type === "following" && effectiveUserId) {
       const { data: following } = await supabase
         .from("follows")
         .select("following_id")
-        .eq("follower_id", user.id);
+        .eq("follower_id", effectiveUserId);
 
       const followingIds = following?.map((f) => f.following_id) || [];
-      
-      // Include user's own posts and posts from followed users
       if (followingIds.length > 0) {
-        query = query.in("author_id", [...followingIds, user.id]);
+        query = query.in("author_id", [...followingIds, effectiveUserId]);
       } else {
-        query = query.eq("author_id", user.id);
+        query = query.eq("author_id", effectiveUserId);
       }
     }
 
@@ -55,7 +54,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({ posts });
+    // For "Suggested" labels: return ids of authors the effective user follows (and self)
+    let followingAuthorIds: string[] = [];
+    if (effectiveUserId) {
+      const { data: following } = await supabase
+        .from("follows")
+        .select("following_id")
+        .eq("follower_id", effectiveUserId);
+      followingAuthorIds = [
+        effectiveUserId,
+        ...(following?.map((f) => f.following_id) || []),
+      ];
+    }
+
+    return NextResponse.json({ posts, following_author_ids: followingAuthorIds });
   } catch (error) {
     return NextResponse.json(
       { error: "Internal server error" },
@@ -75,9 +87,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const effectiveUserId = await getEffectiveUserId(request);
 
-    if (!user) {
+    if (!effectiveUserId) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
@@ -87,11 +99,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createPostSchema.parse(body);
 
-    // Create post
+    // Create post (as effective user when admin is impersonating)
     const { data: post, error: postError } = await supabase
       .from("posts")
       .insert({
-        author_id: user.id,
+        author_id: effectiveUserId,
         content: validatedData.content,
         tags: validatedData.tags || [],
       })

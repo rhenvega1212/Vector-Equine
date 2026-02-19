@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getEffectiveUserId } from "@/lib/admin/impersonate";
 
 export async function POST(
   request: NextRequest,
@@ -8,10 +9,9 @@ export async function POST(
   try {
     const { id: followingId } = await params;
     const supabase = await createClient();
-    
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
+    const effectiveUserId = await getEffectiveUserId(request);
+
+    if (!effectiveUserId) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
@@ -19,7 +19,7 @@ export async function POST(
     }
 
     // Can't follow yourself
-    if (user.id === followingId) {
+    if (effectiveUserId === followingId) {
       return NextResponse.json(
         { error: "You cannot follow yourself" },
         { status: 400 }
@@ -40,11 +40,11 @@ export async function POST(
       );
     }
 
-    // Create follow relationship
+    // Create follow relationship (uses effective user when admin is impersonating)
     const { error } = await supabase
       .from("follows")
       .insert({
-        follower_id: user.id,
+        follower_id: effectiveUserId,
         following_id: followingId,
       });
 
@@ -68,7 +68,7 @@ export async function POST(
       .insert({
         user_id: followingId,
         type: "follow",
-        actor_id: user.id,
+        actor_id: effectiveUserId,
       });
 
     return NextResponse.json({ success: true });
@@ -87,10 +87,9 @@ export async function DELETE(
   try {
     const { id: followingId } = await params;
     const supabase = await createClient();
-    
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
+    const effectiveUserId = await getEffectiveUserId(request);
+
+    if (!effectiveUserId) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
@@ -100,7 +99,7 @@ export async function DELETE(
     const { error } = await supabase
       .from("follows")
       .delete()
-      .eq("follower_id", user.id)
+      .eq("follower_id", effectiveUserId)
       .eq("following_id", followingId);
 
     if (error) {
