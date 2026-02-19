@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useInView } from "react-intersection-observer";
@@ -20,7 +21,7 @@ async function fetchHomeFeed(cursor: string | null) {
   const params = new URLSearchParams({ limit: "10" });
   if (cursor) params.set("cursor", cursor);
   const response = await fetch(`/api/feed/home?${params}`);
-  if (!response.ok) throw new Error("Failed to fetch feed");
+  if (!response.ok) throw new Error("Failed to fetch ranked feed");
   return response.json();
 }
 
@@ -44,32 +45,42 @@ export function FeedList({ type, userId }: FeedListProps) {
   const queryClient = useQueryClient();
   const { ref, inView } = useInView();
   const seenRef = useRef(new Set<string>());
+  const [rankedFeedFailed, setRankedFeedFailed] = useState(false);
 
-  const isHomeFeed = type === "feed";
+  const useRankedFeed = type === "feed" && !rankedFeedFailed;
 
-  // Home feed: cursor-based ranked feed
+  // Home feed: cursor-based ranked feed (with fallback on failure)
   const homeQuery = useInfiniteQuery({
     queryKey: ["home-feed"],
-    queryFn: ({ pageParam }) => fetchHomeFeed(pageParam),
+    queryFn: async ({ pageParam }) => {
+      try {
+        return await fetchHomeFeed(pageParam);
+      } catch {
+        setRankedFeedFailed(true);
+        throw new Error("Ranked feed unavailable");
+      }
+    },
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? lastPage.nextCursor : undefined,
     initialPageParam: null as string | null,
-    enabled: isHomeFeed,
+    enabled: useRankedFeed,
+    retry: false,
   });
 
-  // Legacy feeds (following, explore): offset-based
+  // Legacy/fallback feed: offset-based chronological
   const legacyQuery = useInfiniteQuery({
-    queryKey: ["feed", type],
-    queryFn: ({ pageParam }) => fetchLegacyPosts(type, pageParam),
+    queryKey: ["feed", rankedFeedFailed ? "feed" : type],
+    queryFn: ({ pageParam }) =>
+      fetchLegacyPosts(rankedFeedFailed ? "feed" : type, pageParam),
     getNextPageParam: (lastPage, allPages) => {
       if (lastPage.posts.length < 10) return undefined;
       return allPages.length * 10;
     },
     initialPageParam: 0,
-    enabled: !isHomeFeed,
+    enabled: !useRankedFeed,
   });
 
-  const activeQuery = isHomeFeed ? homeQuery : legacyQuery;
+  const activeQuery = useRankedFeed ? homeQuery : legacyQuery;
 
   useEffect(() => {
     if (inView && activeQuery.hasNextPage && !activeQuery.isFetchingNextPage) {
@@ -77,26 +88,24 @@ export function FeedList({ type, userId }: FeedListProps) {
     }
   }, [inView, activeQuery.hasNextPage, activeQuery.isFetchingNextPage, activeQuery.fetchNextPage]);
 
-  // Record seen items for cooldown tracking (home feed only)
   const onItemVisible = useCallback(
     (items: any[]) => {
-      if (!isHomeFeed) return;
+      if (!useRankedFeed) return;
       const unseen = items.filter((i) => !seenRef.current.has(i.id));
       if (unseen.length === 0) return;
       for (const i of unseen) seenRef.current.add(i.id);
       recordSeen(unseen);
     },
-    [isHomeFeed]
+    [useRankedFeed]
   );
 
-  // Record seen for each loaded page
   useEffect(() => {
-    if (!isHomeFeed || !homeQuery.data) return;
+    if (!useRankedFeed || !homeQuery.data) return;
     const lastPage = homeQuery.data.pages[homeQuery.data.pages.length - 1];
     if (lastPage?.items) {
       onItemVisible(lastPage.items);
     }
-  }, [isHomeFeed, homeQuery.data?.pages.length, onItemVisible]);
+  }, [useRankedFeed, homeQuery.data?.pages.length, onItemVisible]);
 
   if (activeQuery.isLoading) {
     return (
@@ -117,7 +126,7 @@ export function FeedList({ type, userId }: FeedListProps) {
     );
   }
 
-  if (activeQuery.isError) {
+  if (activeQuery.isError && !rankedFeedFailed) {
     return (
       <Card>
         <CardContent className="py-10 text-center">
@@ -128,8 +137,8 @@ export function FeedList({ type, userId }: FeedListProps) {
     );
   }
 
-  // Render home feed (ranked, unified items)
-  if (isHomeFeed) {
+  // Render ranked home feed
+  if (useRankedFeed && homeQuery.data) {
     const allItems =
       homeQuery.data?.pages.flatMap((page) => page.items) || [];
 
@@ -175,7 +184,7 @@ export function FeedList({ type, userId }: FeedListProps) {
     );
   }
 
-  // Render legacy feed (following, explore)
+  // Render legacy/fallback feed (chronological)
   const allPosts = legacyQuery.data?.pages.flatMap((page) => page.posts) || [];
   const followingAuthorIds = new Set<string>(
     legacyQuery.data?.pages.flatMap((p) => p.following_author_ids ?? []) ?? []
