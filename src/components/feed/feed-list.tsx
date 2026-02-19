@@ -107,6 +107,16 @@ export function FeedList({ type, userId }: FeedListProps) {
     }
   }, [useRankedFeed, homeQuery.data?.pages.length, onItemVisible]);
 
+  // If ranked feed returns empty on first page, fall back to legacy so existing posts always show
+  useEffect(() => {
+    if (!homeQuery.data?.pages.length) return;
+    const firstPage = homeQuery.data.pages[0];
+    const firstPageItems = firstPage?.items ?? [];
+    if (firstPageItems.length === 0) {
+      setRankedFeedFailed(true);
+    }
+  }, [homeQuery.data?.pages]);
+
   if (activeQuery.isLoading) {
     return (
       <div className="space-y-4">
