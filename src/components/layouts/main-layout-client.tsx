@@ -1,9 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { MainNav } from "@/components/shared/main-nav";
-import { MobileNav } from "@/components/shared/mobile-nav";
-import { LoadingScreen } from "@/components/shared/loading-screen";
+import dynamic from "next/dynamic";
+
+// Load nav only on client to avoid PathnameContext/useContext null during SSR (Next.js 14.2.x)
+const MainNav = dynamic(
+  () => import("@/components/shared/main-nav").then((m) => ({ default: m.MainNav })),
+  { ssr: false }
+);
+const MobileNav = dynamic(
+  () => import("@/components/shared/mobile-nav").then((m) => ({ default: m.MobileNav })),
+  { ssr: false }
+);
 
 export function MainLayoutClient({
   children,
@@ -12,27 +19,13 @@ export function MainLayoutClient({
   children: React.ReactNode;
   profile: any;
 }) {
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Show loading screen for 2 seconds to showcase the flipping logo animation
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (isLoading) {
-    return <LoadingScreen />;
-  }
-
+  // No loading screen – show app immediately so login → app flow is clear
   return (
     <div className="min-h-screen bg-background">
       <MainNav profile={profile} />
-      <main 
+      <main
         className="container mx-auto px-4 py-4 sm:py-6 md:pb-6"
-        style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}
+        style={{ paddingBottom: "calc(80px + env(safe-area-inset-bottom))" }}
       >
         {children}
       </main>

@@ -2,6 +2,15 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  // Always send app root to login so "opening the app" shows login screen
+  if (pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -9,6 +18,13 @@ export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseAnonKey) {
+    // No env: still redirect protected paths to login
+    const protectedPaths = ["/feed", "/events", "/challenges", "/profile", "/settings", "/admin", "/trainer", "/train"];
+    if (protectedPaths.some((p) => pathname.startsWith(p))) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
     return supabaseResponse;
   }
 
@@ -42,7 +58,7 @@ export async function updateSession(request: NextRequest) {
 
     const protectedPaths = ["/feed", "/events", "/challenges", "/profile", "/settings", "/admin", "/trainer", "/train"];
     const isProtectedPath = protectedPaths.some((path) =>
-      request.nextUrl.pathname.startsWith(path)
+      pathname.startsWith(path)
     );
 
     if (isProtectedPath && !user) {
@@ -54,7 +70,7 @@ export async function updateSession(request: NextRequest) {
 
     const authPaths = ["/login", "/signup"];
     const isAuthPath = authPaths.some((path) =>
-      request.nextUrl.pathname.startsWith(path)
+      pathname.startsWith(path)
     );
 
     if (isAuthPath && user) {
@@ -63,6 +79,13 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
   } catch {
+    // On error, redirect root and protected paths to login so user always sees login when opening app
+    const protectedPaths = ["/feed", "/events", "/challenges", "/profile", "/settings", "/admin", "/trainer", "/train"];
+    if (pathname === "/" || protectedPaths.some((p) => pathname.startsWith(p))) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
     return supabaseResponse;
   }
 
