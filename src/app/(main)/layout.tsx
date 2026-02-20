@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { MainLayoutClient } from "@/components/layouts/main-layout-client";
 import { getImpersonateCookieName } from "@/lib/admin/impersonate";
 
+// Always fetch fresh profile so role/permission changes from admin panel take effect
+export const dynamic = "force-dynamic";
+
 export default async function MainLayout({
   children,
 }: {

@@ -17,27 +17,31 @@ interface FeedListProps {
   userId: string;
 }
 
-async function fetchHomeFeed(cursor: string | null) {
+async function fetchHomeFeed(cursor: string | null, userId: string) {
   const params = new URLSearchParams({ limit: "10" });
   if (cursor) params.set("cursor", cursor);
-  const response = await fetch(`/api/feed/home?${params}`);
+  const response = await fetch(`/api/feed/home?${params}`, {
+    credentials: "include",
+  });
   if (!response.ok) throw new Error("Failed to fetch ranked feed");
   return response.json();
 }
 
 async function fetchLegacyPosts(type: string, offset: number) {
   const response = await fetch(
-    `/api/posts?type=${type}&offset=${offset}&limit=10`
+    `/api/posts?type=${type}&offset=${offset}&limit=10`,
+    { credentials: "include" }
   );
   if (!response.ok) throw new Error("Failed to fetch posts");
   return response.json();
 }
 
-function recordSeen(items: any[]) {
+function recordSeen(items: any[], userId: string) {
   fetch("/api/feed/home", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ items }),
+    credentials: "include",
   }).catch(() => {});
 }
 
@@ -49,12 +53,12 @@ export function FeedList({ type, userId }: FeedListProps) {
 
   const useRankedFeed = type === "feed" && !rankedFeedFailed;
 
-  // Home feed: cursor-based ranked feed (with fallback on failure)
+  // Home feed: cursor-based ranked feed (with fallback on failure). Key by userId so impersonation gets correct feed.
   const homeQuery = useInfiniteQuery({
-    queryKey: ["home-feed"],
+    queryKey: ["home-feed", userId],
     queryFn: async ({ pageParam }) => {
       try {
-        return await fetchHomeFeed(pageParam);
+        return await fetchHomeFeed(pageParam, userId);
       } catch {
         setRankedFeedFailed(true);
         throw new Error("Ranked feed unavailable");
@@ -67,9 +71,9 @@ export function FeedList({ type, userId }: FeedListProps) {
     retry: false,
   });
 
-  // Legacy/fallback feed: offset-based chronological
+  // Legacy/fallback feed: offset-based chronological. Key by userId for impersonation.
   const legacyQuery = useInfiniteQuery({
-    queryKey: ["feed", rankedFeedFailed ? "feed" : type],
+    queryKey: ["feed", rankedFeedFailed ? "feed" : type, userId],
     queryFn: ({ pageParam }) =>
       fetchLegacyPosts(rankedFeedFailed ? "feed" : type, pageParam),
     getNextPageParam: (lastPage, allPages) => {
@@ -94,9 +98,9 @@ export function FeedList({ type, userId }: FeedListProps) {
       const unseen = items.filter((i) => !seenRef.current.has(i.id));
       if (unseen.length === 0) return;
       for (const i of unseen) seenRef.current.add(i.id);
-      recordSeen(unseen);
+      recordSeen(unseen, userId);
     },
-    [useRankedFeed]
+    [useRankedFeed, userId]
   );
 
   useEffect(() => {
@@ -179,7 +183,7 @@ export function FeedList({ type, userId }: FeedListProps) {
               currentUserId={userId}
               isSuggested={isSuggested}
               onFollowSuccess={() =>
-                queryClient.invalidateQueries({ queryKey: ["home-feed"] })
+                queryClient.invalidateQueries({ queryKey: ["home-feed", userId] })
               }
             />
           );
@@ -230,7 +234,7 @@ export function FeedList({ type, userId }: FeedListProps) {
             currentUserId={userId}
             isSuggested={isSuggested}
             onFollowSuccess={() =>
-              queryClient.invalidateQueries({ queryKey: ["feed"] })
+              queryClient.invalidateQueries({ queryKey: ["feed", type, userId] })
             }
           />
         );

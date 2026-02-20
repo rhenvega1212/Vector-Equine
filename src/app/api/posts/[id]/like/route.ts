@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getEffectiveUserId } from "@/lib/admin/impersonate";
 
 export async function POST(
   request: NextRequest,
@@ -9,8 +11,9 @@ export async function POST(
     const { id: postId } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+    const effectiveUserId = await getEffectiveUserId(request);
 
-    if (!user) {
+    if (!user || !effectiveUserId) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
@@ -24,10 +27,11 @@ export async function POST(
       .eq("id", postId)
       .single();
 
-    const { error } = await supabase
+    const writeClient = effectiveUserId !== user.id ? createAdminClient() : supabase;
+    const { error } = await writeClient
       .from("post_likes")
       .insert({
-        user_id: user.id,
+        user_id: effectiveUserId,
         post_id: postId,
       });
 
@@ -43,13 +47,13 @@ export async function POST(
     }
 
     // Create notification for post author (don't notify yourself)
-    if (post && post.author_id !== user.id) {
-      await (supabase as any)
+    if (post && post.author_id !== effectiveUserId) {
+      await writeClient
         .from("notifications")
         .insert({
           user_id: post.author_id,
           type: "like",
-          actor_id: user.id,
+          actor_id: effectiveUserId,
           post_id: postId,
         });
     }
@@ -71,18 +75,20 @@ export async function DELETE(
     const { id: postId } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+    const effectiveUserId = await getEffectiveUserId(request);
 
-    if (!user) {
+    if (!user || !effectiveUserId) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
       );
     }
 
-    const { error } = await supabase
+    const writeClient = effectiveUserId !== user.id ? createAdminClient() : supabase;
+    const { error } = await writeClient
       .from("post_likes")
       .delete()
-      .eq("user_id", user.id)
+      .eq("user_id", effectiveUserId)
       .eq("post_id", postId);
 
     if (error) {

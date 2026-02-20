@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getEffectiveUserId } from "@/lib/admin/impersonate";
 import { createChallengeSchema } from "@/lib/validations/challenge";
 import { z } from "zod";
 
@@ -83,9 +84,22 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createChallengeSchema.parse(body);
 
+    // When impersonating, create the challenge as the impersonated user so it appears under their account
+    const effectiveUserId = await getEffectiveUserId(request);
+    const creatorId = effectiveUserId && effectiveUserId !== user.id ? effectiveUserId : user.id;
+
     const scheduleType = validatedData.schedule_type ?? "scheduled";
-    const payload = {
-      ...validatedData,
+    const payload: Record<string, unknown> = {
+      title: validatedData.title,
+      description: validatedData.description ?? null,
+      difficulty: validatedData.difficulty ?? null,
+      duration_days: validatedData.duration_days != null && Number.isFinite(validatedData.duration_days) ? validatedData.duration_days : null,
+      price_display: validatedData.price_display ?? null,
+      cover_image_url: validatedData.cover_image_url ?? null,
+      niche: validatedData.niche ?? null,
+      status: validatedData.status ?? "draft",
+      is_private: validatedData.is_private ?? false,
+      schedule_type: scheduleType,
       open_at: validatedData.open_at || null,
       close_at: validatedData.close_at || null,
       start_at: validatedData.start_at || null,
@@ -96,7 +110,7 @@ export async function POST(request: NextRequest) {
     const { data: challenge, error } = await adminClient
       .from("challenges")
       .insert({
-        creator_id: user.id,
+        creator_id: creatorId,
         ...payload,
       })
       .select()

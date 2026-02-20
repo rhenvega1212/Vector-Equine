@@ -1,15 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Flag, Calendar, Trophy } from "lucide-react";
+import { Users, Flag, Trophy } from "lucide-react";
 
 export default async function AdminPage() {
   const supabase = await createClient();
 
-  // Get counts
+  // Get counts (events removed)
   const [
     { count: usersCount },
     { count: pendingReportsCount },
-    { count: eventsCount },
     { count: challengesCount },
     { count: trainersAwaitingApproval },
   ] = await Promise.all([
@@ -18,7 +17,6 @@ export default async function AdminPage() {
       .from("reports")
       .select("*", { count: "exact", head: true })
       .eq("status", "pending"),
-    supabase.from("events").select("*", { count: "exact", head: true }),
     supabase.from("challenges").select("*", { count: "exact", head: true }),
     supabase
       .from("profiles")
@@ -40,12 +38,6 @@ export default async function AdminPage() {
       icon: Flag,
       description: "Needs review",
       highlight: (pendingReportsCount || 0) > 0,
-    },
-    {
-      title: "Events",
-      value: eventsCount || 0,
-      icon: Calendar,
-      description: "Total events created",
     },
     {
       title: "Challenges",

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getEffectiveUserId } from "@/lib/admin/impersonate";
 import { createPostSchema } from "@/lib/validations/post";
 import { z } from "zod";
@@ -87,9 +88,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
     const effectiveUserId = await getEffectiveUserId(request);
 
-    if (!effectiveUserId) {
+    if (!user || !effectiveUserId) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
@@ -99,8 +101,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createPostSchema.parse(body);
 
+    // When impersonating, RLS requires auth.uid() = author_id; use admin client to write as effective user
+    const writeClient = effectiveUserId !== user.id ? createAdminClient() : supabase;
+
     // Create post (as effective user when admin is impersonating)
-    const { data: post, error: postError } = await supabase
+    const { data: post, error: postError } = await writeClient
       .from("posts")
       .insert({
         author_id: effectiveUserId,
@@ -124,13 +129,13 @@ export async function POST(request: NextRequest) {
         sort_order: index,
       }));
 
-      const { error: mediaError } = await supabase
+      const { error: mediaError } = await writeClient
         .from("post_media")
         .insert(mediaInserts);
 
       if (mediaError) {
         // Rollback post creation
-        await supabase.from("posts").delete().eq("id", post.id);
+        await writeClient.from("posts").delete().eq("id", post.id);
         return NextResponse.json({ error: mediaError.message }, { status: 400 });
       }
     }

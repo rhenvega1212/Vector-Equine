@@ -16,7 +16,7 @@ const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://vector-equine.vercel.
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   title: "Vector Equine - Connect, Learn, Compete",
-  description: "A platform for equestrians to connect, learn, and compete. Join challenges, attend events, and grow your riding journey.",
+  description: "A platform for equestrians to connect, learn, and compete. Join challenges and grow your riding journey.",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     locale: "en_US",
     siteName: "Vector Equine",
     title: "Vector Equine - Connect, Learn, Compete",
-    description: "A platform for equestrians to connect, learn, and compete. Join challenges, attend events, and grow your riding journey.",
+    description: "A platform for equestrians to connect, learn, and compete. Join challenges and grow your riding journey.",
     images: [
       {
         url: "/og-image.png",
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
     description: "A platform for equestrians to connect, learn, and compete.",
     images: ["/og-image.png"],
   },
-  keywords: ["equestrian", "horse riding", "dressage", "jumping", "horse community", "riding challenges", "equine events"],
+  keywords: ["equestrian", "horse riding", "dressage", "jumping", "horse community", "riding challenges"],
 };
 
 export const viewport: Viewport = {
@@ -65,6 +65,27 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+const criticalStyles = `
+  :root {
+    --background: 224 71% 4%;
+    --foreground: 210 40% 98%;
+    --muted: 215 25% 27%;
+    --muted-foreground: 217 10% 64%;
+    --primary: 191 91% 50%;
+    --border: 215 25% 27%;
+    --radius: 0.75rem;
+  }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-inter, ui-sans-serif, system-ui, sans-serif);
+    -webkit-font-smoothing: antialiased;
+  }
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -73,6 +94,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} ${cinzel.variable}`}>
+        <style dangerouslySetInnerHTML={{ __html: criticalStyles }} />
         <Providers>
           {children}
           <Toaster />

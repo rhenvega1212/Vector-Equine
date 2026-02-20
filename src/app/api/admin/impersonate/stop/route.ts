@@ -29,10 +29,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const res = NextResponse.redirect(
-      new URL("/admin/users", request.url),
-      { status: 302 }
-    );
+    // Build redirect URL from the host the browser sees (same fix as impersonate start)
+    const host = request.headers.get("host") || new URL(request.url).host;
+    const protocol =
+      request.headers.get("x-forwarded-proto") ||
+      (request.url.startsWith("https") ? "https" : "http");
+    const redirectUrl = `${protocol}://${host}/admin/users`;
+
+    const wantsJson =
+      request.headers.get("accept")?.includes("application/json") ||
+      (request.headers.get("content-type")?.includes("application/json") ?? false);
+    if (wantsJson) {
+      const res = NextResponse.json({ redirect: redirectUrl }, { status: 200 });
+      res.headers.set("Set-Cookie", buildClearImpersonateCookie());
+      return res;
+    }
+
+    const res = NextResponse.redirect(redirectUrl, { status: 302 });
     res.headers.set("Set-Cookie", buildClearImpersonateCookie());
     return res;
   } catch (error) {

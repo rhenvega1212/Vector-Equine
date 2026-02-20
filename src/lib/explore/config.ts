@@ -25,6 +25,10 @@ export interface ExploreConfig {
   nearbyBoost: number;
   /** Max hours old for recency scoring (older posts get 0 recency score) */
   recencyMaxHours: number;
+  /** Number of trending posts to push at top of explore (first page only) */
+  trendingCount: number;
+  /** Number of admin posts to push at top of explore (first page only) */
+  adminCount: number;
 }
 
 export const DEFAULT_EXPLORE_CONFIG: ExploreConfig = {
@@ -41,4 +45,6 @@ export const DEFAULT_EXPLORE_CONFIG: ExploreConfig = {
   engagementWeight: 1.0,
   nearbyBoost: 0.5,
   recencyMaxHours: 168, // 7 days
+  trendingCount: 6,
+  adminCount: 4,
 };

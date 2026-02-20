@@ -21,9 +21,11 @@ interface PostGridTileProps {
     };
   };
   onClick: () => void;
+  /** Optional badge: "trending" | "admin" for explore spotlight */
+  badge?: "trending" | "admin";
 }
 
-export function PostGridTile({ post, onClick }: PostGridTileProps) {
+export function PostGridTile({ post, onClick, badge }: PostGridTileProps) {
   const initials = post.profiles.display_name
     .split(" ")
     .map((n) => n[0])
@@ -54,6 +56,18 @@ export function PostGridTile({ post, onClick }: PostGridTileProps) {
       )}
       {/* Gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-90 group-hover:opacity-95 transition-opacity" />
+      {/* Badge for trending / admin */}
+      {badge && (
+        <span
+          className={
+            badge === "trending"
+              ? "absolute top-2 right-2 text-[10px] font-medium text-amber-400 bg-amber-400/20 px-2 py-0.5 rounded-full"
+              : "absolute top-2 right-2 text-[10px] font-medium text-cyan-400 bg-cyan-400/20 px-2 py-0.5 rounded-full"
+          }
+        >
+          {badge === "trending" ? "Trending" : "From the team"}
+        </span>
+      )}
       {/* Bottom info */}
       <div className="absolute bottom-0 left-0 right-0 p-2 flex items-end justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">

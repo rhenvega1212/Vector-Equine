@@ -31,7 +31,7 @@ type ExploreItem = {
   ad?: any;
   account?: any;
   reason?: string;
-  source?: "suggested" | "nearby";
+  source?: "suggested" | "nearby" | "trending" | "admin";
 };
 
 interface ExploreClientProps {
@@ -238,7 +238,7 @@ export function ExploreClient({ userId }: ExploreClientProps) {
             </div>
           </div>
           <p className="text-sm text-muted-foreground">
-            Discover new posts and people
+            Trending, team picks, and posts from the feed to discover
           </p>
         </CardHeader>
         <CardContent>
@@ -341,11 +341,18 @@ function GridView({
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
       {items.map((item) => {
         if (item.type === "post") {
+          const badge =
+            item.source === "trending"
+              ? "trending"
+              : item.source === "admin"
+                ? "admin"
+                : undefined;
           return (
             <PostGridTile
               key={item.id}
               post={item.post}
               onClick={() => onPostClick(item.post)}
+              badge={badge}
             />
           );
         }
@@ -378,14 +385,28 @@ function ListView({
       {items.map((item) => {
         if (item.type === "post") {
           const authorId = item.post?.profiles?.id ?? item.post?.author_id;
+          const isTrending = item.source === "trending";
+          const isAdmin = item.source === "admin";
           return (
-            <PostCard
-              key={item.id}
-              post={item.post}
-              currentUserId={userId}
-              isSuggested={!followingIds.has(authorId)}
-              onFollowSuccess={() => onFollowSuccess(authorId)}
-            />
+            <div key={item.id} className="relative">
+              {(isTrending || isAdmin) && (
+                <span
+                  className={
+                    isTrending
+                      ? "absolute top-2 right-2 z-10 text-[10px] font-medium text-amber-400 bg-amber-400/20 px-2 py-0.5 rounded-full"
+                      : "absolute top-2 right-2 z-10 text-[10px] font-medium text-cyan-400 bg-cyan-400/20 px-2 py-0.5 rounded-full"
+                  }
+                >
+                  {isTrending ? "Trending" : "From the team"}
+                </span>
+              )}
+              <PostCard
+                post={item.post}
+                currentUserId={userId}
+                isSuggested={!followingIds.has(authorId)}
+                onFollowSuccess={() => onFollowSuccess(authorId)}
+              />
+            </div>
           );
         }
         if (item.type === "ad") {

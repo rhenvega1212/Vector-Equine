@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function PATCH(
   request: NextRequest,
@@ -17,7 +18,7 @@ export async function PATCH(
       );
     }
 
-    // Check admin
+    // Check admin (using user's session)
     const { data: adminProfile } = await supabase
       .from("profiles")
       .select("role")
@@ -31,7 +32,7 @@ export async function PATCH(
     const body = await request.json();
     const { approved } = body;
 
-    // Check target user is a trainer
+    // Check target user is a trainer (regular client can SELECT any profile)
     const { data: targetUser } = await supabase
       .from("profiles")
       .select("role")
@@ -45,7 +46,9 @@ export async function PATCH(
       );
     }
 
-    const { data: updatedUser, error } = await supabase
+    // Use service role so RLS doesn't block updating another user's profile
+    const adminClient = createAdminClient();
+    const { data: updatedUser, error } = await adminClient
       .from("profiles")
       .update({
         trainer_approved: approved,

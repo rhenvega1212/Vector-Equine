@@ -14,9 +14,15 @@ const createChallengeBaseSchema = z.object({
     .max(100, "Title must be less than 100 characters"),
   description: z.string().max(5000, "Description must be less than 5000 characters").optional(),
   difficulty: difficultyEnum.optional(),
-  duration_days: z.number().int().positive("Duration must be a positive number").optional(),
+  duration_days: z.preprocess(
+    (val) => (val === "" || val === undefined || (typeof val === "number" && Number.isNaN(val)) ? undefined : val),
+    z.number().int().positive("Duration must be a positive number").optional()
+  ),
   price_display: z.string().max(50, "Price display must be less than 50 characters").optional(),
-  cover_image_url: z.string().url("Invalid cover image URL").optional(),
+  cover_image_url: z
+    .union([z.string().url(), z.literal("")])
+    .optional()
+    .transform((s) => (s === "" ? undefined : s)),
   niche: nicheEnum.optional().nullable(),
   status: challengeStatusEnum.optional(),
   is_private: z.boolean().optional(),
@@ -27,23 +33,14 @@ const createChallengeBaseSchema = z.object({
   end_at: z.string().optional().nullable(),
 });
 
-export const createChallengeSchema = createChallengeBaseSchema
-  .refine(
-    (data) => {
-      if (data.schedule_type === "evergreen") return true;
-      if (data.schedule_type !== "scheduled") return true;
-      return !!data.end_at;
-    },
-    { message: "End date is required for scheduled challenges", path: ["end_at"] }
-  )
-  .refine(
-    (data) => {
-      if (data.schedule_type !== "scheduled") return true;
-      if (!data.start_at || !data.end_at) return true;
-      return new Date(data.start_at) <= new Date(data.end_at);
-    },
-    { message: "Start must be before end", path: ["end_at"] }
-  );
+export const createChallengeSchema = createChallengeBaseSchema.refine(
+  (data) => {
+    if (data.schedule_type !== "scheduled") return true;
+    if (!data.start_at || !data.end_at) return true;
+    return new Date(data.start_at) <= new Date(data.end_at);
+  },
+  { message: "Start must be before end", path: ["end_at"] }
+);
 
 export const updateChallengeSchema = createChallengeBaseSchema.partial();
 

@@ -48,7 +48,7 @@ export default function CreateChallengePage() {
     defaultValues: {
       status: "draft",
       is_private: false,
-      schedule_type: "scheduled",
+      schedule_type: "evergreen",
     },
   });
 
@@ -98,24 +98,40 @@ export default function CreateChallengePage() {
       const response = await fetch("/api/admin/challenges", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(data),
       });
 
       if (response.ok) {
         const challenge = await response.json();
+        if (!challenge?.id) {
+          throw new Error("Invalid response: challenge ID missing");
+        }
         toast({
           title: "Challenge created",
           description: "You can now add modules and lessons.",
         });
         router.push(`/admin/challenges/${challenge.id}/edit`);
       } else {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to create challenge");
+        const contentType = response.headers.get("content-type");
+        const text = await response.text();
+        let message = "Failed to create challenge.";
+        if (contentType?.includes("application/json")) {
+          try {
+            const data = JSON.parse(text);
+            message = data.error || (Array.isArray(data.errors) ? data.errors.map((e: any) => e?.message ?? e).join(", ") : message);
+          } catch {
+            message = text || message;
+          }
+        } else if (text) {
+          message = text.slice(0, 200);
+        }
+        throw new Error(message);
       }
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to create challenge.",
+        description: error?.message || "Failed to create challenge.",
         variant: "destructive",
       });
     } finally {

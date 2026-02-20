@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,6 @@ function LoginSkeleton() {
 }
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") || "/feed";
   const [error, setError] = useState<string | null>(null);
@@ -66,8 +65,8 @@ function LoginForm() {
 
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({
-        email: data.email,
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
+        email: data.email.trim(),
         password: data.password,
       });
 
@@ -76,10 +75,23 @@ function LoginForm() {
         return;
       }
 
-      router.push(redirectTo);
-      router.refresh();
-    } catch {
-      setError("An unexpected error occurred. Please try again.");
+      if (!authData?.session) {
+        setError("Sign-in succeeded but no session was created. Please try again.");
+        return;
+      }
+
+      // Build full URL so redirect works from any base path
+      const targetUrl = redirectTo.startsWith("/")
+        ? `${window.location.origin}${redirectTo}`
+        : redirectTo;
+
+      // Brief delay so session cookies are committed before the next request
+      await new Promise((r) => setTimeout(r, 100));
+      window.location.assign(targetUrl);
+      return;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "An unexpected error occurred. Please try again.";
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +103,13 @@ function LoginForm() {
         <CardTitle className="text-2xl">Welcome back</CardTitle>
         <CardDescription>Sign in to your Vector Equine account</CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form
+        onSubmit={handleSubmit(onSubmit, (validationErrors) => {
+          const first = Object.values(validationErrors)[0];
+          setError(first?.message ?? "Please check your email and password.");
+        })}
+        noValidate
+      >
         <CardContent className="space-y-4">
           {error && (
             <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">

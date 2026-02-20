@@ -84,8 +84,8 @@ export default function AdminUsersPage() {
         toast({
           title: approve ? "Trainer approved" : "Approval revoked",
           description: approve
-            ? "The user can now create events."
-            : "The user can no longer create events.",
+            ? "Trainer privileges have been granted."
+            : "Trainer privileges have been revoked.",
         });
         fetchUsers();
       }
@@ -120,6 +120,40 @@ export default function AdminUsersPage() {
       toast({
         title: "Error",
         description: "Failed to update role.",
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleLoginAsUser(userId: string) {
+    setActionLoading(userId);
+    try {
+      const response = await fetch("/api/admin/impersonate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.redirect) {
+        window.location.href = data.redirect;
+        return;
+      }
+      if (!response.ok) {
+        toast({
+          title: "Connection failed",
+          description: data.error || "Could not switch user. Try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Connection failed",
+        description: "Network error. Make sure the app is running and try again.",
         variant: "destructive",
       });
     } finally {
@@ -258,22 +292,25 @@ export default function AdminUsersPage() {
                         </div>
 
                         {/* Login as user (impersonate) */}
-                        <form
-                          action="/api/admin/impersonate"
-                          method="POST"
-                          className="pt-2 border-t"
-                        >
-                          <input type="hidden" name="userId" value={user.id} />
+                        <div className="pt-2 border-t">
                           <Button
-                            type="submit"
+                            type="button"
                             size="sm"
                             variant="outline"
                             className="w-full gap-1"
+                            onClick={() => handleLoginAsUser(user.id)}
+                            disabled={actionLoading === user.id}
                           >
-                            <LogIn className="h-4 w-4" />
-                            Login as user
+                            {actionLoading === user.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <LogIn className="h-4 w-4" />
+                                Login as user
+                              </>
+                            )}
                           </Button>
-                        </form>
+                        </div>
 
                         {/* Trainer Approval */}
                         {user.role === "trainer" && (
@@ -430,22 +467,23 @@ export default function AdminUsersPage() {
                             </TableCell>
                             <TableCell>{formatDate(user.created_at)}</TableCell>
                             <TableCell>
-                              <form
-                                action="/api/admin/impersonate"
-                                method="POST"
-                                className="inline"
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="gap-1"
+                                onClick={() => handleLoginAsUser(user.id)}
+                                disabled={actionLoading === user.id}
                               >
-                                <input type="hidden" name="userId" value={user.id} />
-                                <Button
-                                  type="submit"
-                                  size="sm"
-                                  variant="ghost"
-                                  className="gap-1"
-                                >
-                                  <LogIn className="h-4 w-4" />
-                                  Login as
-                                </Button>
-                              </form>
+                                {actionLoading === user.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <>
+                                    <LogIn className="h-4 w-4" />
+                                    Login as
+                                  </>
+                                )}
+                              </Button>
                               {user.role === "trainer" && (
                                 <div className="inline-flex gap-2 ml-2">
                                   {!user.trainer_approved ? (

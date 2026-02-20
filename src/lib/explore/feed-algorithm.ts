@@ -199,6 +199,78 @@ async function fetchSuggestedPosts(
   });
 }
 
+/** Trending: recent posts sorted by engagement (likes + comments) for explore spotlight */
+async function fetchTrendingPosts(
+  supabase: SupabaseClient,
+  followingIds: Set<string>,
+  blockedIds: Set<string>,
+  seenPostIds: Set<string>,
+  cursorSeenIds: string[],
+  limit: number
+): Promise<any[]> {
+  const excludeAuthorIds = Array.from(followingIds);
+  let query = supabase
+    .from("posts")
+    .select(POST_SELECT)
+    .eq("is_hidden", false)
+    .order("created_at", { ascending: false })
+    .limit(limit * 4);
+  if (excludeAuthorIds.length > 0) {
+    query = query.not("author_id", "in", `(${excludeAuthorIds.join(",")})`);
+  }
+  const { data } = await query;
+
+  const filtered = (data ?? []).filter((p: any) => {
+    if (blockedIds.has(p.author_id)) return false;
+    if (seenPostIds.has(p.id)) return false;
+    if (cursorSeenIds.includes(p.id)) return false;
+    return true;
+  });
+
+  const withScore = filtered.map((p: any) => ({
+    ...p,
+    _engagement: computeEngagementScore(
+      p.post_likes?.length ?? 0,
+      p.comments?.length ?? 0
+    ),
+  }));
+  withScore.sort((a: any, b: any) => b._engagement - a._engagement);
+  return withScore.slice(0, limit).map(({ _engagement, ...p }: any) => p);
+}
+
+/** Admin content: recent posts from admin users, pushed for visibility */
+async function fetchAdminPosts(
+  supabase: SupabaseClient,
+  followingIds: Set<string>,
+  blockedIds: Set<string>,
+  seenPostIds: Set<string>,
+  cursorSeenIds: string[],
+  limit: number
+): Promise<any[]> {
+  const { data: adminProfiles } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("role", "admin");
+  const adminIds = (adminProfiles ?? []).map((r: any) => r.id).filter(Boolean);
+  if (adminIds.length === 0) return [];
+
+  const { data } = await supabase
+    .from("posts")
+    .select(POST_SELECT)
+    .eq("is_hidden", false)
+    .in("author_id", adminIds)
+    .order("created_at", { ascending: false })
+    .limit(limit * 2);
+
+  return (data ?? []).filter((p: any) => {
+    if (followingIds.has(p.author_id)) return false;
+    if (blockedIds.has(p.author_id)) return false;
+    if (seenPostIds.has(p.id)) return false;
+    if (cursorSeenIds.includes(p.id)) return false;
+    return true;
+  }).slice(0, limit);
+}
+
 async function fetchNearbyPosts(
   supabase: SupabaseClient,
   userLocation: { city: string | null; state: string | null; geohashPrefix: string | null },
@@ -374,6 +446,50 @@ export async function getExploreFeed(
 
   const suggestedPostsNeeded = Math.ceil(pageSize * config.suggestedRatio);
   const nearbyPostsNeeded = pageSize - suggestedPostsNeeded;
+  const isFirstPage = !cursor;
+
+  // First page: fetch trending and admin content to push for visibility
+  const [rawTrending, rawAdmin] = isFirstPage && (config.trendingCount > 0 || config.adminCount > 0)
+    ? await Promise.all([
+        config.trendingCount > 0
+          ? fetchTrendingPosts(
+              supabase,
+              followingIds,
+              blockedIds,
+              seenPostIds,
+              cursorData.seenPostIds,
+              config.trendingCount
+            )
+          : Promise.resolve([]),
+        config.adminCount > 0
+          ? fetchAdminPosts(
+              supabase,
+              followingIds,
+              blockedIds,
+              seenPostIds,
+              cursorData.seenPostIds,
+              config.adminCount
+            )
+          : Promise.resolve([]),
+      ])
+    : [[], []];
+
+  const trendingItems: ExplorePostItem[] = rawTrending.map((p: any) => ({
+    type: "post" as const,
+    id: p.id,
+    post: p,
+    score: 0,
+    source: "trending" as const,
+  }));
+  const adminItems: ExplorePostItem[] = rawAdmin.map((p: any) => ({
+    type: "post" as const,
+    id: p.id,
+    post: p,
+    score: 0,
+    source: "admin" as const,
+  }));
+  const headlinePostIds = [...trendingItems.map((i) => i.id), ...adminItems.map((i) => i.id)];
+  const seenPostIdsForSuggested = [...cursorData.seenPostIds, ...headlinePostIds];
 
   const [rawSuggested, rawNearby, eligibleAds, accountSuggestions] =
     await Promise.all([
@@ -382,7 +498,7 @@ export async function getExploreFeed(
         followingIds,
         blockedIds,
         seenPostIds,
-        cursorData.seenPostIds,
+        seenPostIdsForSuggested,
         suggestedPostsNeeded
       ),
       userLocation.enabled
@@ -392,7 +508,7 @@ export async function getExploreFeed(
             followingIds,
             blockedIds,
             seenPostIds,
-            cursorData.seenPostIds,
+            seenPostIdsForSuggested,
             nearbyPostsNeeded
           )
         : Promise.resolve([]),
@@ -437,7 +553,7 @@ export async function getExploreFeed(
   const postItems: ExplorePostItem[] = [...scoredSuggested, ...scoredNearby];
 
   // Interleave account suggestions and ads into the post stream
-  const items: ExploreItem[] = [];
+  const bodyItems: ExploreItem[] = [];
   let postIdx = 0;
   let adIdx = 0;
   let accountIdx = 0;
@@ -452,7 +568,7 @@ export async function getExploreFeed(
       adIdx < eligibleAds.length
     ) {
       const ad = eligibleAds[adIdx];
-      items.push({
+      bodyItems.push({
         type: "ad",
         id: `ad_${ad.id}`,
         ad: {
@@ -478,7 +594,7 @@ export async function getExploreFeed(
         config.accountSuggestionInterval ===
         0
     ) {
-      items.push(accountSuggestions[accountIdx]);
+      bodyItems.push(accountSuggestions[accountIdx]);
       accountIdx++;
       position++;
       continue;
@@ -486,16 +602,23 @@ export async function getExploreFeed(
 
     // Otherwise place a post
     if (postIdx < postItems.length) {
-      items.push(postItems[postIdx]);
+      bodyItems.push(postItems[postIdx]);
       postIdx++;
     } else if (accountIdx < accountSuggestions.length) {
-      items.push(accountSuggestions[accountIdx]);
+      bodyItems.push(accountSuggestions[accountIdx]);
       accountIdx++;
     } else {
       break;
     }
     position++;
   }
+
+  // Prepend trending and admin content on first page so they're pushed for visibility
+  const items: ExploreItem[] = [
+    ...trendingItems,
+    ...adminItems,
+    ...bodyItems,
+  ];
 
   const newSeenPostIds = [
     ...cursorData.seenPostIds,

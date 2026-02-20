@@ -27,7 +27,7 @@ export interface ExplorePostItem {
     comments: { id: string }[];
   };
   score: number;
-  source: "suggested" | "nearby";
+  source: "suggested" | "nearby" | "trending" | "admin";
 }
 
 export interface ExploreAdItem {

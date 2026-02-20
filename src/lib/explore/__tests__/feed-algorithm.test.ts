@@ -354,7 +354,10 @@ describe("getExploreFeed", () => {
       profiles: [],
     });
 
-    const result = await getExploreFeed(supabase, userId, null, 20);
+    const result = await getExploreFeed(supabase, userId, null, 20, {
+      trendingCount: 0,
+      adminCount: 0,
+    });
     const postItems = result.items.filter((i) => i.type === "post");
 
     expect(postItems.length).toBeGreaterThan(0);
@@ -456,7 +459,10 @@ describe("getExploreFeed", () => {
       profiles: [],
     });
 
-    const result = await getExploreFeed(supabase, userId, null, 10);
+    const result = await getExploreFeed(supabase, userId, null, 10, {
+      trendingCount: 0,
+      adminCount: 0,
+    });
     const postItems = result.items.filter((i) => i.type === "post");
 
     for (const item of postItems) {

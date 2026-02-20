@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getEffectiveUserId } from "@/lib/admin/impersonate";
 
 export async function POST(
@@ -9,9 +10,10 @@ export async function POST(
   try {
     const { id: followingId } = await params;
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
     const effectiveUserId = await getEffectiveUserId(request);
 
-    if (!effectiveUserId) {
+    if (!user || !effectiveUserId) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
@@ -40,8 +42,11 @@ export async function POST(
       );
     }
 
+    // When impersonating, RLS requires auth.uid() = follower_id; use admin client to write as effective user
+    const writeClient = effectiveUserId !== user.id ? createAdminClient() : supabase;
+
     // Create follow relationship (uses effective user when admin is impersonating)
-    const { error } = await supabase
+    const { error } = await writeClient
       .from("follows")
       .insert({
         follower_id: effectiveUserId,
@@ -63,7 +68,7 @@ export async function POST(
     }
 
     // Create notification for the followed user
-    await (supabase as any)
+    await writeClient
       .from("notifications")
       .insert({
         user_id: followingId,
@@ -87,16 +92,18 @@ export async function DELETE(
   try {
     const { id: followingId } = await params;
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
     const effectiveUserId = await getEffectiveUserId(request);
 
-    if (!effectiveUserId) {
+    if (!user || !effectiveUserId) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
       );
     }
 
-    const { error } = await supabase
+    const writeClient = effectiveUserId !== user.id ? createAdminClient() : supabase;
+    const { error } = await writeClient
       .from("follows")
       .delete()
       .eq("follower_id", effectiveUserId)

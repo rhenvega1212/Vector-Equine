@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getEffectiveUserId } from "@/lib/admin/impersonate";
 import { createCommentSchema } from "@/lib/validations/post";
 import { z } from "zod";
 
@@ -41,8 +43,9 @@ export async function POST(
     const { id: postId } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+    const effectiveUserId = await getEffectiveUserId(request);
 
-    if (!user) {
+    if (!user || !effectiveUserId) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
@@ -83,11 +86,12 @@ export async function POST(
       parentCommentAuthorId = parentComment.author_id;
     }
 
-    const { data: comment, error } = await (supabase as any)
+    const writeClient = effectiveUserId !== user.id ? createAdminClient() : supabase;
+    const { data: comment, error } = await writeClient
       .from("comments")
       .insert({
         post_id: postId,
-        author_id: user.id,
+        author_id: effectiveUserId,
         content: validatedData.content,
         parent_id: validatedData.parent_id || null,
       })
@@ -102,25 +106,23 @@ export async function POST(
     }
 
     // Create notification
-    if (validatedData.parent_id && parentCommentAuthorId && parentCommentAuthorId !== user.id) {
-      // Reply notification to parent comment author
-      await (supabase as any)
+    if (validatedData.parent_id && parentCommentAuthorId && parentCommentAuthorId !== effectiveUserId) {
+      await writeClient
         .from("notifications")
         .insert({
           user_id: parentCommentAuthorId,
           type: "reply",
-          actor_id: user.id,
+          actor_id: effectiveUserId,
           post_id: postId,
           comment_id: comment.id,
         });
-    } else if (post.author_id !== user.id) {
-      // Comment notification to post author
-      await (supabase as any)
+    } else if (post.author_id !== effectiveUserId) {
+      await writeClient
         .from("notifications")
         .insert({
           user_id: post.author_id,
           type: "comment",
-          actor_id: user.id,
+          actor_id: effectiveUserId,
           post_id: postId,
           comment_id: comment.id,
         });

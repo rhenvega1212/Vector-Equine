@@ -11,6 +11,9 @@ import {
   Shield,
 } from "lucide-react";
 
+// Always re-check admin role so role changes take effect
+export const dynamic = "force-dynamic";
+
 export default async function AdminLayout({
   children,
 }: {

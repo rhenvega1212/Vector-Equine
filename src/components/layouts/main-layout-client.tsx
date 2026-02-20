@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
-import { UserX } from "lucide-react";
+import { UserX, Loader2 } from "lucide-react";
 
 // Load nav only on client to avoid PathnameContext/useContext null during SSR (Next.js 14.2.x)
 const MainNav = dynamic(
@@ -23,6 +24,34 @@ export function MainLayoutClient({
   profile: any;
   isImpersonating?: boolean;
 }) {
+  const [stopping, setStopping] = useState(false);
+
+  async function handleStopImpersonating() {
+    setStopping(true);
+    try {
+      const res = await fetch("/api/admin/impersonate/stop", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.redirect) {
+        window.location.href = data.redirect;
+        return;
+      }
+      if (!res.ok) {
+        window.location.reload();
+      }
+    } catch {
+      window.location.reload();
+    } finally {
+      setStopping(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {isImpersonating && (
@@ -30,12 +59,23 @@ export function MainLayoutClient({
           <span>
             Viewing as <strong>{profile?.display_name}</strong> (@{profile?.username})
           </span>
-          <form action="/api/admin/impersonate/stop" method="POST">
-            <Button type="submit" variant="outline" size="sm" className="gap-1 border-amber-500/50 text-amber-200 hover:bg-amber-500/20">
-              <UserX className="h-4 w-4" />
-              Stop impersonating
-            </Button>
-          </form>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1 border-amber-500/50 text-amber-200 hover:bg-amber-500/20"
+            onClick={handleStopImpersonating}
+            disabled={stopping}
+          >
+            {stopping ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <UserX className="h-4 w-4" />
+                Stop impersonating
+              </>
+            )}
+          </Button>
         </div>
       )}
       <MainNav profile={profile} />
