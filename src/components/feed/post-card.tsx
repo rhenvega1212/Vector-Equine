@@ -120,6 +120,7 @@ export function PostCard({
 
       if (response.ok) {
         queryClient.invalidateQueries({ queryKey: ["feed"] });
+        queryClient.invalidateQueries({ queryKey: ["home-feed"] });
       }
     } catch (error) {
       console.error("Failed to delete post:", error);

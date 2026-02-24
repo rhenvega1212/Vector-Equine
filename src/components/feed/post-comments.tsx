@@ -84,6 +84,7 @@ export function PostComments({ postId, currentUserId }: PostCommentsProps) {
         }
         fetchComments();
         queryClient.invalidateQueries({ queryKey: ["feed"] });
+        queryClient.invalidateQueries({ queryKey: ["home-feed"] });
       } else {
         const data = await response.json();
         // Handle error that might be an object or string
@@ -111,6 +112,7 @@ export function PostComments({ postId, currentUserId }: PostCommentsProps) {
       if (response.ok) {
         fetchComments();
         queryClient.invalidateQueries({ queryKey: ["feed"] });
+        queryClient.invalidateQueries({ queryKey: ["home-feed"] });
       }
     } catch (error) {
       console.error("Failed to delete comment:", error);

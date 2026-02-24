@@ -152,8 +152,9 @@ export function CreatePost() {
       setSelectedTags([]);
       setMedia([]);
 
-      // Invalidate feed queries
+      // Invalidate all feed queries so the list updates without a page refresh
       queryClient.invalidateQueries({ queryKey: ["feed"] });
+      queryClient.invalidateQueries({ queryKey: ["home-feed"] });
 
       toast({
         title: "Post created",

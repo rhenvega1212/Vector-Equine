@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +42,17 @@ import {
   Image as ImageIcon,
   Video,
   File,
+  Upload,
 } from "lucide-react";
+import {
+  uploadFile,
+  isValidImageType,
+  isValidVideoType,
+  isValidFileSize,
+  MAX_IMAGE_SIZE_MB,
+  MAX_VIDEO_SIZE_MB,
+  MAX_FILE_SIZE_MB,
+} from "@/lib/uploads/storage";
 
 interface Challenge {
   id: string;
@@ -95,11 +104,77 @@ interface ChallengeEditorProps {
 }
 
 export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditorProps) {
-  const router = useRouter();
   const [challenge, setChallenge] = useState(initialChallenge);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
+  const [uploadingBlockId, setUploadingBlockId] = useState<string | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  async function handleBlockFileUpload(blockId: string, blockType: string, file: File) {
+    if (blockType === "image" && !isValidImageType(file)) {
+      setError("Please upload a JPG, PNG, GIF, or WebP image.");
+      return;
+    }
+    if (blockType === "video" && !isValidVideoType(file)) {
+      setError("Please upload an MP4, WebM, or MOV video.");
+      return;
+    }
+    const maxSize = blockType === "video" ? MAX_VIDEO_SIZE_MB : blockType === "image" ? MAX_IMAGE_SIZE_MB : MAX_FILE_SIZE_MB;
+    if (!isValidFileSize(file, maxSize)) {
+      setError(`File too large. Max ${maxSize}MB.`);
+      return;
+    }
+
+    setUploadingBlockId(blockId);
+    setError(null);
+    try {
+      const { url } = await uploadFile(
+        "challenge-media",
+        file,
+        `blocks/${challenge.id}/${blockId}/${Date.now()}-${file.name}`
+      );
+      const field = blockType === "file" ? "file_name" : "content";
+      setChallenge((prev) => ({
+        ...prev,
+        challenge_modules: prev.challenge_modules.map((m) => ({
+          ...m,
+          challenge_lessons: m.challenge_lessons.map((l) => ({
+            ...l,
+            lesson_content_blocks: l.lesson_content_blocks.map((b) =>
+              b.id === blockId ? { ...b, [field]: url } : b
+            ),
+          })),
+        })),
+      }));
+      await fetch(`/api/admin/content-blocks/${blockId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: url }),
+      });
+    } catch {
+      setError("Upload failed. Please try again.");
+    } finally {
+      setUploadingBlockId(null);
+    }
+  }
+
+  const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
+  const debouncedPatch = useCallback(
+    (url: string, body: Record<string, unknown>, key: string) => {
+      if (debounceTimers.current[key]) clearTimeout(debounceTimers.current[key]);
+      debounceTimers.current[key] = setTimeout(async () => {
+        try {
+          await fetch(url, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+        } catch {}
+      }, 500);
+    },
+    []
+  );
 
   // Form state for editing
   const [editForm, setEditForm] = useState({
@@ -136,7 +211,16 @@ export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditor
         throw new Error(result.error || "Failed to save challenge");
       }
 
-      router.refresh();
+      setChallenge((prev) => ({
+        ...prev,
+        title: editForm.title,
+        description: editForm.description || undefined,
+        difficulty: editForm.difficulty || undefined,
+        duration_days: editForm.duration_days ? parseInt(editForm.duration_days) : undefined,
+        price_display: editForm.price_display || undefined,
+        cover_image_url: editForm.cover_image_url || undefined,
+        status: editForm.status,
+      }));
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -157,7 +241,14 @@ export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditor
       });
 
       if (response.ok) {
-        router.refresh();
+        const newModule = await response.json();
+        setChallenge((prev) => ({
+          ...prev,
+          challenge_modules: [
+            ...prev.challenge_modules,
+            { ...newModule, challenge_lessons: [] },
+          ],
+        }));
       }
     } catch (err) {
       console.error("Failed to add module:", err);
@@ -168,8 +259,13 @@ export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditor
     if (!confirm("Delete this module and all its lessons?")) return;
 
     try {
-      await fetch(`/api/admin/modules/${moduleId}`, { method: "DELETE" });
-      router.refresh();
+      const response = await fetch(`/api/admin/modules/${moduleId}`, { method: "DELETE" });
+      if (response.ok) {
+        setChallenge((prev) => ({
+          ...prev,
+          challenge_modules: prev.challenge_modules.filter((m) => m.id !== moduleId),
+        }));
+      }
     } catch (err) {
       console.error("Failed to delete module:", err);
     }
@@ -188,7 +284,21 @@ export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditor
       });
 
       if (response.ok) {
-        router.refresh();
+        const newLesson = await response.json();
+        setChallenge((prev) => ({
+          ...prev,
+          challenge_modules: prev.challenge_modules.map((m) =>
+            m.id === moduleId
+              ? {
+                  ...m,
+                  challenge_lessons: [
+                    ...m.challenge_lessons,
+                    { ...newLesson, lesson_content_blocks: [], assignments: [] },
+                  ],
+                }
+              : m
+          ),
+        }));
       }
     } catch (err) {
       console.error("Failed to add lesson:", err);
@@ -199,8 +309,16 @@ export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditor
     if (!confirm("Delete this lesson?")) return;
 
     try {
-      await fetch(`/api/admin/lessons/${lessonId}`, { method: "DELETE" });
-      router.refresh();
+      const response = await fetch(`/api/admin/lessons/${lessonId}`, { method: "DELETE" });
+      if (response.ok) {
+        setChallenge((prev) => ({
+          ...prev,
+          challenge_modules: prev.challenge_modules.map((m) => ({
+            ...m,
+            challenge_lessons: m.challenge_lessons.filter((l) => l.id !== lessonId),
+          })),
+        }));
+      }
     } catch (err) {
       console.error("Failed to delete lesson:", err);
     }
@@ -220,7 +338,18 @@ export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditor
       });
 
       if (response.ok) {
-        router.refresh();
+        const newBlock = await response.json();
+        setChallenge((prev) => ({
+          ...prev,
+          challenge_modules: prev.challenge_modules.map((m) => ({
+            ...m,
+            challenge_lessons: m.challenge_lessons.map((l) =>
+              l.id === lessonId
+                ? { ...l, lesson_content_blocks: [...l.lesson_content_blocks, newBlock] }
+                : l
+            ),
+          })),
+        }));
       }
     } catch (err) {
       console.error("Failed to add content block:", err);
@@ -229,8 +358,19 @@ export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditor
 
   async function deleteContentBlock(blockId: string) {
     try {
-      await fetch(`/api/admin/content-blocks/${blockId}`, { method: "DELETE" });
-      router.refresh();
+      const response = await fetch(`/api/admin/content-blocks/${blockId}`, { method: "DELETE" });
+      if (response.ok) {
+        setChallenge((prev) => ({
+          ...prev,
+          challenge_modules: prev.challenge_modules.map((m) => ({
+            ...m,
+            challenge_lessons: m.challenge_lessons.map((l) => ({
+              ...l,
+              lesson_content_blocks: l.lesson_content_blocks.filter((b) => b.id !== blockId),
+            })),
+          })),
+        }));
+      }
     } catch (err) {
       console.error("Failed to delete content block:", err);
     }
@@ -420,14 +560,19 @@ export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditor
                         value={mod.title}
                         className="max-w-md"
                         placeholder="Module title"
-                        onChange={async (e) => {
-                          try {
-                            await fetch(`/api/admin/modules/${mod.id}`, {
-                              method: "PATCH",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ title: e.target.value }),
-                            });
-                          } catch (err) {}
+                        onChange={(e) => {
+                          const newTitle = e.target.value;
+                          setChallenge((prev) => ({
+                            ...prev,
+                            challenge_modules: prev.challenge_modules.map((m) =>
+                              m.id === mod.id ? { ...m, title: newTitle } : m
+                            ),
+                          }));
+                          debouncedPatch(
+                            `/api/admin/modules/${mod.id}`,
+                            { title: newTitle },
+                            `mod-${mod.id}`
+                          );
                         }}
                       />
                       <div className="flex gap-2">
@@ -463,14 +608,22 @@ export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditor
                                   value={lesson.title}
                                   className="max-w-sm"
                                   placeholder="Lesson title"
-                                  onChange={async (e) => {
-                                    try {
-                                      await fetch(`/api/admin/lessons/${lesson.id}`, {
-                                        method: "PATCH",
-                                        headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({ title: e.target.value }),
-                                      });
-                                    } catch (err) {}
+                                  onChange={(e) => {
+                                    const newTitle = e.target.value;
+                                    setChallenge((prev) => ({
+                                      ...prev,
+                                      challenge_modules: prev.challenge_modules.map((m) => ({
+                                        ...m,
+                                        challenge_lessons: m.challenge_lessons.map((l) =>
+                                          l.id === lesson.id ? { ...l, title: newTitle } : l
+                                        ),
+                                      })),
+                                    }));
+                                    debouncedPatch(
+                                      `/api/admin/lessons/${lesson.id}`,
+                                      { title: newTitle },
+                                      `lesson-${lesson.id}`
+                                    );
                                   }}
                                 />
                               </div>
@@ -484,26 +637,128 @@ export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditor
                             </div>
 
                             {/* Content Blocks */}
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                               {lesson.lesson_content_blocks.map((block) => (
                                 <div
                                   key={block.id}
-                                  className="flex items-center gap-2 p-2 bg-background rounded"
+                                  className="p-3 bg-background rounded border space-y-2"
                                 >
-                                  {getBlockIcon(block.block_type)}
-                                  <span className="text-sm capitalize">
-                                    {block.block_type.replace("_", " ")}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground truncate flex-1">
-                                    {block.content?.substring(0, 50) || block.file_name || "..."}
-                                  </span>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => deleteContentBlock(block.id)}
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      {getBlockIcon(block.block_type)}
+                                      <span className="text-sm font-medium capitalize">
+                                        {block.block_type.replace("_", " ")}
+                                      </span>
+                                    </div>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => deleteContentBlock(block.id)}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                  {block.block_type === "rich_text" ? (
+                                    <Textarea
+                                      value={block.content ?? ""}
+                                      placeholder="Enter your content here..."
+                                      rows={4}
+                                      className="resize-y"
+                                      onChange={(e) => {
+                                        const newContent = e.target.value;
+                                        setChallenge((prev) => ({
+                                          ...prev,
+                                          challenge_modules: prev.challenge_modules.map((m) => ({
+                                            ...m,
+                                            challenge_lessons: m.challenge_lessons.map((l) => ({
+                                              ...l,
+                                              lesson_content_blocks: l.lesson_content_blocks.map((b) =>
+                                                b.id === block.id ? { ...b, content: newContent } : b
+                                              ),
+                                            })),
+                                          })),
+                                        }));
+                                        debouncedPatch(
+                                          `/api/admin/content-blocks/${block.id}`,
+                                          { content: newContent },
+                                          `block-${block.id}`
+                                        );
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="space-y-2">
+                                      {/* Upload button */}
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="file"
+                                          ref={(el) => { fileInputRefs.current[block.id] = el; }}
+                                          className="hidden"
+                                          accept={
+                                            block.block_type === "image" ? "image/*" :
+                                            block.block_type === "video" ? "video/*" :
+                                            "*/*"
+                                          }
+                                          onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) handleBlockFileUpload(block.id, block.block_type, file);
+                                            e.target.value = "";
+                                          }}
+                                        />
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="outline"
+                                          disabled={uploadingBlockId === block.id}
+                                          onClick={() => fileInputRefs.current[block.id]?.click()}
+                                        >
+                                          {uploadingBlockId === block.id ? (
+                                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                          ) : (
+                                            <Upload className="h-3 w-3 mr-1" />
+                                          )}
+                                          {uploadingBlockId === block.id ? "Uploading..." : "Upload File"}
+                                        </Button>
+                                        <span className="text-xs text-muted-foreground">or paste a URL below</span>
+                                      </div>
+                                      {/* URL input */}
+                                      <Input
+                                        value={block.content ?? block.file_name ?? ""}
+                                        placeholder={
+                                          block.block_type === "image" ? "Image URL..." :
+                                          block.block_type === "video" ? "Video URL..." :
+                                          "File URL..."
+                                        }
+                                        onChange={(e) => {
+                                          const newValue = e.target.value;
+                                          const field = block.block_type === "file" ? "file_name" : "content";
+                                          setChallenge((prev) => ({
+                                            ...prev,
+                                            challenge_modules: prev.challenge_modules.map((m) => ({
+                                              ...m,
+                                              challenge_lessons: m.challenge_lessons.map((l) => ({
+                                                ...l,
+                                                lesson_content_blocks: l.lesson_content_blocks.map((b) =>
+                                                  b.id === block.id ? { ...b, [field]: newValue } : b
+                                                ),
+                                              })),
+                                            })),
+                                          }));
+                                          debouncedPatch(
+                                            `/api/admin/content-blocks/${block.id}`,
+                                            { [field]: newValue },
+                                            `block-${block.id}`
+                                          );
+                                        }}
+                                      />
+                                      {/* Preview */}
+                                      {block.block_type === "image" && block.content && (
+                                        <img src={block.content} alt="" className="max-h-40 rounded-lg object-cover" />
+                                      )}
+                                      {block.block_type === "video" && block.content && (
+                                        <video src={block.content} controls className="max-h-40 rounded-lg" />
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>
