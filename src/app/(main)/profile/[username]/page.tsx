@@ -138,6 +138,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
         enrollments={filteredEnrollments}
         rsvps={filteredRsvps}
         currentUserId={user?.id}
+        isOwnProfile={isOwnProfile}
       />
     </div>
   );

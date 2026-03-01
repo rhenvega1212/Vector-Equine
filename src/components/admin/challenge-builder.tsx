@@ -20,6 +20,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Loader2, Save, Eye, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { CoverImageUpload } from "@/components/shared/cover-image-upload";
 
 const challengeSchema = z.object({
   title: z.string().min(1, "Title is required").max(200),
@@ -169,28 +170,25 @@ export function ChallengeBuilder({ initialData, isEditing = false }: ChallengeBu
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="price_display">Price Display</Label>
-              <Input
-                id="price_display"
-                placeholder="e.g., $49.99 or Free"
-                {...register("price_display")}
-              />
-              <p className="text-xs text-muted-foreground">
-                Display only, no payments processed
-              </p>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="price_display">Price Display</Label>
+            <Input
+              id="price_display"
+              placeholder="e.g., $49.99 or Free"
+              {...register("price_display")}
+            />
+            <p className="text-xs text-muted-foreground">
+              Display only, no payments processed
+            </p>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="cover_image_url">Cover Image URL</Label>
-              <Input
-                id="cover_image_url"
-                type="url"
-                placeholder="https://..."
-                {...register("cover_image_url")}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label>Cover Image</Label>
+            <CoverImageUpload
+              value={watch("cover_image_url") || null}
+              onChange={(url) => setValue("cover_image_url", url || "")}
+              pathPrefix={`covers/${initialData?.id || "new"}`}
+            />
           </div>
         </CardContent>
       </Card>

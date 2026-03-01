@@ -222,33 +222,49 @@ export function PostCard({
           <p className="mt-4 whitespace-pre-wrap">{post.content}</p>
 
           {post.post_media.length > 0 && (
-            <div
-              className={`grid gap-2 mt-4 ${
-                post.post_media.length === 1
-                  ? "grid-cols-1"
-                  : post.post_media.length === 2
-                  ? "grid-cols-2"
-                  : "grid-cols-3"
-              }`}
-            >
-              {post.post_media.map((media) => (
-                <div key={media.id} className="relative aspect-square overflow-hidden rounded-lg">
-                  {media.media_type === "image" ? (
-                    <img
-                      src={media.url}
-                      alt=""
-                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                    />
-                  ) : (
-                    <video
-                      src={media.url}
-                      controls
-                      className="w-full h-full object-cover rounded"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
+            post.post_media.length === 1 ? (
+              <div className="mt-4 overflow-hidden rounded-lg">
+                {post.post_media[0].media_type === "image" ? (
+                  <img
+                    src={post.post_media[0].url}
+                    alt=""
+                    className="w-full max-h-[600px] object-contain bg-black/20 rounded-lg"
+                  />
+                ) : (
+                  <video
+                    src={post.post_media[0].url}
+                    controls
+                    className="w-full max-h-[600px] rounded-lg bg-black"
+                  />
+                )}
+              </div>
+            ) : (
+              <div
+                className={`grid gap-2 mt-4 ${
+                  post.post_media.length === 2
+                    ? "grid-cols-2"
+                    : "grid-cols-3"
+                }`}
+              >
+                {post.post_media.map((media) => (
+                  <div key={media.id} className="relative aspect-square overflow-hidden rounded-lg">
+                    {media.media_type === "image" ? (
+                      <img
+                        src={media.url}
+                        alt=""
+                        className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                      />
+                    ) : (
+                      <video
+                        src={media.url}
+                        controls
+                        className="w-full h-full object-cover rounded"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )
           )}
 
           {post.tags.length > 0 && (

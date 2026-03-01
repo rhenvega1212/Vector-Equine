@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ChallengeEnroll } from "@/components/challenges/challenge-enroll";
+import { ProgressIndicator } from "@/components/challenges/progress-indicator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import {
   Lock,
   PlayCircle,
 } from "lucide-react";
+import { calculateModuleProgress } from "@/lib/challenges/gating";
 
 interface ChallengePageProps {
   params: Promise<{ id: string }>;
@@ -26,7 +28,6 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Check if user is admin
   let isAdmin = false;
   if (user) {
     const { data: profile } = await supabase
@@ -37,7 +38,6 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
     isAdmin = profile?.role === "admin";
   }
 
-  // Get challenge with modules and lessons
   const { data: challenge } = await supabase
     .from("challenges")
     .select(`
@@ -53,7 +53,9 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
           title,
           description,
           requires_submission,
-          sort_order
+          sort_order,
+          gating_type,
+          estimated_time
         )
       ),
       challenge_enrollments (id, user_id)
@@ -65,13 +67,11 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
     notFound();
   }
 
-  // Check if challenge is draft - only admins can view draft challenges
   const isDraft = challenge.status === "draft";
   if (isDraft && !isAdmin) {
     notFound();
   }
 
-  // When archived, show ended message and link to public archive (participant content only)
   const isArchived = challenge.status === "archived";
   if (isArchived) {
     return (
@@ -100,12 +100,10 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
     );
   }
 
-  // Check enrollment
   const isEnrolled = user
     ? challenge.challenge_enrollments.some((e: any) => e.user_id === user.id)
     : false;
 
-  // Get user's completed lessons if enrolled
   let completedLessonIds: string[] = [];
   if (user && isEnrolled) {
     const allLessonIds = challenge.challenge_modules.flatMap((m: any) =>
@@ -119,7 +117,6 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
     completedLessonIds = completions?.map((c: any) => c.lesson_id) || [];
   }
 
-  // Sort modules and lessons
   const sortedModules = [...challenge.challenge_modules].sort(
     (a: any, b: any) => a.sort_order - b.sort_order
   );
@@ -129,7 +126,6 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
     );
   });
 
-  // Calculate progress
   const totalLessons = sortedModules.reduce(
     (acc: number, m: any) => acc + m.challenge_lessons.length,
     0
@@ -138,7 +134,6 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
   const progressPercent =
     totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
 
-  // Get current lesson (first incomplete)
   let currentLessonId: string | null = null;
   outer: for (const mod of sortedModules) {
     for (const lesson of mod.challenge_lessons) {
@@ -158,7 +153,6 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
         </Button>
       </Link>
 
-      {/* Draft indicator for admins */}
       {isDraft && isAdmin && (
         <div className="mb-4 p-3 bg-yellow-500/20 border border-yellow-500/50 rounded-lg flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -208,78 +202,102 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
           <div>
             <h2 className="text-xl font-semibold mb-4">Course Content</h2>
             <div className="space-y-4">
-              {sortedModules.map((module: any, moduleIndex: number) => (
-                <Card key={module.id}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">
-                      Module {moduleIndex + 1}: {module.title}
-                    </CardTitle>
-                    {module.description && (
-                      <p className="text-sm text-muted-foreground">
-                        {module.description}
-                      </p>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {module.challenge_lessons.map(
-                        (lesson: any, lessonIndex: number) => {
-                          const isCompleted = completedLessonIds.includes(
-                            lesson.id
-                          );
-                          const isCurrent = lesson.id === currentLessonId;
-                          const isLocked =
-                            isEnrolled &&
-                            !isCompleted &&
-                            !isCurrent &&
-                            lessonIndex > 0;
+              {sortedModules.map((module: any, moduleIndex: number) => {
+                const moduleLessons = module.challenge_lessons.map((l: any) => ({
+                  isComplete: completedLessonIds.includes(l.id),
+                }));
+                const modProgress = calculateModuleProgress(moduleLessons);
 
-                          return (
-                            <div
-                              key={lesson.id}
-                              className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50"
-                            >
-                              {isCompleted ? (
-                                <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
-                              ) : isLocked ? (
-                                <Lock className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                              ) : (
-                                <PlayCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                              )}
-                              <div className="flex-1 min-w-0">
-                                {isEnrolled && !isLocked ? (
-                                  <Link
-                                    href={`/challenges/${challenge.id}/lessons/${lesson.id}`}
-                                    className="font-medium hover:underline"
-                                  >
-                                    {lesson.title}
-                                  </Link>
-                                ) : (
-                                  <span
-                                    className={
-                                      isLocked ? "text-muted-foreground" : ""
-                                    }
-                                  >
-                                    {lesson.title}
-                                  </span>
-                                )}
-                                {lesson.requires_submission && (
-                                  <Badge
-                                    variant="secondary"
-                                    className="ml-2 text-xs"
-                                  >
-                                    Assignment
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        }
+                return (
+                  <Card key={module.id}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">
+                          Module {moduleIndex + 1}: {module.title}
+                        </CardTitle>
+                      </div>
+                      {module.description && (
+                        <p className="text-sm text-muted-foreground">
+                          {module.description}
+                        </p>
                       )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      {isEnrolled && module.challenge_lessons.length > 0 && (
+                        <div className="pt-2">
+                          <ProgressIndicator variant="module" progress={modProgress} />
+                        </div>
+                      )}
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {module.challenge_lessons.map(
+                          (lesson: any, lessonIndex: number) => {
+                            const isLessonCompleted = completedLessonIds.includes(lesson.id);
+                            const isCurrent = lesson.id === currentLessonId;
+
+                            const prevLessonInModule = lessonIndex > 0
+                              ? module.challenge_lessons[lessonIndex - 1]
+                              : null;
+                            const prevLessonComplete = prevLessonInModule
+                              ? completedLessonIds.includes(prevLessonInModule.id)
+                              : true;
+                            const lessonGating = lesson.gating_type || "none";
+                            const isLocked =
+                              isEnrolled &&
+                              !isLessonCompleted &&
+                              !isCurrent &&
+                              lessonGating === "hard" &&
+                              !prevLessonComplete;
+
+                            return (
+                              <div
+                                key={lesson.id}
+                                className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50"
+                              >
+                                {isLessonCompleted ? (
+                                  <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
+                                ) : isLocked ? (
+                                  <Lock className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                                ) : (
+                                  <PlayCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {isEnrolled && !isLocked ? (
+                                      <Link
+                                        href={`/challenges/${challenge.id}/lessons/${lesson.id}`}
+                                        className="font-medium hover:underline"
+                                      >
+                                        {lesson.title}
+                                      </Link>
+                                    ) : (
+                                      <span
+                                        className={isLocked ? "text-muted-foreground" : ""}
+                                      >
+                                        {lesson.title}
+                                      </span>
+                                    )}
+                                    {lesson.requires_submission && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        Assignment
+                                      </Badge>
+                                    )}
+                                    {lesson.estimated_time != null && lesson.estimated_time > 0 && (
+                                      <Badge variant="outline" className="text-xs gap-1 py-0">
+                                        <Clock className="h-3 w-3" />
+                                        {lesson.estimated_time} min
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </div>
         </div>

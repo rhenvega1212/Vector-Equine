@@ -53,6 +53,8 @@ import {
   MAX_VIDEO_SIZE_MB,
   MAX_FILE_SIZE_MB,
 } from "@/lib/uploads/storage";
+import { CoverImageUpload } from "@/components/shared/cover-image-upload";
+import { VideoBlockEditor } from "@/components/admin/video-block-editor";
 
 interface Challenge {
   id: string;
@@ -464,7 +466,18 @@ export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditor
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>Cover Image</Label>
+            <CoverImageUpload
+              value={editForm.cover_image_url || null}
+              onChange={(url) =>
+                setEditForm({ ...editForm, cover_image_url: url || "" })
+              }
+              pathPrefix={`covers/${challenge.id}`}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Duration (days)</Label>
               <Input
@@ -478,13 +491,6 @@ export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditor
               <Input
                 value={editForm.price_display}
                 onChange={(e) => setEditForm({ ...editForm, price_display: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Cover Image URL</Label>
-              <Input
-                value={editForm.cover_image_url}
-                onChange={(e) => setEditForm({ ...editForm, cover_image_url: e.target.value })}
               />
             </div>
           </div>
@@ -685,6 +691,28 @@ export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditor
                                         );
                                       }}
                                     />
+                                  ) : block.block_type === "video" ? (
+                                    <VideoBlockEditor
+                                      blockId={block.id}
+                                      challengeId={challenge.id}
+                                      initialUrl={block.content ?? ""}
+                                      onSave={(url) => {
+                                        setChallenge((prev) => ({
+                                          ...prev,
+                                          challenge_modules: prev.challenge_modules.map((m) => ({
+                                            ...m,
+                                            challenge_lessons: m.challenge_lessons.map((l) => ({
+                                              ...l,
+                                              lesson_content_blocks: l.lesson_content_blocks.map((b) =>
+                                                b.id === block.id ? { ...b, content: url } : b
+                                              ),
+                                            })),
+                                          })),
+                                        }));
+                                      }}
+                                      onUploadStart={() => setUploadingBlockId(block.id)}
+                                      onUploadEnd={() => setUploadingBlockId(null)}
+                                    />
                                   ) : (
                                     <div className="space-y-2">
                                       {/* Upload button */}
@@ -694,9 +722,7 @@ export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditor
                                           ref={(el) => { fileInputRefs.current[block.id] = el; }}
                                           className="hidden"
                                           accept={
-                                            block.block_type === "image" ? "image/*" :
-                                            block.block_type === "video" ? "video/*" :
-                                            "*/*"
+                                            block.block_type === "image" ? "image/*" : "*/*"
                                           }
                                           onChange={(e) => {
                                             const file = e.target.files?.[0];
@@ -724,9 +750,7 @@ export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditor
                                       <Input
                                         value={block.content ?? block.file_name ?? ""}
                                         placeholder={
-                                          block.block_type === "image" ? "Image URL..." :
-                                          block.block_type === "video" ? "Video URL..." :
-                                          "File URL..."
+                                          block.block_type === "image" ? "Image URL..." : "File URL..."
                                         }
                                         onChange={(e) => {
                                           const newValue = e.target.value;
@@ -753,9 +777,6 @@ export function ChallengeEditor({ challenge: initialChallenge }: ChallengeEditor
                                       {/* Preview */}
                                       {block.block_type === "image" && block.content && (
                                         <img src={block.content} alt="" className="max-h-40 rounded-lg object-cover" />
-                                      )}
-                                      {block.block_type === "video" && block.content && (
-                                        <video src={block.content} controls className="max-h-40 rounded-lg" />
                                       )}
                                     </div>
                                   )}

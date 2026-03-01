@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { uploadFile, isValidImageType, isValidVideoType } from "@/lib/uploads/storage";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, Image as ImageIcon, X, Video } from "lucide-react";
+import { Loader2, Image as ImageIcon, X, Video, Crop } from "lucide-react";
+import { MediaCropper } from "./media-cropper";
 
 const AVAILABLE_TAGS = [
   "training",
@@ -39,6 +40,8 @@ export function CreatePost() {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [cropperIndex, setCropperIndex] = useState<number | null>(null);
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) =>
@@ -96,6 +99,27 @@ export function CreatePost() {
       newMedia.splice(index, 1);
       return newMedia;
     });
+  }
+
+  function openCropper(index: number) {
+    setCropperIndex(index);
+    setCropperOpen(true);
+  }
+
+  function handleCropComplete(croppedBlob: Blob) {
+    if (cropperIndex === null) return;
+    setMedia((prev) => {
+      const updated = [...prev];
+      const old = updated[cropperIndex];
+      URL.revokeObjectURL(old.url);
+      const croppedUrl = URL.createObjectURL(croppedBlob);
+      const croppedFile = new File([croppedBlob], old.file?.name || "cropped.jpg", {
+        type: "image/jpeg",
+      });
+      updated[cropperIndex] = { url: croppedUrl, media_type: "image", file: croppedFile };
+      return updated;
+    });
+    setCropperIndex(null);
   }
 
   async function handleSubmit() {
@@ -184,27 +208,54 @@ export function CreatePost() {
         />
 
         {media.length > 0 && (
-          <div className="grid grid-cols-3 gap-2 mt-4">
+          <div className={`mt-4 ${media.length === 1 ? "" : "grid grid-cols-3 gap-2"}`}>
             {media.map((item, index) => (
-              <div key={index} className="relative aspect-square">
+              <div
+                key={index}
+                className={`relative overflow-hidden rounded-lg ${
+                  media.length === 1 ? "" : "aspect-square"
+                }`}
+              >
                 {item.media_type === "image" ? (
                   <img
                     src={item.url}
                     alt=""
-                    className="w-full h-full object-cover rounded"
+                    className={
+                      media.length === 1
+                        ? "w-full max-h-[400px] object-contain bg-black/10 rounded-lg"
+                        : "w-full h-full object-cover rounded"
+                    }
                   />
                 ) : (
-                  <div className="w-full h-full bg-muted rounded flex items-center justify-center">
-                    <Video className="h-8 w-8 text-muted-foreground" />
-                  </div>
+                  <video
+                    src={item.url}
+                    className={
+                      media.length === 1
+                        ? "w-full max-h-[400px] rounded-lg bg-black"
+                        : "w-full h-full object-cover rounded"
+                    }
+                    controls
+                  />
                 )}
-                <button
-                  type="button"
-                  onClick={() => removeMedia(index)}
-                  className="absolute top-1 right-1 p-1 bg-background/80 rounded-full hover:bg-background"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                <div className="absolute top-1 right-1 flex gap-1">
+                  {item.media_type === "image" && (
+                    <button
+                      type="button"
+                      onClick={() => openCropper(index)}
+                      className="p-1.5 bg-background/80 rounded-full hover:bg-background transition-colors"
+                      title="Crop"
+                    >
+                      <Crop className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeMedia(index)}
+                    className="p-1.5 bg-background/80 rounded-full hover:bg-background transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -267,6 +318,18 @@ export function CreatePost() {
           </div>
         </div>
       </CardContent>
+
+      {cropperIndex !== null && media[cropperIndex] && (
+        <MediaCropper
+          open={cropperOpen}
+          onOpenChange={(open) => {
+            setCropperOpen(open);
+            if (!open) setCropperIndex(null);
+          }}
+          imageSrc={media[cropperIndex].url}
+          onCropComplete={handleCropComplete}
+        />
+      )}
     </Card>
   );
 }

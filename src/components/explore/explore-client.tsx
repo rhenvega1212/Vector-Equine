@@ -20,9 +20,13 @@ import {
   Loader2,
   LayoutGrid,
   List,
+  TrendingUp,
+  Heart,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useInView } from "react-intersection-observer";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 type ExploreItem = {
   type: "post" | "ad" | "account_suggestion";
@@ -51,6 +55,9 @@ export function ExploreClient({ userId }: ExploreClientProps) {
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+
+  const [trendingPosts, setTrendingPosts] = useState<any[]>([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
 
   const { ref: sentinelRef, inView } = useInView({ threshold: 0 });
   const loadingRef = useRef(false);
@@ -119,6 +126,21 @@ export function ExploreClient({ userId }: ExploreClientProps) {
   useEffect(() => {
     loadFeed(null, false);
   }, [loadFeed]);
+
+  useEffect(() => {
+    async function fetchTrending() {
+      try {
+        const res = await fetch("/api/explore/trending?limit=12");
+        const data = await res.json();
+        setTrendingPosts(data.posts ?? []);
+      } catch {
+        setTrendingPosts([]);
+      } finally {
+        setTrendingLoading(false);
+      }
+    }
+    fetchTrending();
+  }, []);
 
   useEffect(() => {
     if (inView && hasMore && !loading && !loadingMore) {
@@ -293,6 +315,102 @@ export function ExploreClient({ userId }: ExploreClientProps) {
               {loadingMore && (
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Trending Section */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <TrendingUp className="h-5 w-5 text-amber-400" />
+            Trending
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Popular posts from the community
+          </p>
+        </CardHeader>
+        <CardContent>
+          {trendingLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="aspect-[4/5] rounded-xl" />
+              ))}
+            </div>
+          ) : trendingPosts.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">
+              No trending posts yet.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+              {trendingPosts.map((post) => {
+                const firstImage = post.post_media?.find(
+                  (m: any) => m.media_type === "image"
+                );
+                const likesCount = post.post_likes?.length ?? 0;
+                const commentsCount = post.comments?.length ?? 0;
+                const initials = post.profiles?.display_name
+                  ?.split(" ")
+                  .map((n: string) => n[0])
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2) || "?";
+
+                return (
+                  <button
+                    key={post.id}
+                    type="button"
+                    onClick={() => setSelectedPost(post)}
+                    className="group relative rounded-xl overflow-hidden border border-white/10 bg-white/5 hover:border-amber-400/30 hover:bg-white/[0.07] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-amber-400/50 text-left"
+                  >
+                    <div className={firstImage ? "aspect-[4/5]" : "aspect-[4/5]"}>
+                      {firstImage ? (
+                        <img
+                          src={firstImage.url}
+                          alt=""
+                          className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-800 to-slate-900">
+                          <p className="text-sm text-white/70 line-clamp-5">
+                            {post.content?.slice(0, 120) || "No content"}
+                          </p>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+
+                      {/* Trending badge */}
+                      <span className="absolute top-2 right-2 text-[10px] font-medium text-amber-400 bg-amber-400/20 backdrop-blur-sm px-2 py-0.5 rounded-full">
+                        Trending
+                      </span>
+
+                      {/* Bottom info */}
+                      <div className="absolute bottom-0 left-0 right-0 p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-6 w-6 ring-2 ring-background">
+                            <AvatarImage src={post.profiles?.avatar_url || undefined} />
+                            <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs font-medium truncate text-white drop-shadow-md">
+                            {post.profiles?.display_name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-white/80 text-xs">
+                          <span className="flex items-center gap-1">
+                            <Heart className="h-3 w-3 fill-current text-red-400" />
+                            {likesCount}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <MessageCircle className="h-3 w-3" />
+                            {commentsCount}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </CardContent>

@@ -7,6 +7,7 @@ import { useInView } from "react-intersection-observer";
 import { useEffect, useRef, useCallback } from "react";
 import { PostCard } from "./post-card";
 import { HomeAdCard } from "./home-ad-card";
+import { PullToRefresh } from "./pull-to-refresh";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -69,6 +70,7 @@ export function FeedList({ type, userId }: FeedListProps) {
     initialPageParam: null as string | null,
     enabled: useRankedFeed,
     retry: false,
+    staleTime: 0,
   });
 
   // Legacy/fallback feed: offset-based chronological. Key by userId for impersonation.
@@ -82,6 +84,7 @@ export function FeedList({ type, userId }: FeedListProps) {
     },
     initialPageParam: 0,
     enabled: !useRankedFeed,
+    staleTime: 0,
   });
 
   const activeQuery = useRankedFeed ? homeQuery : legacyQuery;
@@ -120,6 +123,14 @@ export function FeedList({ type, userId }: FeedListProps) {
       setRankedFeedFailed(true);
     }
   }, [homeQuery.data?.pages]);
+
+  const handleRefresh = useCallback(async () => {
+    if (useRankedFeed) {
+      await queryClient.invalidateQueries({ queryKey: ["home-feed", userId] });
+    } else {
+      await queryClient.invalidateQueries({ queryKey: ["feed"] });
+    }
+  }, [useRankedFeed, queryClient, userId]);
 
   if (activeQuery.isLoading) {
     return (
@@ -169,32 +180,34 @@ export function FeedList({ type, userId }: FeedListProps) {
     }
 
     return (
-      <div className="space-y-4">
-        {allItems.map((item: any) => {
-          if (item.type === "ad") {
-            return <HomeAdCard key={item.id} ad={item.ad} />;
-          }
+      <PullToRefresh onRefresh={handleRefresh}>
+        <div className="space-y-4">
+          {allItems.map((item: any) => {
+            if (item.type === "ad") {
+              return <HomeAdCard key={item.id} ad={item.ad} />;
+            }
 
-          const isSuggested = item.source === "suggested";
-          return (
-            <PostCard
-              key={item.id}
-              post={item.post}
-              currentUserId={userId}
-              isSuggested={isSuggested}
-              onFollowSuccess={() =>
-                queryClient.invalidateQueries({ queryKey: ["home-feed", userId] })
-              }
-            />
-          );
-        })}
+            const isSuggested = item.source === "suggested";
+            return (
+              <PostCard
+                key={item.id}
+                post={item.post}
+                currentUserId={userId}
+                isSuggested={isSuggested}
+                onFollowSuccess={() =>
+                  queryClient.invalidateQueries({ queryKey: ["home-feed", userId] })
+                }
+              />
+            );
+          })}
 
-        <div ref={ref} className="py-4 flex justify-center">
-          {homeQuery.isFetchingNextPage && (
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          )}
+          <div ref={ref} className="py-4 flex justify-center">
+            {homeQuery.isFetchingNextPage && (
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            )}
+          </div>
         </div>
-      </div>
+      </PullToRefresh>
     );
   }
 
@@ -219,32 +232,34 @@ export function FeedList({ type, userId }: FeedListProps) {
   }
 
   return (
-    <div className="space-y-4">
-      {allPosts.map((post: any) => {
-        const authorId = post.profiles?.id ?? post.author_id;
-        const isSuggested =
-          !!userId &&
-          !!authorId &&
-          authorId !== userId &&
-          !followingAuthorIds.has(authorId);
-        return (
-          <PostCard
-            key={post.id}
-            post={post}
-            currentUserId={userId}
-            isSuggested={isSuggested}
-            onFollowSuccess={() =>
-              queryClient.invalidateQueries({ queryKey: ["feed", type, userId] })
-            }
-          />
-        );
-      })}
+    <PullToRefresh onRefresh={handleRefresh}>
+      <div className="space-y-4">
+        {allPosts.map((post: any) => {
+          const authorId = post.profiles?.id ?? post.author_id;
+          const isSuggested =
+            !!userId &&
+            !!authorId &&
+            authorId !== userId &&
+            !followingAuthorIds.has(authorId);
+          return (
+            <PostCard
+              key={post.id}
+              post={post}
+              currentUserId={userId}
+              isSuggested={isSuggested}
+              onFollowSuccess={() =>
+                queryClient.invalidateQueries({ queryKey: ["feed", type, userId] })
+              }
+            />
+          );
+        })}
 
-      <div ref={ref} className="py-4 flex justify-center">
-        {legacyQuery.isFetchingNextPage && (
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        )}
+        <div ref={ref} className="py-4 flex justify-center">
+          {legacyQuery.isFetchingNextPage && (
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          )}
+        </div>
       </div>
-    </div>
+    </PullToRefresh>
   );
 }

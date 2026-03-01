@@ -1,14 +1,16 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { LessonContent } from "@/components/challenges/lesson-content";
-import { LessonAssignment } from "@/components/challenges/lesson-assignment";
+import { BlockRendererClient } from "@/components/challenges/block-renderer-client";
 import { LessonNavigation } from "@/components/challenges/lesson-navigation";
+import { GatingStatus } from "@/components/challenges/gating-status";
+import { ProgressIndicator } from "@/components/challenges/progress-indicator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, CheckCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle, Clock } from "lucide-react";
+import { evaluateGating, calculateLessonProgress, type LessonProgressData, type LessonGatingConfig } from "@/lib/challenges/gating";
 
 interface LessonPageProps {
   params: Promise<{ id: string; lessonId: string }>;
@@ -23,7 +25,6 @@ export default async function LessonPage({ params }: LessonPageProps) {
     redirect("/login");
   }
 
-  // Check enrollment
   const { data: enrollment } = await supabase
     .from("challenge_enrollments")
     .select("id")
@@ -35,7 +36,6 @@ export default async function LessonPage({ params }: LessonPageProps) {
     redirect(`/challenges/${challengeId}`);
   }
 
-  // Get lesson with content blocks and assignment
   const { data: lesson } = await supabase
     .from("challenge_lessons")
     .select(`
@@ -56,38 +56,28 @@ export default async function LessonPage({ params }: LessonPageProps) {
     notFound();
   }
 
-  // Get all lessons in the challenge for navigation
   const { data: allModules } = await supabase
     .from("challenge_modules")
     .select(`
-      id,
-      title,
-      sort_order,
+      id, title, sort_order,
       challenge_lessons (id, title, sort_order)
     `)
     .eq("challenge_id", challengeId)
     .order("sort_order") as { data: any[] | null };
 
-  // Sort and flatten all lessons
-  const sortedModules = (allModules || []).sort(
-    (a, b) => a.sort_order - b.sort_order
-  );
+  const sortedModules = (allModules || []).sort((a, b) => a.sort_order - b.sort_order);
   const allLessons: any[] = [];
   sortedModules.forEach((module: any) => {
-    module.challenge_lessons.sort(
-      (a: any, b: any) => a.sort_order - b.sort_order
-    );
-    module.challenge_lessons.forEach((lesson: any) => {
-      allLessons.push({ ...lesson, moduleTitle: module.title });
+    module.challenge_lessons.sort((a: any, b: any) => a.sort_order - b.sort_order);
+    module.challenge_lessons.forEach((l: any) => {
+      allLessons.push({ ...l, moduleTitle: module.title });
     });
   });
 
   const currentIndex = allLessons.findIndex((l) => l.id === lessonId);
   const prevLesson = currentIndex > 0 ? allLessons[currentIndex - 1] : null;
-  const nextLesson =
-    currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1] : null;
+  const nextLesson = currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1] : null;
 
-  // Get completed lessons
   const lessonIds = allLessons.map((l) => l.id);
   const { data: completions } = await supabase
     .from("lesson_completions")
@@ -95,13 +85,46 @@ export default async function LessonPage({ params }: LessonPageProps) {
     .eq("user_id", user.id)
     .in("lesson_id", lessonIds) as { data: any[] | null };
   const completedLessonIds = completions?.map((c: any) => c.lesson_id) || [];
-
   const isCompleted = completedLessonIds.includes(lessonId);
-  const progressPercent = Math.round(
-    (completedLessonIds.length / allLessons.length) * 100
-  );
+  const progressPercent = Math.round((completedLessonIds.length / allLessons.length) * 100);
 
-  // Get user's submission if assignment exists
+  // Get block completions
+  const contentBlocks = [...(lesson.lesson_content_blocks || [])].sort(
+    (a: any, b: any) => a.sort_order - b.sort_order
+  );
+  const blockIds = contentBlocks.map((b: any) => b.id);
+  const { data: blockCompletions } = await supabase
+    .from("block_completions")
+    .select("block_id")
+    .eq("user_id", user.id)
+    .in("block_id", blockIds.length > 0 ? blockIds : ["none"]) as { data: any[] | null };
+  const completedBlockIds = blockCompletions?.map((c: any) => c.block_id) || [];
+
+  // Evaluate gating for next lesson
+  const gatingConfig: LessonGatingConfig = {
+    gatingType: (lesson.gating_type as any) || "none",
+    gatingRules: (lesson.gating_rules as any) || {},
+  };
+
+  // Build progress data for gating
+  const blockProgress = contentBlocks.map((b: any) => ({
+    blockId: b.id,
+    blockType: b.block_type,
+    isRequired: b.is_required || false,
+    isCompleted: completedBlockIds.includes(b.id),
+  }));
+
+  const lessonProgress = calculateLessonProgress(blockProgress);
+  const lessonProgressData: LessonProgressData = {
+    lessonId,
+    blocks: blockProgress,
+    discussionPostCount: 0,
+    submissionStatus: null,
+    manuallyApproved: false,
+  };
+  const gatingResult = evaluateGating(gatingConfig, lessonProgressData);
+
+  // Check for submission
   let userSubmission = null;
   if (lesson.assignments && lesson.assignments.length > 0) {
     const { data: submission } = await supabase
@@ -112,11 +135,6 @@ export default async function LessonPage({ params }: LessonPageProps) {
       .single();
     userSubmission = submission;
   }
-
-  // Sort content blocks
-  const contentBlocks = [...(lesson.lesson_content_blocks || [])].sort(
-    (a, b) => a.sort_order - b.sort_order
-  );
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -129,9 +147,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
         </Link>
         <div className="flex items-center gap-4">
           <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
-            <span>
-              {completedLessonIds.length}/{allLessons.length}
-            </span>
+            <span>{completedLessonIds.length}/{allLessons.length}</span>
             <Progress value={progressPercent} className="w-24 h-2" />
           </div>
           {isCompleted && (
@@ -152,33 +168,43 @@ export default async function LessonPage({ params }: LessonPageProps) {
           {lesson.description && (
             <p className="text-muted-foreground mt-2">{lesson.description}</p>
           )}
+          <div className="flex items-center gap-4 mt-3">
+            {lesson.estimated_time && (
+              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {lesson.estimated_time} min
+              </span>
+            )}
+            {lessonProgress.requiredTotal > 0 && (
+              <span className="text-sm text-muted-foreground">
+                {lessonProgress.requiredComplete}/{lessonProgress.requiredTotal} blocks completed
+              </span>
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      <div className="space-y-6">
-        {contentBlocks.map((block) => (
-          <LessonContent key={block.id} block={block} />
-        ))}
+      <BlockRendererClient
+        blocks={contentBlocks}
+        currentUserId={user.id}
+        challengeId={challengeId}
+        completedBlockIds={completedBlockIds}
+      />
 
-        {lesson.assignments && lesson.assignments.length > 0 && (
-          <LessonAssignment
-            assignment={lesson.assignments[0]}
-            lessonId={lessonId}
-            challengeId={challengeId}
-            userSubmission={userSubmission}
-            isCompleted={isCompleted}
-          />
-        )}
+      {gatingConfig.gatingType !== "none" && (
+        <div className="mt-6">
+          <GatingStatus gatingResult={gatingResult} gatingType={gatingConfig.gatingType} />
+        </div>
+      )}
 
+      <div className="mt-6">
         <LessonNavigation
           challengeId={challengeId}
           lessonId={lessonId}
           prevLesson={prevLesson}
           nextLesson={nextLesson}
           isCompleted={isCompleted}
-          hasSubmission={
-            lesson.requires_submission && lesson.assignments?.length > 0
-          }
+          hasSubmission={lesson.requires_submission && lesson.assignments?.length > 0}
           hasUserSubmission={!!userSubmission}
         />
       </div>

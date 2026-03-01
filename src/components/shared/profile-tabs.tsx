@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,14 +13,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PostCard } from "@/components/feed/post-card";
+import { CreatePost } from "@/components/feed/create-post";
 import { formatDate } from "@/lib/utils";
-import { Trophy, Grid3X3, Image as ImageIcon, Play, Heart, MessageCircle } from "lucide-react";
+import { Trophy, Grid3X3, Image as ImageIcon, Play, Heart, MessageCircle, Plus } from "lucide-react";
 
 interface ProfileTabsProps {
   posts: any[];
   enrollments: any[];
   rsvps: any[];
   currentUserId?: string;
+  isOwnProfile?: boolean;
 }
 
 function formatCount(count: number): string {
@@ -37,8 +40,10 @@ export function ProfileTabs({
   enrollments,
   rsvps,
   currentUserId,
+  isOwnProfile = false,
 }: ProfileTabsProps) {
   const [selectedPost, setSelectedPost] = useState<any>(null);
+  const [showCreatePost, setShowCreatePost] = useState(false);
 
   return (
     <>
@@ -61,19 +66,30 @@ export function ProfileTabs({
         </TabsList>
 
         <TabsContent value="posts" className="mt-4">
+          {isOwnProfile && (
+            <div className="mb-4 flex justify-center">
+              <Button
+                onClick={() => setShowCreatePost(true)}
+                className="gap-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-black font-semibold shadow-lg shadow-cyan-500/25"
+              >
+                <Plus className="h-4 w-4" />
+                Create Post
+              </Button>
+            </div>
+          )}
+
           {posts.length === 0 ? (
             <div className="py-20 text-center">
               <div className="w-20 h-20 mx-auto rounded-full bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center mb-4">
                 <Grid3X3 className="h-10 w-10 text-cyan-400/50" />
               </div>
               <p className="text-lg font-medium text-foreground/80">No posts yet</p>
-              <p className="text-sm text-muted-foreground mt-1">Posts will appear here</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {isOwnProfile ? "Share your first post!" : "Posts will appear here"}
+              </p>
             </div>
           ) : (
             <>
-              <p className="text-xs text-muted-foreground mb-4 text-center sm:text-left">
-                Tap a tile → open post modal with carousel + comments · Long-press / menu → report · Grid supports image/video posts
-              </p>
               <div className="grid grid-cols-3 md:grid-cols-4 gap-1">
                 {posts.map((post) => {
                   const hasMedia = post.post_media && post.post_media.length > 0;
@@ -235,6 +251,20 @@ export function ProfileTabs({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Create Post Dialog (own profile) */}
+      {isOwnProfile && (
+        <Dialog open={showCreatePost} onOpenChange={setShowCreatePost}>
+          <DialogContent className="max-w-lg p-0 bg-slate-900/95 backdrop-blur-xl border-cyan-400/20">
+            <DialogHeader className="px-6 pt-6 pb-0">
+              <DialogTitle>Create Post</DialogTitle>
+            </DialogHeader>
+            <div className="px-2 pb-2">
+              <CreatePost />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }

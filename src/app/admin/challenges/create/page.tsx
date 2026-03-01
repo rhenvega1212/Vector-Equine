@@ -25,17 +25,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createChallengeSchema, type CreateChallengeInput } from "@/lib/validations/challenge";
-import { uploadFile, isValidImageType } from "@/lib/uploads/storage";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ArrowLeft, Upload, X, Calendar, Infinity } from "lucide-react";
+import { CoverImageUpload } from "@/components/shared/cover-image-upload";
+import { Loader2, ArrowLeft, Calendar, Infinity } from "lucide-react";
 
 export default function CreateChallengePage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [coverUrl, setCoverUrl] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
 
   const {
     register,
@@ -54,43 +52,6 @@ export default function CreateChallengePage() {
 
   const scheduleType = watch("schedule_type") ?? "scheduled";
   const isEvergreen = scheduleType === "evergreen";
-
-  async function handleCoverUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!isValidImageType(file)) {
-      toast({
-        title: "Invalid file type",
-        description: "Please upload a JPG, PNG, GIF, or WebP image.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      const { url } = await uploadFile(
-        "challenge-media",
-        file,
-        `covers/${Date.now()}-${file.name}`
-      );
-      setCoverUrl(url);
-      setValue("cover_image_url", url);
-    } catch (error) {
-      toast({
-        title: "Upload failed",
-        description: "Failed to upload cover image. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  }
 
   async function onSubmit(data: CreateChallengeInput) {
     setIsLoading(true);
@@ -159,52 +120,11 @@ export default function CreateChallengePage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-2">
               <Label>Cover Image</Label>
-              {coverUrl ? (
-                <div className="relative">
-                  <img
-                    src={coverUrl}
-                    alt=""
-                    className="w-full h-40 object-cover rounded-lg"
-                  />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-2 right-2"
-                    onClick={() => {
-                      setCoverUrl(null);
-                      setValue("cover_image_url", undefined);
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div>
-                  <Label htmlFor="cover" className="cursor-pointer">
-                    <div className="border-2 border-dashed rounded-lg p-8 text-center hover:bg-muted/50 transition-colors">
-                      {isUploading ? (
-                        <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-                      ) : (
-                        <>
-                          <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
-                          <p className="mt-2 text-sm text-muted-foreground">
-                            Click to upload cover image
-                          </p>
-                        </>
-                      )}
-                    </div>
-                  </Label>
-                  <Input
-                    id="cover"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleCoverUpload}
-                    disabled={isUploading}
-                  />
-                </div>
-              )}
+              <CoverImageUpload
+                value={watch("cover_image_url") || null}
+                onChange={(url) => setValue("cover_image_url", url || undefined)}
+                pathPrefix="covers"
+              />
             </div>
 
             <div className="space-y-2">
