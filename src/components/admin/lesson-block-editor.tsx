@@ -21,6 +21,17 @@ import { Input } from "@/components/ui/input";
 import { BlockWrapper } from "./block-wrapper";
 import { BlockInserter } from "./block-inserter";
 import type { BlockData, BlockEditorProps, BlockType } from "@/lib/blocks/types";
+import { RichTextBlockEditor } from "./blocks/rich-text-editor";
+import { ImageBlockEditor } from "./blocks/image-editor";
+import { VideoBlockEditorWrapper } from "./blocks/video-block-editor-wrapper";
+import { DownloadBlockEditor } from "./blocks/download-editor";
+import { CalloutBlockEditor } from "./blocks/callout-editor";
+import { DividerBlockEditor } from "./blocks/divider-editor";
+import { ChecklistBlockEditor } from "./blocks/checklist-editor";
+import { QuizBlockEditor } from "./blocks/quiz-editor";
+import { DiscussionBlockEditor } from "./blocks/discussion-editor";
+import { SubmissionBlockEditor } from "./blocks/submission-editor";
+import { TrainerLinkBlockEditor } from "./blocks/trainer-link-editor";
 
 interface LessonBlockEditorProps {
   lessonId: string;
@@ -35,7 +46,20 @@ function PlaceholderEditor({ block }: BlockEditorProps) {
   );
 }
 
-const blockEditorMap: Record<string, React.ComponentType<BlockEditorProps>> = {};
+const blockEditorMap: Record<string, React.ComponentType<BlockEditorProps>> = {
+  rich_text: RichTextBlockEditor,
+  image: ImageBlockEditor,
+  video: VideoBlockEditorWrapper,
+  file: DownloadBlockEditor,
+  download: DownloadBlockEditor,
+  callout: CalloutBlockEditor,
+  divider: DividerBlockEditor,
+  checklist: ChecklistBlockEditor,
+  quiz: QuizBlockEditor,
+  discussion: DiscussionBlockEditor,
+  submission: SubmissionBlockEditor,
+  trainer_link: TrainerLinkBlockEditor,
+};
 
 function getBlockEditor(blockType: BlockType): React.ComponentType<BlockEditorProps> {
   return blockEditorMap[blockType] ?? PlaceholderEditor;
