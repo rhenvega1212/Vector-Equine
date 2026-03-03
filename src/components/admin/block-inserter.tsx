@@ -18,6 +18,7 @@ interface BlockInserterProps {
   lessonId: string;
   insertAtOrder: number;
   onBlockAdded: () => void;
+  alwaysVisible?: boolean;
 }
 
 const categories = [
@@ -31,6 +32,7 @@ export function BlockInserter({
   lessonId,
   insertAtOrder,
   onBlockAdded,
+  alwaysVisible = false,
 }: BlockInserterProps) {
   const [open, setOpen] = useState(false);
   const [inserting, setInserting] = useState(false);
@@ -61,31 +63,41 @@ export function BlockInserter({
 
   return (
     <div className="group relative flex items-center justify-center py-1">
-      <div className="absolute inset-x-4 top-1/2 h-px -translate-y-1/2 bg-border opacity-0 transition-opacity group-hover:opacity-100" />
+      <div className={`absolute inset-x-4 top-1/2 h-px -translate-y-1/2 bg-border transition-opacity ${alwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`} />
 
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
-            className="relative z-10 h-6 w-6 rounded-full border-dashed border-cyan-500/40 bg-background text-cyan-500 opacity-0 transition-opacity hover:border-cyan-500 hover:bg-cyan-500/10 hover:text-cyan-600 group-hover:opacity-100"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </Button>
+          {alwaysVisible ? (
+            <Button
+              variant="outline"
+              className="relative z-10 gap-2 border-dashed border-cyan-500/40 text-cyan-500 hover:border-cyan-500 hover:bg-cyan-500/10 hover:text-cyan-400"
+            >
+              <Plus className="h-4 w-4" />
+              Add Block
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="icon"
+              className="relative z-10 h-6 w-6 rounded-full border-dashed border-cyan-500/40 bg-background text-cyan-500 opacity-0 transition-opacity hover:border-cyan-500 hover:bg-cyan-500/10 hover:text-cyan-600 group-hover:opacity-100"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </PopoverTrigger>
 
         <PopoverContent
           align="center"
-          className="w-64 p-2"
+          className="w-52 max-h-64 overflow-y-auto p-1.5"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <div className="space-y-2">
+          <div className="space-y-1">
             {categories.map(({ key, label }) => {
               const blocks = getBlocksByCategory(key);
               if (blocks.length === 0) return null;
               return (
                 <div key={key}>
-                  <p className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <p className="mb-0.5 px-1.5 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     {label}
                   </p>
                   {blocks.map((block) => {
@@ -95,9 +107,9 @@ export function BlockInserter({
                         key={block.type}
                         disabled={inserting}
                         onClick={() => handleSelect(block.type)}
-                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 disabled:opacity-50"
+                        className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-xs transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 disabled:opacity-50"
                       >
-                        <Icon className="h-4 w-4 shrink-0" />
+                        <Icon className="h-3.5 w-3.5 shrink-0" />
                         <span>{block.label}</span>
                       </button>
                     );

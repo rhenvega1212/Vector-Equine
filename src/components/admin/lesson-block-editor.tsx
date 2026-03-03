@@ -152,14 +152,17 @@ export function LessonBlockEditor({
       if (!res.ok) throw new Error("Failed to update block");
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["admin-lesson-blocks", lessonId],
-      });
-    },
   });
 
   function handleBlockUpdate(blockId: string, updates: Partial<BlockData>) {
+    queryClient.setQueryData<BlockData[]>(
+      ["admin-lesson-blocks", lessonId],
+      (old) =>
+        old?.map((b) =>
+          b.id === blockId ? { ...b, ...updates } : b
+        )
+    );
+
     if (debounceTimers.current[`block-${blockId}`]) {
       clearTimeout(debounceTimers.current[`block-${blockId}`]);
     }
@@ -285,10 +288,14 @@ export function LessonBlockEditor({
       </DndContext>
 
       {sortedBlocks.length === 0 && (
-        <div className="py-12 text-center text-muted-foreground">
-          <p className="text-sm">
-            No blocks yet. Use the inserter above to add content.
-          </p>
+        <div className="py-12 flex flex-col items-center gap-4 text-muted-foreground">
+          <p className="text-sm">No blocks yet. Add your first content block.</p>
+          <BlockInserter
+            lessonId={lessonId}
+            insertAtOrder={0}
+            onBlockAdded={handleBlockAdded}
+            alwaysVisible
+          />
         </div>
       )}
     </div>

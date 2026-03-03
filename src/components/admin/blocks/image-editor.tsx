@@ -22,10 +22,12 @@ export function ImageBlockEditor({ block, onUpdate }: BlockEditorProps) {
     setIsUploading(true);
     setError(null);
     try {
+      const ext = file.name.split(".").pop();
+      const uniqueName = `${Date.now()}.${ext}`;
       const { url } = await uploadFile(
         "challenge-media",
         file,
-        `blocks/${block.id}/${file.name}`
+        `blocks/${block.id}/${uniqueName}`
       );
       onUpdate({ content: url });
     } catch (err) {

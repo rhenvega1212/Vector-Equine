@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Save, BookOpen } from "lucide-react";
+import { Loader2, Save, BookOpen, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,6 +54,7 @@ export function CourseEditor({ challengeId }: CourseEditorProps) {
   const [view, setView] = useState<"lesson" | "settings">("settings");
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
   const [activeBlock, setActiveBlock] = useState<import("@/lib/blocks/types").BlockData | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const { data: challenge, isLoading } = useQuery<Challenge>({
     queryKey: ["admin-challenge", challengeId],
@@ -151,7 +152,11 @@ export function CourseEditor({ challengeId }: CourseEditorProps) {
   return (
     <div className="flex h-full flex-row">
       {/* Left sidebar */}
-      <div className="w-72 shrink-0 overflow-y-auto border-r border-border">
+      <div
+        className={`shrink-0 overflow-y-auto border-r border-border transition-all duration-200 ${
+          sidebarCollapsed ? "w-0 overflow-hidden border-r-0" : "w-72"
+        }`}
+      >
         <CourseOutline
           challenge={challenge}
           activeLessonId={activeLessonId}
@@ -163,6 +168,22 @@ export function CourseEditor({ challengeId }: CourseEditorProps) {
 
       {/* Main area */}
       <div className="flex-1 overflow-y-auto">
+        {/* Sidebar toggle */}
+        <div className="sticky top-0 z-10 flex items-center border-b border-border bg-background/80 backdrop-blur-sm px-3 py-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSidebarCollapsed((prev) => !prev)}
+            className="gap-2 text-muted-foreground hover:text-foreground"
+          >
+            {sidebarCollapsed ? (
+              <PanelLeftOpen className="h-4 w-4" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" />
+            )}
+            <span className="text-xs">{sidebarCollapsed ? "Show Outline" : "Hide Outline"}</span>
+          </Button>
+        </div>
         {view === "settings" && (
           <div className="mx-auto max-w-2xl space-y-6 p-6">
             <h2 className="text-xl font-semibold">Course Settings</h2>
@@ -242,8 +263,8 @@ export function CourseEditor({ challengeId }: CourseEditorProps) {
                 <div className="space-y-2">
                   <Label>Status</Label>
                   <Select
-                    value={form.status}
-                    onValueChange={(value) => setForm({ status: value })}
+                    value={form.status === "active" ? "published" : form.status}
+                    onValueChange={(value) => setForm({ status: value === "published" ? "active" : value })}
                   >
                     <SelectTrigger>
                       <SelectValue />

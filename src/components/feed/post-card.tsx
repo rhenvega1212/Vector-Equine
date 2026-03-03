@@ -26,6 +26,7 @@ import {
   Flag,
   Trash2,
   UserPlus,
+  Trophy,
 } from "lucide-react";
 
 interface PostCardProps {
@@ -35,6 +36,8 @@ interface PostCardProps {
     tags: string[];
     created_at: string;
     author_id?: string;
+    challenge_id?: string | null;
+    block_id?: string | null;
     profiles: {
       id: string;
       username: string;
@@ -49,10 +52,16 @@ interface PostCardProps {
     }[];
     post_likes: { user_id: string }[];
     comments: { id: string }[];
+    challenges?: {
+      id: string;
+      title: string;
+      cover_image_url?: string | null;
+    } | null;
   };
   currentUserId?: string;
   isSuggested?: boolean;
   onFollowSuccess?: () => void;
+  hideChallengeBadge?: boolean;
 }
 
 export function PostCard({
@@ -60,6 +69,7 @@ export function PostCard({
   currentUserId,
   isSuggested = false,
   onFollowSuccess,
+  hideChallengeBadge = false,
 }: PostCardProps) {
   const queryClient = useQueryClient();
   const [showComments, setShowComments] = useState(false);
@@ -218,6 +228,16 @@ export function PostCard({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+
+          {!hideChallengeBadge && post.challenge_id && post.challenges && (
+            <Link
+              href={`/challenges/${post.challenges.id}`}
+              className="mt-2 flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+            >
+              <Trophy className="h-3 w-3" />
+              <span>in {post.challenges.title}</span>
+            </Link>
+          )}
 
           <p className="mt-4 whitespace-pre-wrap">{post.content}</p>
 

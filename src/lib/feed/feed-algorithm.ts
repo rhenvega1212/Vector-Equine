@@ -155,6 +155,7 @@ async function fetchFollowedPosts(
     .from("posts")
     .select(POST_SELECT)
     .eq("is_hidden", false)
+    .eq("is_feed_visible", true)
     .in("author_id", ids)
     .order("created_at", { ascending: false })
     .limit(limit * 5);
@@ -178,6 +179,7 @@ async function fetchSuggestedPosts(
     .from("posts")
     .select(POST_SELECT)
     .eq("is_hidden", false)
+    .eq("is_feed_visible", true)
     .order("created_at", { ascending: false })
     .limit(limit * 4);
 

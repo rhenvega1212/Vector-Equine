@@ -21,7 +21,7 @@ export async function uploadFile(
     .from(bucket)
     .upload(fileName, file, {
       cacheControl: "3600",
-      upsert: false,
+      upsert: true,
     });
   
   if (error) {
@@ -84,7 +84,8 @@ export async function uploadFileWithProgress(
 
     xhr.open("POST", url);
     xhr.setRequestHeader("Authorization", `Bearer ${session.access_token}`);
-    xhr.setRequestHeader("x-upsert", "false");
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    xhr.setRequestHeader("x-upsert", "true");
     xhr.setRequestHeader("Cache-Control", "3600");
     xhr.send(file);
   });

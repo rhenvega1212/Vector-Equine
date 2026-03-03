@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +16,7 @@ import {
 import { PostCard } from "@/components/feed/post-card";
 import { CreatePost } from "@/components/feed/create-post";
 import { formatDate } from "@/lib/utils";
-import { Trophy, Grid3X3, Image as ImageIcon, Play, Heart, MessageCircle, Plus } from "lucide-react";
+import { Trophy, Grid3X3, Image as ImageIcon, Play, Heart, MessageCircle, Plus, ChevronDown, ChevronUp, MessagesSquare } from "lucide-react";
 
 interface ProfileTabsProps {
   posts: any[];
@@ -23,6 +24,7 @@ interface ProfileTabsProps {
   rsvps: any[];
   currentUserId?: string;
   isOwnProfile?: boolean;
+  profileUserId?: string;
 }
 
 function formatCount(count: number): string {
@@ -35,15 +37,78 @@ function formatCount(count: number): string {
   return count.toString();
 }
 
+function ChallengeActivityPreview({
+  challengeId,
+  profileUserId,
+  currentUserId,
+}: {
+  challengeId: string;
+  profileUserId: string;
+  currentUserId?: string;
+}) {
+  const { data, isLoading } = useQuery<{ posts: any[]; total: number }>({
+    queryKey: ["challenge-activity", challengeId, profileUserId],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/challenges/${challengeId}/activity?user_id=${profileUserId}&limit=5`
+      );
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return <p className="text-xs text-muted-foreground py-2">Loading activity...</p>;
+  }
+
+  const activityPosts = data?.posts ?? [];
+
+  if (activityPosts.length === 0) {
+    return (
+      <p className="text-xs text-muted-foreground py-2">
+        No discussion posts in this challenge yet.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-3 space-y-3">
+      {activityPosts.map((post: any) => (
+        <PostCard key={post.id} post={post} currentUserId={currentUserId} hideChallengeBadge />
+      ))}
+      {(data?.total ?? 0) > 5 && (
+        <Link
+          href={`/challenges/${challengeId}`}
+          className="block text-center text-xs text-cyan-400 hover:text-cyan-300 transition-colors py-1"
+        >
+          View all {data?.total} posts in this challenge
+        </Link>
+      )}
+    </div>
+  );
+}
+
 export function ProfileTabs({
   posts,
   enrollments,
   rsvps,
   currentUserId,
   isOwnProfile = false,
+  profileUserId,
 }: ProfileTabsProps) {
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const [showCreatePost, setShowCreatePost] = useState(false);
+  const [expandedChallenge, setExpandedChallenge] = useState<string | null>(null);
+
+  const challengePostCounts = new Map<string, number>();
+  for (const post of posts) {
+    if (post.challenge_id) {
+      challengePostCounts.set(
+        post.challenge_id,
+        (challengePostCounts.get(post.challenge_id) ?? 0) + 1
+      );
+    }
+  }
 
   return (
     <>
@@ -187,51 +252,88 @@ export function ProfileTabs({
               </Link>
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {enrollments.map((enrollment) => (
-                <Link
-                  key={enrollment.id}
-                  href={`/challenges/${enrollment.challenges.id}`}
-                >
-                  <Card className="bg-slate-800/30 border-cyan-400/10 hover:border-cyan-400/30 hover:bg-slate-800/50 transition-all group">
-                    <CardContent className="p-4">
-                      <div className="flex gap-4">
-                        {enrollment.challenges.cover_image_url ? (
-                          <img
-                            src={enrollment.challenges.cover_image_url}
-                            alt=""
-                            className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg border border-cyan-400/20"
-                          />
-                        ) : (
-                          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-lg flex items-center justify-center border border-cyan-400/20">
-                            <Trophy className="h-8 w-8 text-cyan-400/50" />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold truncate group-hover:text-cyan-400 transition-colors">
-                            {enrollment.challenges.title}
-                          </h3>
-                          <div className="flex gap-2 mt-1">
-                            {enrollment.challenges.difficulty && (
-                              <Badge variant="outline" className="text-xs border-cyan-400/30 text-cyan-400">
-                                {enrollment.challenges.difficulty}
-                              </Badge>
+            <div className="grid gap-3">
+              {enrollments.map((enrollment) => {
+                const cId = enrollment.challenges.id;
+                const postCount = challengePostCounts.get(cId) ?? 0;
+                const isExpanded = expandedChallenge === cId;
+
+                return (
+                  <div key={enrollment.id}>
+                    <Card className="bg-slate-800/30 border-cyan-400/10 hover:border-cyan-400/30 hover:bg-slate-800/50 transition-all group">
+                      <CardContent className="p-4">
+                        <div className="flex gap-4">
+                          <Link
+                            href={`/challenges/${cId}`}
+                            className="shrink-0"
+                          >
+                            {enrollment.challenges.cover_image_url ? (
+                              <img
+                                src={enrollment.challenges.cover_image_url}
+                                alt=""
+                                className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg border border-cyan-400/20"
+                              />
+                            ) : (
+                              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-lg flex items-center justify-center border border-cyan-400/20">
+                                <Trophy className="h-8 w-8 text-cyan-400/50" />
+                              </div>
                             )}
-                            {enrollment.completed_at && (
-                              <Badge className="text-xs bg-green-500/20 text-green-400 border-green-400/30">
-                                Completed
-                              </Badge>
-                            )}
+                          </Link>
+                          <div className="flex-1 min-w-0">
+                            <Link href={`/challenges/${cId}`}>
+                              <h3 className="font-semibold truncate group-hover:text-cyan-400 transition-colors">
+                                {enrollment.challenges.title}
+                              </h3>
+                            </Link>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {enrollment.challenges.difficulty && (
+                                <Badge variant="outline" className="text-xs border-cyan-400/30 text-cyan-400">
+                                  {enrollment.challenges.difficulty}
+                                </Badge>
+                              )}
+                              {enrollment.completed_at && (
+                                <Badge className="text-xs bg-green-500/20 text-green-400 border-green-400/30">
+                                  Completed
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 mt-2">
+                              <p className="text-xs text-muted-foreground">
+                                Enrolled {formatDate(enrollment.enrolled_at)}
+                              </p>
+                              {postCount > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setExpandedChallenge(isExpanded ? null : cId)
+                                  }
+                                  className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+                                >
+                                  <MessagesSquare className="h-3 w-3" />
+                                  {postCount} {postCount === 1 ? "post" : "posts"}
+                                  {isExpanded ? (
+                                    <ChevronUp className="h-3 w-3" />
+                                  ) : (
+                                    <ChevronDown className="h-3 w-3" />
+                                  )}
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            Enrolled {formatDate(enrollment.enrolled_at)}
-                          </p>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
+
+                        {isExpanded && profileUserId && (
+                          <ChallengeActivityPreview
+                            challengeId={cId}
+                            profileUserId={profileUserId}
+                            currentUserId={currentUserId}
+                          />
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                );
+              })}
             </div>
           )}
         </TabsContent>

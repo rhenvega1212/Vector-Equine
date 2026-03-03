@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { uploadFile, isValidImageType, isValidVideoType } from "@/lib/uploads/storage";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, Image as ImageIcon, X, Video, Crop } from "lucide-react";
+import { Loader2, Image as ImageIcon, X, Video, Crop, MessageSquare, Share2 } from "lucide-react";
 import { MediaCropper } from "./media-cropper";
 
 const AVAILABLE_TAGS = [
@@ -30,7 +32,18 @@ interface MediaItem {
   file?: File;
 }
 
-export function CreatePost() {
+export interface DiscussionModeProps {
+  challengeId: string;
+  blockId: string;
+  prompt?: string;
+  onPostCreated?: () => void;
+}
+
+interface CreatePostProps {
+  discussionMode?: DiscussionModeProps;
+}
+
+export function CreatePost({ discussionMode }: CreatePostProps = {}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -42,6 +55,7 @@ export function CreatePost() {
   const [isUploading, setIsUploading] = useState(false);
   const [cropperOpen, setCropperOpen] = useState(false);
   const [cropperIndex, setCropperIndex] = useState<number | null>(null);
+  const [shareToFeed, setShareToFeed] = useState(false);
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) =>
@@ -156,15 +170,23 @@ export function CreatePost() {
       }
       setIsUploading(false);
 
-      // Create post
+      // Build request body
+      const postBody: Record<string, unknown> = {
+        content: content.trim(),
+        tags: discussionMode ? [] : selectedTags,
+        media: uploadedMedia,
+      };
+
+      if (discussionMode) {
+        postBody.challenge_id = discussionMode.challengeId;
+        postBody.block_id = discussionMode.blockId;
+        postBody.is_feed_visible = shareToFeed;
+      }
+
       const response = await fetch("/api/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: content.trim(),
-          tags: selectedTags,
-          media: uploadedMedia,
-        }),
+        body: JSON.stringify(postBody),
       });
 
       if (!response.ok) {
@@ -175,14 +197,26 @@ export function CreatePost() {
       setContent("");
       setSelectedTags([]);
       setMedia([]);
+      setShareToFeed(false);
 
-      // Invalidate all feed queries so the list updates without a page refresh
+      if (discussionMode) {
+        queryClient.invalidateQueries({
+          queryKey: ["discussion-posts", discussionMode.blockId],
+        });
+        discussionMode.onPostCreated?.();
+      }
+
+      // Always invalidate feed queries in case it was shared
       queryClient.invalidateQueries({ queryKey: ["feed"] });
       queryClient.invalidateQueries({ queryKey: ["home-feed"] });
 
       toast({
-        title: "Post created",
-        description: "Your post has been shared!",
+        title: discussionMode ? "Reply posted" : "Post created",
+        description: discussionMode
+          ? shareToFeed
+            ? "Your post has been shared to the discussion and your feed!"
+            : "Your post has been shared to the discussion!"
+          : "Your post has been shared!",
       });
     } catch (error) {
       toast({
@@ -199,8 +233,19 @@ export function CreatePost() {
   return (
     <Card>
       <CardContent className="pt-6">
+        {discussionMode?.prompt && (
+          <div className="mb-4 flex items-start gap-3 rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3">
+            <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
+            <p className="text-sm font-medium">{discussionMode.prompt}</p>
+          </div>
+        )}
+
         <Textarea
-          placeholder="What's on your mind?"
+          placeholder={
+            discussionMode
+              ? "Share your thoughts on this discussion..."
+              : "What's on your mind?"
+          }
           value={content}
           onChange={(e) => setContent(e.target.value)}
           className="min-h-[100px] resize-none"
@@ -261,18 +306,34 @@ export function CreatePost() {
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2 mt-4">
-          {AVAILABLE_TAGS.map((tag) => (
-            <Badge
-              key={tag}
-              variant={selectedTags.includes(tag) ? "default" : "outline"}
-              className="cursor-pointer"
-              onClick={() => toggleTag(tag)}
-            >
-              {tag}
-            </Badge>
-          ))}
-        </div>
+        {!discussionMode && (
+          <div className="flex flex-wrap gap-2 mt-4">
+            {AVAILABLE_TAGS.map((tag) => (
+              <Badge
+                key={tag}
+                variant={selectedTags.includes(tag) ? "default" : "outline"}
+                className="cursor-pointer"
+                onClick={() => toggleTag(tag)}
+              >
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        )}
+
+        {discussionMode && (
+          <div className="flex items-center gap-2 mt-4 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5">
+            <Share2 className="h-4 w-4 text-muted-foreground" />
+            <Label htmlFor="share-to-feed" className="flex-1 text-sm text-muted-foreground cursor-pointer">
+              Also share to my feed
+            </Label>
+            <Switch
+              id="share-to-feed"
+              checked={shareToFeed}
+              onCheckedChange={setShareToFeed}
+            />
+          </div>
+        )}
 
         <div className="flex items-center justify-between mt-4">
           <div className="flex gap-2">

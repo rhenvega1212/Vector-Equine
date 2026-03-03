@@ -1,0 +1,18 @@
+Unified discussion feed, upload fixes, editor UX improvements, and publish bug fix
+
+- Unify challenge discussions with the main post system so students can
+  upload media, comment, and like in discussions using the same PostCard
+  and CreatePost components as the feed
+- Add "Share to my feed" opt-in toggle so students control whether their
+  discussion posts appear in the home feed
+- Show challenge context badge on posts made in challenges
+- Add challenge activity endpoint and expandable activity on profile
+- Fix file uploads failing due to upsert:false, missing storage UPDATE
+  policy, duplicate paths, and empty challengeId in video uploads
+- Fix typing lag in block editors by applying optimistic React Query
+  cache updates instead of waiting for API round-trip
+- Fix challenge publishing not saving due to Zod rejecting null values
+  for nullable fields; align status dropdown to use "active" consistently
+- Add rich text editor hydration fix (immediatelyRender: false)
+- Add prominent block inserter for empty lessons
+- Add inline module/lesson title renaming with instant save

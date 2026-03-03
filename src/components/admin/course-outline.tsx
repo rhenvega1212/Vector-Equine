@@ -22,6 +22,7 @@ import {
   ChevronDown,
   ChevronRight,
   BookOpen,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -106,6 +107,8 @@ export function CourseOutline({
   );
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+  const [editingLessonTitle, setEditingLessonTitle] = useState("");
   const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
 
   const toggleModule = (moduleId: string) => {
@@ -198,18 +201,46 @@ export function CourseOutline({
     setEditingTitle(mod.title);
   }
 
-  function commitEditingTitle() {
+  async function commitEditingTitle() {
     if (editingModuleId && editingTitle.trim()) {
-      debouncedPatch(
-        `/api/admin/modules/${editingModuleId}`,
-        { title: editingTitle.trim() },
-        `mod-title-${editingModuleId}`
-      );
+      const id = editingModuleId;
+      setEditingModuleId(null);
+      try {
+        await fetch(`/api/admin/modules/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: editingTitle.trim() }),
+        });
+        onDataChange();
+      } catch {}
+    } else {
+      setEditingModuleId(null);
     }
-    setEditingModuleId(null);
   }
 
   // --- Lesson actions ---
+
+  function startEditingLessonTitle(lesson: Lesson) {
+    setEditingLessonId(lesson.id);
+    setEditingLessonTitle(lesson.title);
+  }
+
+  async function commitEditingLessonTitle() {
+    if (editingLessonId && editingLessonTitle.trim()) {
+      const id = editingLessonId;
+      setEditingLessonId(null);
+      try {
+        await fetch(`/api/admin/lessons/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: editingLessonTitle.trim() }),
+        });
+        onDataChange();
+      } catch {}
+    } else {
+      setEditingLessonId(null);
+    }
+  }
 
   async function addLesson(moduleId: string, lessonCount: number) {
     try {
@@ -396,6 +427,12 @@ export function CourseOutline({
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-36">
                               <DropdownMenuItem
+                                onClick={() => startEditingTitle(mod)}
+                              >
+                                <Pencil className="h-3.5 w-3.5 mr-2" />
+                                Rename
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
                                 onClick={() => duplicateModule(mod)}
                               >
                                 <Copy className="h-3.5 w-3.5 mr-2" />
@@ -462,22 +499,54 @@ export function CourseOutline({
                                           >
                                             <GripVertical className="h-3 w-3" />
                                           </button>
-                                          <span
-                                            className={`flex-1 min-w-0 truncate text-xs ${
-                                              isActive
-                                                ? "text-cyan-400 font-medium"
-                                                : "text-slate-300"
-                                            }`}
-                                          >
-                                            {lesson.title}
-                                          </span>
-                                          {blockCount > 0 && (
+                                          {editingLessonId === lesson.id ? (
+                                            <input
+                                              className="flex-1 min-w-0 bg-slate-800 border border-cyan-400/30 rounded px-1.5 py-0.5 text-xs text-white outline-none focus:border-cyan-400"
+                                              value={editingLessonTitle}
+                                              onChange={(e) => setEditingLessonTitle(e.target.value)}
+                                              onBlur={commitEditingLessonTitle}
+                                              onKeyDown={(e) => {
+                                                if (e.key === "Enter") commitEditingLessonTitle();
+                                                if (e.key === "Escape") setEditingLessonId(null);
+                                              }}
+                                              onClick={(e) => e.stopPropagation()}
+                                              autoFocus
+                                            />
+                                          ) : (
+                                            <span
+                                              className={`flex-1 min-w-0 truncate text-xs ${
+                                                isActive
+                                                  ? "text-cyan-400 font-medium"
+                                                  : "text-slate-300"
+                                              }`}
+                                              onDoubleClick={(e) => {
+                                                e.stopPropagation();
+                                                startEditingLessonTitle(lesson);
+                                              }}
+                                            >
+                                              {lesson.title}
+                                            </span>
+                                          )}
+                                          {editingLessonId !== lesson.id && blockCount > 0 && (
                                             <Badge
                                               variant="outline"
                                               className="h-4 px-1 text-[10px] leading-none border-slate-700 text-slate-500"
                                             >
                                               {blockCount}
                                             </Badge>
+                                          )}
+                                          {editingLessonId !== lesson.id && (
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-5 w-5 opacity-0 group-hover:opacity-100 text-slate-500 hover:text-white shrink-0"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                startEditingLessonTitle(lesson);
+                                              }}
+                                            >
+                                              <Pencil className="h-2.5 w-2.5" />
+                                            </Button>
                                           )}
                                         </div>
                                       )}

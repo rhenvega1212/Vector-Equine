@@ -146,10 +146,14 @@ export function VideoBlockEditor({
       setError(null);
       onUploadStart?.();
       try {
+        const ext = file.name.split(".").pop();
+        const storagePath = challengeId
+          ? `blocks/${challengeId}/${blockId}/${Date.now()}.${ext}`
+          : `blocks/${blockId}/${Date.now()}.${ext}`;
         const { url } = await uploadFileWithProgress(
           "challenge-media",
           file,
-          `blocks/${challengeId}/${blockId}/${Date.now()}-${file.name}`,
+          storagePath,
           (percent) => setUploadProgress(percent)
         );
         // Also PATCH to DB

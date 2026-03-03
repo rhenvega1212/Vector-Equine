@@ -20,18 +20,81 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type") || "feed";
     const offset = parseInt(searchParams.get("offset") || "0");
     const limit = parseInt(searchParams.get("limit") || "10");
+    const blockId = searchParams.get("block_id");
+    const challengeId = searchParams.get("challenge_id");
+    const sortBy = searchParams.get("sort") || "newest";
 
-    // Feed shows all posts (room for future algorithm: sort by score, boost, etc.)
+    const selectFields = `
+      *,
+      profiles!posts_author_id_fkey (id, username, display_name, avatar_url, role),
+      post_media (*),
+      post_likes (user_id),
+      comments (id),
+      challenges (id, title, cover_image_url)
+    `;
+
+    // Discussion block query: return all posts for a specific block
+    if (blockId) {
+      let blockQuery = supabase
+        .from("posts")
+        .select(selectFields)
+        .eq("is_hidden", false)
+        .eq("block_id", blockId);
+
+      if (sortBy === "top") {
+        blockQuery = blockQuery.order("created_at", { ascending: false });
+      } else {
+        blockQuery = blockQuery.order("created_at", { ascending: false });
+      }
+
+      blockQuery = blockQuery.range(offset, offset + limit - 1);
+      const { data: blockPosts, error: blockError } = await blockQuery;
+
+      if (blockError) {
+        return NextResponse.json({ error: blockError.message }, { status: 400 });
+      }
+
+      // For "top" sort, re-sort by likes count client-side
+      const sorted = sortBy === "top"
+        ? (blockPosts ?? []).sort((a: any, b: any) =>
+            (b.post_likes?.length ?? 0) - (a.post_likes?.length ?? 0)
+          )
+        : blockPosts;
+
+      return NextResponse.json({
+        posts: sorted,
+        following_author_ids: effectiveUserId ? [effectiveUserId] : [],
+      });
+    }
+
+    // Challenge activity query: all posts for a challenge
+    if (challengeId) {
+      const challengeQuery = supabase
+        .from("posts")
+        .select(selectFields)
+        .eq("is_hidden", false)
+        .eq("challenge_id", challengeId)
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      const { data: challengePosts, error: challengeError } = await challengeQuery;
+
+      if (challengeError) {
+        return NextResponse.json({ error: challengeError.message }, { status: 400 });
+      }
+
+      return NextResponse.json({
+        posts: challengePosts,
+        following_author_ids: effectiveUserId ? [effectiveUserId] : [],
+      });
+    }
+
+    // Standard feed query: exclude challenge posts that aren't feed-visible
     let query = supabase
       .from("posts")
-      .select(`
-        *,
-        profiles!posts_author_id_fkey (id, username, display_name, avatar_url, role),
-        post_media (*),
-        post_likes (user_id),
-        comments (id)
-      `)
+      .select(selectFields)
       .eq("is_hidden", false)
+      .eq("is_feed_visible", true)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -104,14 +167,25 @@ export async function POST(request: NextRequest) {
     // When impersonating, RLS requires auth.uid() = author_id; use admin client to write as effective user
     const writeClient = effectiveUserId !== user.id ? createAdminClient() : supabase;
 
-    // Create post (as effective user when admin is impersonating)
+    const insertData: Record<string, unknown> = {
+      author_id: effectiveUserId,
+      content: validatedData.content,
+      tags: validatedData.tags || [],
+    };
+
+    if (validatedData.challenge_id) {
+      insertData.challenge_id = validatedData.challenge_id;
+    }
+    if (validatedData.block_id) {
+      insertData.block_id = validatedData.block_id;
+    }
+    if (validatedData.is_feed_visible !== undefined) {
+      insertData.is_feed_visible = validatedData.is_feed_visible;
+    }
+
     const { data: post, error: postError } = await writeClient
       .from("posts")
-      .insert({
-        author_id: effectiveUserId,
-        content: validatedData.content,
-        tags: validatedData.tags || [],
-      })
+      .insert(insertData)
       .select()
       .single();
 
@@ -148,7 +222,8 @@ export async function POST(request: NextRequest) {
         profiles!posts_author_id_fkey (id, username, display_name, avatar_url, role),
         post_media (*),
         post_likes (user_id),
-        comments (id)
+        comments (id),
+        challenges (id, title, cover_image_url)
       `)
       .eq("id", post.id)
       .single();

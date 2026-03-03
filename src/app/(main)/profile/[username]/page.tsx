@@ -77,7 +77,8 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
       post_media (*),
       profiles!posts_author_id_fkey (id, username, display_name, avatar_url, role),
       post_likes (user_id),
-      comments (id)
+      comments (id),
+      challenges (id, title, cover_image_url)
     `)
     .eq("author_id", profile.id)
     .eq("is_hidden", false)
@@ -139,6 +140,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
         rsvps={filteredRsvps}
         currentUserId={user?.id}
         isOwnProfile={isOwnProfile}
+        profileUserId={profile.id}
       />
     </div>
   );

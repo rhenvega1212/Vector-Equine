@@ -16,6 +16,9 @@ export const createPostSchema = z.object({
     )
     .max(10, "Maximum 10 media items allowed")
     .optional(),
+  challenge_id: z.string().uuid().optional(),
+  block_id: z.string().uuid().optional(),
+  is_feed_visible: z.boolean().optional(),
 });
 
 export const updatePostSchema = z.object({

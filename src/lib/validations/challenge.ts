@@ -12,21 +12,21 @@ const createChallengeBaseSchema = z.object({
     .string()
     .min(3, "Title must be at least 3 characters")
     .max(100, "Title must be less than 100 characters"),
-  description: z.string().max(5000, "Description must be less than 5000 characters").optional(),
-  difficulty: difficultyEnum.optional(),
+  description: z.string().max(5000, "Description must be less than 5000 characters").optional().nullable(),
+  difficulty: difficultyEnum.optional().nullable(),
   duration_days: z.preprocess(
-    (val) => (val === "" || val === undefined || (typeof val === "number" && Number.isNaN(val)) ? undefined : val),
-    z.number().int().positive("Duration must be a positive number").optional()
+    (val) => (val === "" || val === undefined || val === null || (typeof val === "number" && Number.isNaN(val)) ? undefined : val),
+    z.number().int().positive("Duration must be a positive number").optional().nullable()
   ),
-  price_display: z.string().max(50, "Price display must be less than 50 characters").optional(),
+  price_display: z.string().max(50, "Price display must be less than 50 characters").optional().nullable(),
   cover_image_url: z
-    .union([z.string().url(), z.literal("")])
+    .union([z.string().url(), z.literal(""), z.null()])
     .optional()
-    .transform((s) => (s === "" ? undefined : s)),
+    .transform((s) => (s === "" ? null : s)),
   niche: nicheEnum.optional().nullable(),
   status: challengeStatusEnum.optional(),
   is_private: z.boolean().optional(),
-  schedule_type: scheduleTypeEnum.optional(),
+  schedule_type: scheduleTypeEnum.optional().nullable(),
   open_at: z.string().optional().nullable(),
   close_at: z.string().optional().nullable(),
   start_at: z.string().optional().nullable(),
