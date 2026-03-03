@@ -171,15 +171,22 @@ export function ProfileTabs({
                     >
                       {hasMedia ? (
                         <>
-                          {isVideo ? (
+                          {isVideo && firstMedia?.thumbnail_url ? (
+                            <img
+                              src={firstMedia.thumbnail_url}
+                              alt=""
+                              className="w-full h-full object-cover"
+                            />
+                          ) : isVideo ? (
                             <video
-                              src={firstMedia.url}
+                              src={firstMedia!.url}
                               className="w-full h-full object-cover"
                               muted
+                              preload="metadata"
                             />
                           ) : (
                             <img
-                              src={firstMedia.url}
+                              src={firstMedia!.url}
                               alt=""
                               className="w-full h-full object-cover"
                             />

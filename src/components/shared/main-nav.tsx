@@ -57,7 +57,10 @@ export function MainNav({ profile }: MainNavProps) {
     .slice(0, 2);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b glass">
+    <header
+      className="fixed top-0 left-0 right-0 z-50 w-full border-b glass"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
       <div className="container mx-auto flex h-16 items-center px-4">
         <Link href="/feed" className="mr-6 flex items-center space-x-2">
           <span className="text-2xl font-bold magical-text">Vector Equine</span>

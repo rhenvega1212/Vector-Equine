@@ -4,8 +4,8 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { UserX, Loader2 } from "lucide-react";
+import { UploadProgressBar } from "@/components/shared/upload-progress-bar";
 
-// Load nav only on client to avoid PathnameContext/useContext null during SSR (Next.js 14.2.x)
 const MainNav = dynamic(
   () => import("@/components/shared/main-nav").then((m) => ({ default: m.MainNav })),
   { ssr: false }
@@ -55,7 +55,10 @@ export function MainLayoutClient({
   return (
     <div className="min-h-screen bg-background">
       {isImpersonating && (
-        <div className="sticky top-0 z-[60] flex items-center justify-between gap-2 bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 text-sm text-amber-200">
+        <div
+          className="fixed top-0 left-0 right-0 z-[60] flex items-center justify-between gap-2 bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 text-sm text-amber-200 backdrop-blur-xl"
+          style={{ paddingTop: "env(safe-area-inset-top)" }}
+        >
           <span>
             Viewing as <strong>{profile?.display_name}</strong> (@{profile?.username})
           </span>
@@ -81,11 +84,15 @@ export function MainLayoutClient({
       <MainNav profile={profile} />
       <main
         className="container mx-auto px-4 py-4 sm:py-6 md:pb-6"
-        style={{ paddingBottom: "calc(80px + env(safe-area-inset-bottom))" }}
+        style={{
+          paddingTop: "calc(4rem + env(safe-area-inset-top) + 1rem)",
+          paddingBottom: "calc(80px + env(safe-area-inset-bottom))",
+        }}
       >
         {children}
       </main>
       <MobileNav profile={profile} />
+      <UploadProgressBar />
     </div>
   );
 }

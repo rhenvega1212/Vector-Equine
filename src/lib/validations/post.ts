@@ -24,19 +24,71 @@ export const createPostSchema = z.object({
 export const updatePostSchema = z.object({
   content: z
     .string()
-    .min(1, "Post content is required")
     .max(5000, "Post must be less than 5000 characters")
     .optional(),
   tags: z.array(z.string()).max(5, "Maximum 5 tags allowed").optional(),
+  media: z
+    .array(
+      z.object({
+        id: z.string().uuid().optional(),
+        url: z.string().url(),
+        media_type: z.enum(["image", "video"]),
+        thumbnail_url: z.string().url().optional(),
+      })
+    )
+    .max(10, "Maximum 10 media items allowed")
+    .optional(),
 });
 
-export const createCommentSchema = z.object({
-  content: z
-    .string()
-    .min(1, "Comment content is required")
-    .max(1000, "Comment must be less than 1000 characters"),
-  parent_id: z.string().uuid().nullish(),
-});
+export const updateCommentSchema = z
+  .object({
+    content: z
+      .string()
+      .max(1000, "Comment must be less than 1000 characters")
+      .optional(),
+    media: z
+      .array(
+        z.object({
+          id: z.string().uuid().optional(),
+          url: z.string().url(),
+          media_type: z.enum(["image", "video"]),
+        })
+      )
+      .max(4, "Maximum 4 media items per comment")
+      .optional(),
+  })
+  .refine(
+    (data) =>
+      (data.content !== undefined && data.content.trim().length > 0) ||
+      (data.media && data.media.length > 0),
+    { message: "Comment must have text or media" }
+  );
+
+export const createCommentSchema = z
+  .object({
+    content: z
+      .string()
+      .max(1000, "Comment must be less than 1000 characters")
+      .optional()
+      .default(""),
+    parent_id: z.string().uuid().nullish(),
+    reply_to_id: z.string().uuid().nullish(),
+    media: z
+      .array(
+        z.object({
+          url: z.string().url(),
+          media_type: z.enum(["image", "video"]),
+        })
+      )
+      .max(4, "Maximum 4 media items per comment")
+      .optional(),
+  })
+  .refine(
+    (data) =>
+      (data.content && data.content.trim().length > 0) ||
+      (data.media && data.media.length > 0),
+    { message: "Comment must have text or media" }
+  );
 
 export const reportSchema = z.object({
   reason: z
@@ -50,4 +102,5 @@ export const reportSchema = z.object({
 export type CreatePostInput = z.infer<typeof createPostSchema>;
 export type UpdatePostInput = z.infer<typeof updatePostSchema>;
 export type CreateCommentInput = z.infer<typeof createCommentSchema>;
+export type UpdateCommentInput = z.infer<typeof updateCommentSchema>;
 export type ReportInput = z.infer<typeof reportSchema>;

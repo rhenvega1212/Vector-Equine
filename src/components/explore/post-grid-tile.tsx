@@ -11,6 +11,7 @@ interface PostGridTileProps {
       id: string;
       url: string;
       media_type: "image" | "video";
+      thumbnail_url?: string | null;
     }[];
     post_likes: { user_id: string }[];
     profiles: {
@@ -33,6 +34,8 @@ export function PostGridTile({ post, onClick, badge }: PostGridTileProps) {
     .toUpperCase()
     .slice(0, 2);
   const firstImage = post.post_media?.find((m) => m.media_type === "image");
+  const firstVideo = post.post_media?.find((m) => m.media_type === "video");
+  const thumbnail = firstImage?.url || firstVideo?.thumbnail_url;
   const likesCount = post.post_likes?.length ?? 0;
   const snippet = post.content?.slice(0, 80) + (post.content?.length > 80 ? "…" : "");
 
@@ -42,12 +45,18 @@ export function PostGridTile({ post, onClick, badge }: PostGridTileProps) {
       onClick={onClick}
       className="group relative w-full aspect-square rounded-xl overflow-hidden border border-white/10 bg-white/5 hover:border-cyan-400/30 hover:bg-white/[0.07] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:ring-offset-2 focus:ring-offset-background text-left"
     >
-      {/* Thumbnail or placeholder */}
-      {firstImage ? (
+      {thumbnail ? (
         <img
-          src={firstImage.url}
+          src={thumbnail}
           alt=""
           className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+        />
+      ) : firstVideo ? (
+        <video
+          src={firstVideo.url}
+          className="absolute inset-0 w-full h-full object-cover"
+          muted
+          preload="metadata"
         />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center p-3">

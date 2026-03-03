@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,9 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { uploadFile, isValidImageType, isValidVideoType } from "@/lib/uploads/storage";
-import { createClient } from "@/lib/supabase/client";
-import { Loader2, Image as ImageIcon, X, Video, Crop, MessageSquare, Share2 } from "lucide-react";
+import { isValidImageType, isValidVideoType } from "@/lib/uploads/storage";
+import { useUploadManager } from "@/lib/uploads/upload-manager";
+import { Image as ImageIcon, X, Crop, MessageSquare, Share2, ImagePlus } from "lucide-react";
 import { MediaCropper } from "./media-cropper";
 
 const AVAILABLE_TAGS = [
@@ -30,6 +29,8 @@ interface MediaItem {
   url: string;
   media_type: "image" | "video";
   file?: File;
+  coverUrl?: string;
+  coverFile?: File;
 }
 
 export interface DiscussionModeProps {
@@ -44,15 +45,15 @@ interface CreatePostProps {
 }
 
 export function CreatePost({ discussionMode }: CreatePostProps = {}) {
-  const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { submitPost } = useUploadManager();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const coverTargetIndex = useRef<number | null>(null);
   
   const [content, setContent] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [media, setMedia] = useState<MediaItem[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [cropperOpen, setCropperOpen] = useState(false);
   const [cropperIndex, setCropperIndex] = useState<number | null>(null);
   const [shareToFeed, setShareToFeed] = useState(false);
@@ -109,10 +110,42 @@ export function CreatePost({ discussionMode }: CreatePostProps = {}) {
   function removeMedia(index: number) {
     setMedia((prev) => {
       const newMedia = [...prev];
+      if (newMedia[index].coverUrl) URL.revokeObjectURL(newMedia[index].coverUrl!);
       URL.revokeObjectURL(newMedia[index].url);
       newMedia.splice(index, 1);
       return newMedia;
     });
+  }
+
+  function handleCoverSelect(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    const idx = coverTargetIndex.current;
+    if (!file || idx === null) return;
+
+    if (!isValidImageType(file)) {
+      toast({
+        title: "Invalid file type",
+        description: "Cover photo must be a JPEG, PNG, GIF, or WebP image.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const url = URL.createObjectURL(file);
+    setMedia((prev) => {
+      const updated = [...prev];
+      if (updated[idx]?.coverUrl) URL.revokeObjectURL(updated[idx].coverUrl!);
+      updated[idx] = { ...updated[idx], coverUrl: url, coverFile: file };
+      return updated;
+    });
+
+    if (coverInputRef.current) coverInputRef.current.value = "";
+    coverTargetIndex.current = null;
+  }
+
+  function openCoverPicker(index: number) {
+    coverTargetIndex.current = index;
+    coverInputRef.current?.click();
   }
 
   function openCropper(index: number) {
@@ -136,7 +169,7 @@ export function CreatePost({ discussionMode }: CreatePostProps = {}) {
     setCropperIndex(null);
   }
 
-  async function handleSubmit() {
+  function handleSubmit() {
     if (!content.trim() && media.length === 0) {
       toast({
         title: "Empty post",
@@ -146,88 +179,34 @@ export function CreatePost({ discussionMode }: CreatePostProps = {}) {
       return;
     }
 
-    setIsSubmitting(true);
+    // Snapshot current form data and hand off to the background upload manager
+    submitPost({
+      content: content.trim(),
+      tags: discussionMode ? [] : selectedTags,
+      media: media
+        .filter((m) => m.file)
+        .map((m) => ({
+          file: m.file!,
+          media_type: m.media_type,
+          coverFile: m.coverFile,
+        })),
+      challengeId: discussionMode?.challengeId,
+      blockId: discussionMode?.blockId,
+      isFeedVisible: discussionMode ? shareToFeed : undefined,
+    });
 
-    try {
-      // Get current user
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+    // Reset form immediately so the user can keep browsing
+    setContent("");
+    setSelectedTags([]);
+    setMedia([]);
+    setShareToFeed(false);
 
-      // Upload media files
-      setIsUploading(true);
-      const uploadedMedia: { url: string; media_type: "image" | "video" }[] = [];
+    toast({
+      title: "Uploading...",
+      description: "Your post is being uploaded in the background. You can keep browsing!",
+    });
 
-      for (const item of media) {
-        if (item.file) {
-          const { url } = await uploadFile(
-            "post-media",
-            item.file,
-            `${user.id}/${Date.now()}-${item.file.name}`
-          );
-          uploadedMedia.push({ url, media_type: item.media_type });
-        }
-      }
-      setIsUploading(false);
-
-      // Build request body
-      const postBody: Record<string, unknown> = {
-        content: content.trim(),
-        tags: discussionMode ? [] : selectedTags,
-        media: uploadedMedia,
-      };
-
-      if (discussionMode) {
-        postBody.challenge_id = discussionMode.challengeId;
-        postBody.block_id = discussionMode.blockId;
-        postBody.is_feed_visible = shareToFeed;
-      }
-
-      const response = await fetch("/api/posts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(postBody),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to create post");
-      }
-
-      // Reset form
-      setContent("");
-      setSelectedTags([]);
-      setMedia([]);
-      setShareToFeed(false);
-
-      if (discussionMode) {
-        queryClient.invalidateQueries({
-          queryKey: ["discussion-posts", discussionMode.blockId],
-        });
-        discussionMode.onPostCreated?.();
-      }
-
-      // Always invalidate feed queries in case it was shared
-      queryClient.invalidateQueries({ queryKey: ["feed"] });
-      queryClient.invalidateQueries({ queryKey: ["home-feed"] });
-
-      toast({
-        title: discussionMode ? "Reply posted" : "Post created",
-        description: discussionMode
-          ? shareToFeed
-            ? "Your post has been shared to the discussion and your feed!"
-            : "Your post has been shared to the discussion!"
-          : "Your post has been shared!",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create post. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-      setIsUploading(false);
-    }
+    discussionMode?.onPostCreated?.();
   }
 
   return (
@@ -272,17 +251,26 @@ export function CreatePost({ discussionMode }: CreatePostProps = {}) {
                     }
                   />
                 ) : (
-                  <video
-                    src={item.url}
-                    className={
-                      media.length === 1
-                        ? "w-full max-h-[400px] rounded-lg bg-black"
-                        : "w-full h-full object-cover rounded"
-                    }
-                    controls
-                  />
+                  <div className="relative">
+                    {item.coverUrl && (
+                      <img
+                        src={item.coverUrl}
+                        alt="Cover"
+                        className="absolute inset-0 w-full h-full object-cover z-[1] rounded-lg"
+                      />
+                    )}
+                    <video
+                      src={item.url}
+                      className={
+                        media.length === 1
+                          ? "w-full max-h-[400px] rounded-lg bg-black"
+                          : "w-full h-full object-cover rounded"
+                      }
+                      controls
+                    />
+                  </div>
                 )}
-                <div className="absolute top-1 right-1 flex gap-1">
+                <div className="absolute top-1 right-1 flex gap-1 z-[2]">
                   {item.media_type === "image" && (
                     <button
                       type="button"
@@ -293,6 +281,16 @@ export function CreatePost({ discussionMode }: CreatePostProps = {}) {
                       <Crop className="h-3.5 w-3.5" />
                     </button>
                   )}
+                  {item.media_type === "video" && (
+                    <button
+                      type="button"
+                      onClick={() => openCoverPicker(index)}
+                      className="p-1.5 bg-background/80 rounded-full hover:bg-background transition-colors"
+                      title={item.coverUrl ? "Change cover photo" : "Add cover photo"}
+                    >
+                      <ImagePlus className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => removeMedia(index)}
@@ -301,6 +299,19 @@ export function CreatePost({ discussionMode }: CreatePostProps = {}) {
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
+                {item.media_type === "video" && (
+                  <div className="absolute bottom-1 left-1 z-[2]">
+                    {item.coverUrl ? (
+                      <span className="text-[10px] font-medium bg-green-500/80 text-white px-1.5 py-0.5 rounded-full">
+                        Cover set
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-medium bg-white/20 text-white/80 px-1.5 py-0.5 rounded-full backdrop-blur-sm">
+                        No cover
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -345,6 +356,13 @@ export function CreatePost({ discussionMode }: CreatePostProps = {}) {
               className="hidden"
               onChange={handleFileSelect}
             />
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleCoverSelect}
+            />
             <Button
               type="button"
               variant="ghost"
@@ -365,16 +383,9 @@ export function CreatePost({ discussionMode }: CreatePostProps = {}) {
             )}
             <Button
               onClick={handleSubmit}
-              disabled={isSubmitting || (!content.trim() && media.length === 0)}
+              disabled={!content.trim() && media.length === 0}
             >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  {isUploading ? "Uploading..." : "Posting..."}
-                </>
-              ) : (
-                "Post"
-              )}
+              Post
             </Button>
           </div>
         </div>

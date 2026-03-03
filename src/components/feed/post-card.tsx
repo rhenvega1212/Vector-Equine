@@ -27,7 +27,10 @@ import {
   Trash2,
   UserPlus,
   Trophy,
+  Pencil,
 } from "lucide-react";
+import { FeedVideoPlayer } from "./feed-video-player";
+import { EditPostDialog } from "./edit-post-dialog";
 
 interface PostCardProps {
   post: {
@@ -49,6 +52,7 @@ interface PostCardProps {
       id: string;
       url: string;
       media_type: "image" | "video";
+      thumbnail_url?: string | null;
     }[];
     post_likes: { user_id: string }[];
     comments: { id: string }[];
@@ -74,6 +78,7 @@ export function PostCard({
   const queryClient = useQueryClient();
   const [showComments, setShowComments] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [isFollowing, setIsFollowing] = useState(!isSuggested);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
 
@@ -212,13 +217,20 @@ export function PostCard({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {isOwnPost ? (
-                  <DropdownMenuItem
-                    className="text-destructive"
-                    onClick={handleDelete}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onClick={handleDelete}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
                 ) : (
                   <DropdownMenuItem onClick={() => setShowReportDialog(true)}>
                     <Flag className="h-4 w-4 mr-2" />
@@ -243,7 +255,7 @@ export function PostCard({
 
           {post.post_media.length > 0 && (
             post.post_media.length === 1 ? (
-              <div className="mt-4 overflow-hidden rounded-lg">
+              <div className="mt-4 rounded-lg">
                 {post.post_media[0].media_type === "image" ? (
                   <img
                     src={post.post_media[0].url}
@@ -251,10 +263,11 @@ export function PostCard({
                     className="w-full max-h-[600px] object-contain bg-black/20 rounded-lg"
                   />
                 ) : (
-                  <video
+                  <FeedVideoPlayer
                     src={post.post_media[0].url}
-                    controls
-                    className="w-full max-h-[600px] rounded-lg bg-black"
+                    thumbnailUrl={post.post_media[0].thumbnail_url}
+                    maxHeight="600px"
+                    className="w-full rounded-lg"
                   />
                 )}
               </div>
@@ -267,7 +280,12 @@ export function PostCard({
                 }`}
               >
                 {post.post_media.map((media) => (
-                  <div key={media.id} className="relative aspect-square overflow-hidden rounded-lg">
+                  <div
+                    key={media.id}
+                    className={`relative overflow-hidden rounded-lg ${
+                      media.media_type === "image" ? "aspect-square" : ""
+                    }`}
+                  >
                     {media.media_type === "image" ? (
                       <img
                         src={media.url}
@@ -275,10 +293,10 @@ export function PostCard({
                         className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                       />
                     ) : (
-                      <video
+                      <FeedVideoPlayer
                         src={media.url}
-                        controls
-                        className="w-full h-full object-cover rounded"
+                        thumbnailUrl={media.thumbnail_url}
+                        className="w-full rounded"
                       />
                     )}
                   </div>
@@ -356,6 +374,19 @@ export function PostCard({
         onOpenChange={setShowReportDialog}
         postId={post.id}
       />
+
+      {showEditDialog && (
+        <EditPostDialog
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+          post={{
+            id: post.id,
+            content: post.content,
+            tags: post.tags,
+            post_media: post.post_media,
+          }}
+        />
+      )}
     </>
   );
 }
