@@ -465,7 +465,7 @@ export function PostComments({ postId, currentUserId }: PostCommentsProps) {
                   <button
                     type="button"
                     onClick={() => toggleThread(comment.id)}
-                    className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 mb-2 transition-colors"
+                    className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 mb-2 transition-colors"
                   >
                     {isCollapsed ? (
                       <>
@@ -482,7 +482,7 @@ export function PostComments({ postId, currentUserId }: PostCommentsProps) {
                   </button>
 
                   {!isCollapsed && (
-                    <div className="space-y-2 border-l-2 border-white/5 pl-3">
+                    <div className="space-y-2 border-l-2 border-border pl-3">
                       {replies.map((reply) => (
                         <CommentBubble
                           key={reply.id}
@@ -512,7 +512,7 @@ export function PostComments({ postId, currentUserId }: PostCommentsProps) {
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Reply className="h-3 w-3" />
                     Replying to{" "}
-                    <span className="font-medium text-cyan-400">
+                    <span className="font-medium text-primary">
                       {replyTarget!.replyToName}
                     </span>
                     <button
@@ -660,9 +660,9 @@ const CommentInput = ({
 
     {/* Upload progress */}
     {isSubmitting && uploadProgress > 0 && uploadProgress < 100 && (
-      <div className="h-1 rounded-full bg-white/10 overflow-hidden">
+      <div className="h-1 rounded-full bg-muted overflow-hidden">
         <div
-          className="h-full bg-cyan-400 transition-all duration-300"
+          className="h-full bg-primary transition-all duration-300"
           style={{ width: `${uploadProgress}%` }}
         />
       </div>
@@ -806,7 +806,7 @@ function CommentBubble({
             {currentUserId && (
               <button
                 type="button"
-                className="text-xs text-muted-foreground hover:text-cyan-400 transition-colors"
+                className="text-xs text-muted-foreground hover:text-primary transition-colors"
                 onClick={onReply}
               >
                 Reply
@@ -815,7 +815,7 @@ function CommentBubble({
             {isOwn && (
               <button
                 type="button"
-                className="text-xs text-muted-foreground hover:text-cyan-400 transition-colors"
+                className="text-xs text-muted-foreground hover:text-primary transition-colors"
                 onClick={onEdit}
               >
                 Edit

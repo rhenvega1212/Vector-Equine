@@ -37,3 +37,6 @@ next-env.d.ts
 # Supabase
 supabase/.branches
 supabase/.temp
+
+# Bot media originals (already uploaded to Supabase Storage)
+scripts/bot-media/

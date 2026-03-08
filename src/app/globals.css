@@ -4,6 +4,29 @@
 
 @layer base {
   :root {
+    --background: 220 14% 96%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 191 80% 32%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 90%;
+    --secondary-foreground: 222 47% 18%;
+    --muted: 220 14% 90%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 191 80% 32%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 87%;
+    --input: 220 13% 87%;
+    --ring: 191 80% 32%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
     --background: 224 71% 4%;
     --foreground: 210 40% 98%;
     --card: 224 71% 4%;
@@ -53,7 +76,12 @@
   }
 
   .glass {
-    @apply bg-[#0a1628]/60 backdrop-blur-2xl border border-cyan-400/20;
+    @apply bg-white/70 backdrop-blur-2xl border border-slate-200/80;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.06), inset 0 1px 0 0 rgba(255,255,255,0.8);
+  }
+
+  .dark .glass {
+    @apply bg-[#0a1628]/60 border-cyan-400/20;
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255,255,255,0.05);
   }
   
@@ -62,7 +90,12 @@
   }
 
   .magical-text {
-    @apply bg-clip-text text-transparent bg-gradient-to-b from-white via-primary to-cyan-400 font-bold;
+    @apply bg-clip-text text-transparent bg-gradient-to-b from-slate-800 via-primary to-cyan-600 font-bold;
+    filter: drop-shadow(0 0 15px hsl(var(--primary) / 0.2));
+  }
+
+  .dark .magical-text {
+    @apply bg-gradient-to-b from-white via-primary to-cyan-400;
     filter: drop-shadow(0 0 15px hsl(var(--primary) / 0.4));
   }
 

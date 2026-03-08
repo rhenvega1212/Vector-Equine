@@ -84,7 +84,7 @@ export function NotificationsList({ notifications, userId }: NotificationsListPr
   function getNotificationIcon(type: string) {
     switch (type) {
       case "follow":
-        return <UserPlus className="h-3.5 w-3.5 text-cyan-400" />;
+        return <UserPlus className="h-3.5 w-3.5 text-primary" />;
       case "like":
         return <Heart className="h-3.5 w-3.5 text-red-400 fill-red-400" />;
       case "comment":
@@ -137,8 +137,8 @@ export function NotificationsList({ notifications, userId }: NotificationsListPr
   if (items.length === 0) {
     return (
       <div className="glass rounded-xl py-16 text-center">
-        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center">
-          <Bell className="h-10 w-10 text-cyan-400/50" />
+        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
+          <Bell className="h-10 w-10 text-primary/50" />
         </div>
         <p className="text-lg font-medium text-foreground/80">No notifications yet</p>
         <p className="text-sm text-muted-foreground mt-1">
@@ -157,7 +157,7 @@ export function NotificationsList({ notifications, userId }: NotificationsListPr
             size="sm"
             onClick={markAllAsRead}
             disabled={isMarkingAll}
-            className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-400/10"
+            className="text-primary hover:text-primary/80 hover:bg-primary/10"
           >
             <CheckCheck className="h-4 w-4 mr-2" />
             Mark all as read ({unreadCount})
@@ -165,7 +165,7 @@ export function NotificationsList({ notifications, userId }: NotificationsListPr
         </div>
       )}
 
-      <div className="glass rounded-xl overflow-hidden divide-y divide-cyan-400/10">
+      <div className="glass rounded-xl overflow-hidden divide-y divide-border">
         {items.map((notification) => {
           const initials = notification.actor?.display_name
             ?.split(" ")
@@ -179,18 +179,18 @@ export function NotificationsList({ notifications, userId }: NotificationsListPr
               key={notification.id}
               href={getNotificationLink(notification)}
               onClick={() => markAsRead(notification.id)}
-              className={`flex items-start gap-3 p-4 transition-all hover:bg-white/5 ${
-                !notification.is_read ? "bg-cyan-500/5" : ""
+              className={`flex items-start gap-3 p-4 transition-all hover:bg-muted/50 ${
+                !notification.is_read ? "bg-primary/5" : ""
               }`}
             >
               <div className="relative flex-shrink-0">
-                <Avatar className="h-11 w-11 border border-cyan-400/20">
+                <Avatar className="h-11 w-11 border border-border">
                   <AvatarImage src={notification.actor?.avatar_url || undefined} />
-                  <AvatarFallback className="bg-gradient-to-br from-slate-800 to-slate-900 text-sm">
+                  <AvatarFallback className="bg-gradient-to-br from-muted to-muted/80 text-sm">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
-                <div className="absolute -bottom-1 -right-1 bg-slate-900 rounded-full p-1 border border-cyan-400/20">
+                <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-1 border border-border">
                   {getNotificationIcon(notification.type)}
                 </div>
               </div>
@@ -204,13 +204,13 @@ export function NotificationsList({ notifications, userId }: NotificationsListPr
                     &ldquo;{notification.post.content}&rdquo;
                   </p>
                 )}
-                <p className="text-xs text-cyan-400/60 mt-1.5">
+                <p className="text-xs text-primary/60 mt-1.5">
                   {formatRelativeTime(notification.created_at)}
                 </p>
               </div>
 
               {!notification.is_read && (
-                <div className="w-2.5 h-2.5 bg-cyan-400 rounded-full mt-1.5 flex-shrink-0 animate-pulse" />
+                <div className="w-2.5 h-2.5 bg-primary rounded-full mt-1.5 flex-shrink-0 animate-pulse" />
               )}
             </Link>
           );

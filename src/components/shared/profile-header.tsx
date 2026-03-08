@@ -107,7 +107,7 @@ export function ProfileHeader({
             <>
               <Link 
                 href="/notifications" 
-                className="relative p-2 rounded-lg hover:bg-white/5 transition-colors"
+                className="relative p-2 rounded-lg hover:bg-muted transition-colors"
               >
                 <Bell className="h-5 w-5 text-muted-foreground" />
                 {unreadNotifications > 0 && (
@@ -116,7 +116,7 @@ export function ProfileHeader({
               </Link>
               <Link 
                 href="/settings"
-                className="p-2 rounded-lg hover:bg-white/5 transition-colors border border-cyan-400/30"
+                className="p-2 rounded-lg hover:bg-muted transition-colors border border-primary/30"
               >
                 <Settings className="h-5 w-5 text-muted-foreground" />
               </Link>
@@ -129,10 +129,10 @@ export function ProfileHeader({
       <div className="flex items-start gap-4 sm:gap-6">
         {/* Avatar with glow ring */}
         <div className="relative">
-          <div className="absolute -inset-1 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full opacity-30 blur-sm" />
-          <Avatar className="relative h-20 w-20 sm:h-24 sm:w-24 border-2 border-cyan-400/40 ring-2 ring-cyan-400/20 ring-offset-2 ring-offset-background">
+          <div className="absolute -inset-1 bg-gradient-to-r from-primary to-blue-500 rounded-full opacity-30 blur-sm" />
+          <Avatar className="relative h-20 w-20 sm:h-24 sm:w-24 border-2 border-primary/40 ring-2 ring-primary/20 ring-offset-2 ring-offset-background">
             <AvatarImage src={profile.avatar_url || undefined} />
-            <AvatarFallback className="text-xl sm:text-2xl bg-gradient-to-br from-slate-800 to-slate-900">
+            <AvatarFallback className="text-xl sm:text-2xl bg-gradient-to-br from-muted to-muted/80">
               {initials}
             </AvatarFallback>
           </Avatar>
@@ -142,7 +142,7 @@ export function ProfileHeader({
         <div className="flex-1 min-w-0">
           {/* Name row with admin badge */}
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <h1 className="text-xl sm:text-2xl font-bold text-white">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">
               {profile.display_name}
             </h1>
             {isAdmin && <AdminBadge />}
@@ -154,7 +154,7 @@ export function ProfileHeader({
           </div>
 
           {/* Username */}
-          <p className="text-sm text-cyan-400 mb-2">@{profile.username}</p>
+          <p className="text-sm text-primary mb-2">@{profile.username}</p>
 
           {/* Location and discipline */}
           {(profile.location || profile.discipline) && (
@@ -173,23 +173,23 @@ export function ProfileHeader({
       </div>
 
       {/* Stats row - glass card style */}
-      <div className="flex justify-between items-center mt-6 p-4 rounded-xl bg-white/5 border border-white/10">
+      <div className="flex justify-between items-center mt-6 p-4 rounded-xl bg-muted/50 border border-border">
         <button className="flex-1 text-center group cursor-default">
-          <p className="text-2xl sm:text-3xl font-bold text-white group-hover:text-cyan-400 transition-colors">
+          <p className="text-2xl sm:text-3xl font-bold text-foreground group-hover:text-primary transition-colors">
             {formatCount(postsCount)}
           </p>
           <p className="text-xs text-muted-foreground uppercase tracking-wider">Posts</p>
         </button>
-        <div className="w-px h-10 bg-white/10" />
+        <div className="w-px h-10 bg-border" />
         <button className="flex-1 text-center group cursor-default">
-          <p className="text-2xl sm:text-3xl font-bold text-white group-hover:text-cyan-400 transition-colors">
+          <p className="text-2xl sm:text-3xl font-bold text-foreground group-hover:text-primary transition-colors">
             {formatCount(followers)}
           </p>
           <p className="text-xs text-muted-foreground uppercase tracking-wider">Followers</p>
         </button>
-        <div className="w-px h-10 bg-white/10" />
+        <div className="w-px h-10 bg-border" />
         <button className="flex-1 text-center group cursor-default">
-          <p className="text-2xl sm:text-3xl font-bold text-white group-hover:text-cyan-400 transition-colors">
+          <p className="text-2xl sm:text-3xl font-bold text-foreground group-hover:text-primary transition-colors">
             {formatCount(followingCount)}
           </p>
           <p className="text-xs text-muted-foreground uppercase tracking-wider">Following</p>
@@ -203,14 +203,14 @@ export function ProfileHeader({
             <Link href="/settings" className="flex-1">
               <Button 
                 variant="outline" 
-                className="w-full h-11 border-cyan-400/30 hover:bg-cyan-400/10 hover:border-cyan-400/50 transition-all"
+                className="w-full h-11 border-primary/30 hover:bg-primary/10 hover:border-primary/50 transition-all"
               >
                 Edit Profile
               </Button>
             </Link>
             <Button 
               variant="outline"
-              className="h-11 px-6 border-cyan-400/30 hover:bg-cyan-400/10 hover:border-cyan-400/50 transition-all"
+              className="h-11 px-6 border-primary/30 hover:bg-primary/10 hover:border-primary/50 transition-all"
               onClick={handleShare}
             >
               <Share2 className="h-4 w-4 mr-2" />
@@ -226,7 +226,7 @@ export function ProfileHeader({
               className={`flex-1 h-11 ${
                 !isFollowing 
                   ? "bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-black font-semibold shadow-lg shadow-cyan-500/25" 
-                  : "border-cyan-400/30 hover:bg-cyan-400/10"
+                  : "border-primary/30 hover:bg-primary/10"
               }`}
             >
               {isLoading ? (
@@ -239,7 +239,7 @@ export function ProfileHeader({
             </Button>
             <Button 
               variant="outline"
-              className="h-11 px-6 border-cyan-400/30 hover:bg-cyan-400/10 hover:border-cyan-400/50"
+              className="h-11 px-6 border-primary/30 hover:bg-primary/10 hover:border-primary/50"
             >
               <MessageCircle className="h-4 w-4" />
             </Button>

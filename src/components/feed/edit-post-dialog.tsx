@@ -310,8 +310,8 @@ export function EditPostDialog({ open, onOpenChange, post }: EditPostDialogProps
 
           {/* Progress */}
           {isSaving && progress > 0 && progress < 100 && (
-            <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-              <div className="h-full bg-cyan-400 transition-all duration-300" style={{ width: `${progress}%` }} />
+            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+              <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
             </div>
           )}
 

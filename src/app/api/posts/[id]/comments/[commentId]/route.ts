@@ -56,7 +56,7 @@ export async function PATCH(
 
     // Replace comment media if provided
     if (validated.media !== undefined) {
-      await supabase.from("comment_media").delete().eq("comment_id", commentId).catch(() => {});
+      try { await supabase.from("comment_media").delete().eq("comment_id", commentId); } catch {}
 
       if (validated.media.length > 0) {
         const mediaInserts = validated.media.map((item, index) => ({
@@ -66,7 +66,7 @@ export async function PATCH(
           sort_order: index,
         }));
 
-        await supabase.from("comment_media").insert(mediaInserts).catch(() => {});
+        try { await supabase.from("comment_media").insert(mediaInserts); } catch {}
       }
     }
 

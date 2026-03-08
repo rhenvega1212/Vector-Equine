@@ -162,7 +162,7 @@ export function PostCard({
 
   return (
     <>
-      <Card className="transition-all duration-200 hover:bg-white/[0.02] hover:border-cyan-400/20 hover:shadow-lg hover:shadow-cyan-400/5">
+      <Card className="transition-all duration-200 hover:bg-muted/30 dark:hover:bg-white/[0.02] hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5">
         <CardContent className="pt-6">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -170,13 +170,13 @@ export function PostCard({
                 href={`/profile/${post.profiles.username}`}
                 className="flex items-center gap-3 group shrink-0"
               >
-                <Avatar className="ring-2 ring-transparent group-hover:ring-cyan-400/30 transition-all duration-200">
+                <Avatar className="ring-2 ring-transparent group-hover:ring-primary/30 transition-all duration-200">
                   <AvatarImage src={post.profiles.avatar_url || undefined} />
                   <AvatarFallback>{initials}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold group-hover:text-cyan-400 transition-colors truncate">
+                    <p className="font-semibold group-hover:text-primary transition-colors truncate">
                       {post.profiles.display_name}
                     </p>
                     {isSuggested && (
@@ -189,7 +189,7 @@ export function PostCard({
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-7 gap-1 shrink-0 text-cyan-400 border-cyan-400/40 hover:bg-cyan-400/10"
+                        className="h-7 gap-1 shrink-0 text-primary border-primary/40 hover:bg-primary/10"
                         onClick={handleFollow}
                         disabled={isFollowLoading || isFollowing}
                       >
@@ -211,7 +211,7 @@ export function PostCard({
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10 transition-colors">
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted transition-colors">
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -244,7 +244,7 @@ export function PostCard({
           {!hideChallengeBadge && post.challenge_id && post.challenges && (
             <Link
               href={`/challenges/${post.challenges.id}`}
-              className="mt-2 flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+              className="mt-2 flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors"
             >
               <Trophy className="h-3 w-3" />
               <span>in {post.challenges.title}</span>
@@ -308,7 +308,7 @@ export function PostCard({
           {post.tags.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-4">
               {post.tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-xs hover:bg-cyan-400/20 transition-colors cursor-pointer">
+                <Badge key={tag} variant="secondary" className="text-xs hover:bg-primary/20 transition-colors cursor-pointer">
                   {tag}
                 </Badge>
               ))}
@@ -319,7 +319,7 @@ export function PostCard({
           {commentCount > 0 && !showComments && (
             <button
               onClick={() => setShowComments(true)}
-              className="mt-4 text-sm text-muted-foreground hover:text-cyan-400 transition-colors"
+              className="mt-4 text-sm text-muted-foreground hover:text-primary transition-colors"
             >
               View {commentCount === 1 ? "1 comment" : `all ${commentCount} comments`}
             </button>
@@ -353,8 +353,8 @@ export function PostCard({
               flex items-center gap-2 px-3 py-2 rounded-lg
               transition-all duration-200
               ${showComments 
-                ? "text-cyan-400 bg-cyan-400/10" 
-                : "text-muted-foreground hover:text-cyan-400 hover:bg-cyan-400/10"
+                ? "text-primary bg-primary/10" 
+                : "text-muted-foreground hover:text-primary hover:bg-primary/10"
               }
               active:scale-95
             `}

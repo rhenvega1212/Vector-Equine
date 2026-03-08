@@ -30,7 +30,8 @@ import { updateProfileSchema, type UpdateProfileInput } from "@/lib/validations/
 import { createClient } from "@/lib/supabase/client";
 import { uploadFile, isValidImageType, MAX_IMAGE_SIZE_MB } from "@/lib/uploads/storage";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, ArrowLeft, Settings, Camera } from "lucide-react";
+import { Loader2, Upload, ArrowLeft, Settings, Camera, Sun, Moon } from "lucide-react";
+import { useTheme } from "next-themes";
 import type { Profile } from "@/types/database";
 
 const DISCIPLINES = [
@@ -55,6 +56,8 @@ const RIDER_LEVELS = [
 export default function SettingsPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -74,6 +77,8 @@ export default function SettingsPage() {
   } = useForm<UpdateProfileInput>({
     resolver: zodResolver(updateProfileSchema),
   });
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     async function loadProfile() {
@@ -229,13 +234,13 @@ export default function SettingsPage() {
         <div className="flex items-center gap-4">
           <Link 
             href={`/profile/${profile.username}`}
-            className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+            className="p-2 rounded-lg hover:bg-muted transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-cyan-400/10 border border-cyan-400/20">
-              <Settings className="h-5 w-5 text-cyan-400" />
+            <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+              <Settings className="h-5 w-5 text-primary" />
             </div>
             <div>
               <h1 className="text-xl font-bold">Settings</h1>
@@ -245,7 +250,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <Card className="mb-6 bg-slate-800/30 border-cyan-400/10">
+      <Card className="mb-6 bg-card border-border">
         <CardHeader>
           <CardTitle>Profile Picture</CardTitle>
           <CardDescription>
@@ -256,7 +261,7 @@ export default function SettingsPage() {
           <div className="flex items-center gap-6">
             {/* Avatar with camera overlay */}
             <div className="relative group">
-              <Avatar className="h-24 w-24 ring-2 ring-cyan-400/20">
+              <Avatar className="h-24 w-24 ring-2 ring-primary/20">
                 <AvatarImage src={avatarUrl || undefined} />
                 <AvatarFallback className="text-xl">{initials}</AvatarFallback>
               </Avatar>
@@ -276,7 +281,7 @@ export default function SettingsPage() {
                     variant="outline"
                     disabled={isUploadingAvatar}
                     asChild
-                    className="hover:bg-cyan-400/10 hover:border-cyan-400/30"
+                    className="hover:bg-primary/10 hover:border-primary/30"
                   >
                     <span>
                       {isUploadingAvatar ? (
@@ -315,7 +320,7 @@ export default function SettingsPage() {
               <p className="text-xs text-muted-foreground mt-2">
                 JPG, PNG, GIF or WebP. Max {MAX_IMAGE_SIZE_MB}MB.
               </p>
-              <p className="text-xs text-cyan-400/70 mt-1">
+              <p className="text-xs text-primary/70 mt-1">
                 You can crop and adjust after selecting
               </p>
             </div>
@@ -331,8 +336,51 @@ export default function SettingsPage() {
         onCropComplete={handleCroppedImage}
       />
 
+      <Card className="mb-6 bg-card border-border">
+        <CardHeader>
+          <CardTitle>Appearance</CardTitle>
+          <CardDescription>
+            Choose between light and dark mode
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {mounted && (
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setTheme("light")}
+                className={`flex-1 flex flex-col items-center gap-3 rounded-xl border-2 p-4 transition-all ${
+                  theme === "light"
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-muted-foreground/30"
+                }`}
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-400/20">
+                  <Sun className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                </div>
+                <span className="text-sm font-medium">Light</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme("dark")}
+                className={`flex-1 flex flex-col items-center gap-3 rounded-xl border-2 p-4 transition-all ${
+                  theme === "dark"
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-muted-foreground/30"
+                }`}
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800 dark:bg-slate-700">
+                  <Moon className="h-6 w-6 text-slate-300" />
+                </div>
+                <span className="text-sm font-medium">Dark</span>
+              </button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <form onSubmit={handleSubmit(onSubmit)}>
-        <Card className="bg-slate-800/30 border-cyan-400/10">
+        <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle>Profile Information</CardTitle>
             <CardDescription>

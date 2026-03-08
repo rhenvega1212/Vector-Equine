@@ -167,7 +167,7 @@ export function ExploreClient({ userId }: ExploreClientProps) {
             placeholder="Search by name or @username..."
             value={searchQ}
             onChange={(e) => setSearchQ(e.target.value)}
-            className="bg-white/5 border-white/10"
+            className="bg-muted/30 border-border"
           />
           {searchLoading && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -221,7 +221,7 @@ export function ExploreClient({ userId }: ExploreClientProps) {
                     }
                   />
                   {item.reason && item.reason !== "Suggested for you" && (
-                    <span className="absolute top-2 right-20 text-[10px] text-cyan-400/80 bg-cyan-400/10 px-1.5 py-0.5 rounded-full">
+                    <span className="absolute top-2 right-20 text-[10px] text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded-full">
                       {item.reason}
                     </span>
                   )}
@@ -362,7 +362,7 @@ export function ExploreClient({ userId }: ExploreClientProps) {
                     key={post.id}
                     type="button"
                     onClick={() => setSelectedPost(post)}
-                    className="group relative rounded-xl overflow-hidden border border-white/10 bg-white/5 hover:border-amber-400/30 hover:bg-white/[0.07] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-amber-400/50 text-left"
+                    className="group relative rounded-xl overflow-hidden border border-border bg-muted/30 hover:border-amber-400/30 hover:bg-muted/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-amber-400/50 text-left"
                   >
                     <div className={firstImage ? "aspect-[4/5]" : "aspect-[4/5]"}>
                       {firstImage ? (
@@ -512,7 +512,7 @@ function ListView({
                   className={
                     isTrending
                       ? "absolute top-2 right-2 z-10 text-[10px] font-medium text-amber-400 bg-amber-400/20 px-2 py-0.5 rounded-full"
-                      : "absolute top-2 right-2 z-10 text-[10px] font-medium text-cyan-400 bg-cyan-400/20 px-2 py-0.5 rounded-full"
+                      : "absolute top-2 right-2 z-10 text-[10px] font-medium text-primary bg-primary/20 px-2 py-0.5 rounded-full"
                   }
                 >
                   {isTrending ? "Trending" : "From the team"}

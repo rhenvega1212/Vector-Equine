@@ -43,18 +43,18 @@ export default async function NotificationsPage() {
         <div className="flex items-center gap-4">
           <Link 
             href={profile ? `/profile/${profile.username}` : "/feed"}
-            className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+            className="p-2 rounded-lg hover:bg-muted transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-cyan-400/10 border border-cyan-400/20">
-              <Bell className="h-5 w-5 text-cyan-400" />
+            <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+              <Bell className="h-5 w-5 text-primary" />
             </div>
             <div>
               <h1 className="text-xl font-bold">Notifications</h1>
               {unreadCount > 0 && (
-                <p className="text-xs text-cyan-400">{unreadCount} unread</p>
+                <p className="text-xs text-primary">{unreadCount} unread</p>
               )}
             </div>
           </div>

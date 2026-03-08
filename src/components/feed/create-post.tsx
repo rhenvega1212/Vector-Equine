@@ -213,8 +213,8 @@ export function CreatePost({ discussionMode }: CreatePostProps = {}) {
     <Card>
       <CardContent className="pt-6">
         {discussionMode?.prompt && (
-          <div className="mb-4 flex items-start gap-3 rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3">
-            <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
+          <div className="mb-4 flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+            <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
             <p className="text-sm font-medium">{discussionMode.prompt}</p>
           </div>
         )}
@@ -333,7 +333,7 @@ export function CreatePost({ discussionMode }: CreatePostProps = {}) {
         )}
 
         {discussionMode && (
-          <div className="flex items-center gap-2 mt-4 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5">
+          <div className="flex items-center gap-2 mt-4 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
             <Share2 className="h-4 w-4 text-muted-foreground" />
             <Label htmlFor="share-to-feed" className="flex-1 text-sm text-muted-foreground cursor-pointer">
               Also share to my feed

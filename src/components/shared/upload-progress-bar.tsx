@@ -49,7 +49,7 @@ function JobRow({ job, onDismiss }: { job: UploadJob; onDismiss: () => void }) {
         <button
           type="button"
           onClick={onDismiss}
-          className="shrink-0 p-1 rounded-full hover:bg-white/10 transition-colors"
+          className="shrink-0 p-1 rounded-full hover:bg-muted transition-colors"
           aria-label="Dismiss"
         >
           <X className="h-4 w-4 text-muted-foreground" />
@@ -66,9 +66,9 @@ export function UploadProgressBar() {
 
   return (
     <div className="fixed bottom-20 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:w-[380px] z-50">
-      <div className="rounded-xl border border-white/10 bg-background/95 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-white/5 bg-white/[0.03]">
-          <Upload className="h-3.5 w-3.5 text-cyan-400" />
+      <div className="rounded-xl border border-border bg-background/95 backdrop-blur-xl shadow-2xl shadow-black/10 dark:shadow-black/40 overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/30">
+          <Upload className="h-3.5 w-3.5 text-primary" />
           <span className="text-xs font-medium text-muted-foreground">
             {jobs.some((j) => j.status === "uploading" || j.status === "creating")
               ? "Uploading in background..."

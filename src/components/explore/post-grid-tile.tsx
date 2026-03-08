@@ -43,7 +43,7 @@ export function PostGridTile({ post, onClick, badge }: PostGridTileProps) {
     <button
       type="button"
       onClick={onClick}
-      className="group relative w-full aspect-square rounded-xl overflow-hidden border border-white/10 bg-white/5 hover:border-cyan-400/30 hover:bg-white/[0.07] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:ring-offset-2 focus:ring-offset-background text-left"
+      className="group relative w-full aspect-square rounded-xl overflow-hidden border border-border bg-muted/30 hover:border-primary/30 hover:bg-muted/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background text-left"
     >
       {thumbnail ? (
         <img
@@ -60,7 +60,7 @@ export function PostGridTile({ post, onClick, badge }: PostGridTileProps) {
         />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center p-3">
-          <p className="text-sm text-white/70 line-clamp-4">{snippet || "No content"}</p>
+          <p className="text-sm text-muted-foreground line-clamp-4">{snippet || "No content"}</p>
         </div>
       )}
       {/* Gradient overlay */}
@@ -71,7 +71,7 @@ export function PostGridTile({ post, onClick, badge }: PostGridTileProps) {
           className={
             badge === "trending"
               ? "absolute top-2 right-2 text-[10px] font-medium text-amber-400 bg-amber-400/20 px-2 py-0.5 rounded-full"
-              : "absolute top-2 right-2 text-[10px] font-medium text-cyan-400 bg-cyan-400/20 px-2 py-0.5 rounded-full"
+              : "absolute top-2 right-2 text-[10px] font-medium text-primary bg-primary/20 px-2 py-0.5 rounded-full"
           }
         >
           {badge === "trending" ? "Trending" : "From the team"}

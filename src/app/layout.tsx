@@ -67,13 +67,21 @@ export const viewport: Viewport = {
 
 const criticalStyles = `
   :root {
+    --background: 220 14% 96%;
+    --foreground: 222 47% 11%;
+    --muted: 220 14% 90%;
+    --muted-foreground: 220 9% 46%;
+    --primary: 191 80% 32%;
+    --border: 220 13% 87%;
+    --radius: 0.75rem;
+  }
+  .dark {
     --background: 224 71% 4%;
     --foreground: 210 40% 98%;
     --muted: 215 25% 27%;
     --muted-foreground: 217 10% 64%;
     --primary: 191 91% 50%;
     --border: 215 25% 27%;
-    --radius: 0.75rem;
   }
   html { -webkit-text-size-adjust: 100%; }
   body {
@@ -92,7 +100,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} ${cinzel.variable}`}>
         <style dangerouslySetInnerHTML={{ __html: criticalStyles }} />
         <Providers>

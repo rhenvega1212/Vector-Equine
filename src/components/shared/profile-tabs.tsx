@@ -79,7 +79,7 @@ function ChallengeActivityPreview({
       {(data?.total ?? 0) > 5 && (
         <Link
           href={`/challenges/${challengeId}`}
-          className="block text-center text-xs text-cyan-400 hover:text-cyan-300 transition-colors py-1"
+          className="block text-center text-xs text-primary hover:text-primary/80 transition-colors py-1"
         >
           View all {data?.total} posts in this challenge
         </Link>
@@ -113,17 +113,17 @@ export function ProfileTabs({
   return (
     <>
       <Tabs defaultValue="posts" className="w-full">
-        <TabsList className="w-full justify-center gap-4 sm:gap-8 bg-transparent border-y border-cyan-400/20 rounded-none h-14 p-0">
+        <TabsList className="w-full justify-center gap-4 sm:gap-8 bg-transparent border-y border-border rounded-none h-14 p-0">
           <TabsTrigger 
             value="posts" 
-            className="gap-2 text-xs uppercase tracking-widest font-medium data-[state=active]:text-cyan-400 data-[state=active]:border-b-2 data-[state=active]:border-cyan-400 rounded-none px-4 py-4 data-[state=active]:shadow-none data-[state=active]:bg-transparent bg-transparent text-muted-foreground hover:text-foreground transition-colors"
+            className="gap-2 text-xs uppercase tracking-widest font-medium data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-4 data-[state=active]:shadow-none data-[state=active]:bg-transparent bg-transparent text-muted-foreground hover:text-foreground transition-colors"
           >
             <Grid3X3 className="h-4 w-4" />
             <span className="hidden sm:inline">Posts</span>
           </TabsTrigger>
           <TabsTrigger 
             value="challenges" 
-            className="gap-2 text-xs uppercase tracking-widest font-medium data-[state=active]:text-cyan-400 data-[state=active]:border-b-2 data-[state=active]:border-cyan-400 rounded-none px-4 py-4 data-[state=active]:shadow-none data-[state=active]:bg-transparent bg-transparent text-muted-foreground hover:text-foreground transition-colors"
+            className="gap-2 text-xs uppercase tracking-widest font-medium data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-4 data-[state=active]:shadow-none data-[state=active]:bg-transparent bg-transparent text-muted-foreground hover:text-foreground transition-colors"
           >
             <Trophy className="h-4 w-4" />
             <span className="hidden sm:inline">Challenges</span>
@@ -145,8 +145,8 @@ export function ProfileTabs({
 
           {posts.length === 0 ? (
             <div className="py-20 text-center">
-              <div className="w-20 h-20 mx-auto rounded-full bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center mb-4">
-                <Grid3X3 className="h-10 w-10 text-cyan-400/50" />
+              <div className="w-20 h-20 mx-auto rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-4">
+                <Grid3X3 className="h-10 w-10 text-primary/50" />
               </div>
               <p className="text-lg font-medium text-foreground/80">No posts yet</p>
               <p className="text-sm text-muted-foreground mt-1">
@@ -167,7 +167,7 @@ export function ProfileTabs({
                     <button
                       key={post.id}
                       onClick={() => setSelectedPost(post)}
-                      className="relative aspect-square bg-slate-800/50 overflow-hidden group rounded-lg border border-cyan-400/10 hover:border-cyan-400/30 transition-all"
+                      className="relative aspect-square bg-muted overflow-hidden group rounded-lg border border-border hover:border-primary/30 transition-all"
                     >
                       {hasMedia ? (
                         <>
@@ -209,7 +209,7 @@ export function ProfileTabs({
                           )}
                         </>
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center p-3 bg-gradient-to-br from-slate-800 to-slate-900">
+                        <div className="w-full h-full flex items-center justify-center p-3 bg-gradient-to-br from-muted to-muted/80">
                           <p className="text-xs text-muted-foreground line-clamp-4 text-center">
                             {post.content}
                           </p>
@@ -246,14 +246,14 @@ export function ProfileTabs({
         <TabsContent value="challenges" className="mt-4">
           {enrollments.length === 0 ? (
             <div className="py-20 text-center">
-              <div className="w-20 h-20 mx-auto rounded-full bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center mb-4">
-                <Trophy className="h-10 w-10 text-cyan-400/50" />
+              <div className="w-20 h-20 mx-auto rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-4">
+                <Trophy className="h-10 w-10 text-primary/50" />
               </div>
               <p className="text-lg font-medium text-foreground/80">No challenges joined yet</p>
               <p className="text-sm text-muted-foreground mt-1">Explore challenges to get started</p>
               <Link 
                 href="/challenges"
-                className="inline-block mt-4 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+                className="inline-block mt-4 text-sm text-primary hover:text-primary/80 transition-colors"
               >
                 Browse Challenges →
               </Link>
@@ -267,7 +267,7 @@ export function ProfileTabs({
 
                 return (
                   <div key={enrollment.id}>
-                    <Card className="bg-slate-800/30 border-cyan-400/10 hover:border-cyan-400/30 hover:bg-slate-800/50 transition-all group">
+                    <Card className="bg-card border-border hover:border-primary/30 hover:bg-muted/50 transition-all group">
                       <CardContent className="p-4">
                         <div className="flex gap-4">
                           <Link
@@ -278,23 +278,23 @@ export function ProfileTabs({
                               <img
                                 src={enrollment.challenges.cover_image_url}
                                 alt=""
-                                className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg border border-cyan-400/20"
+                                className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg border border-border"
                               />
                             ) : (
-                              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-lg flex items-center justify-center border border-cyan-400/20">
-                                <Trophy className="h-8 w-8 text-cyan-400/50" />
+                              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-primary/20 to-blue-500/20 rounded-lg flex items-center justify-center border border-border">
+                                <Trophy className="h-8 w-8 text-primary/50" />
                               </div>
                             )}
                           </Link>
                           <div className="flex-1 min-w-0">
                             <Link href={`/challenges/${cId}`}>
-                              <h3 className="font-semibold truncate group-hover:text-cyan-400 transition-colors">
+                              <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
                                 {enrollment.challenges.title}
                               </h3>
                             </Link>
                             <div className="flex flex-wrap gap-2 mt-1">
                               {enrollment.challenges.difficulty && (
-                                <Badge variant="outline" className="text-xs border-cyan-400/30 text-cyan-400">
+                                <Badge variant="outline" className="text-xs border-primary/30 text-primary">
                                   {enrollment.challenges.difficulty}
                                 </Badge>
                               )}
@@ -314,7 +314,7 @@ export function ProfileTabs({
                                   onClick={() =>
                                     setExpandedChallenge(isExpanded ? null : cId)
                                   }
-                                  className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+                                  className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
                                 >
                                   <MessagesSquare className="h-3 w-3" />
                                   {postCount} {postCount === 1 ? "post" : "posts"}
@@ -349,7 +349,7 @@ export function ProfileTabs({
 
       {/* Post Detail Modal */}
       <Dialog open={!!selectedPost} onOpenChange={() => setSelectedPost(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0 bg-slate-900/95 backdrop-blur-xl border-cyan-400/20">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0 bg-background/95 backdrop-blur-xl border-border">
           <DialogHeader className="sr-only">
             <DialogTitle>Post Details</DialogTitle>
           </DialogHeader>
@@ -364,7 +364,7 @@ export function ProfileTabs({
       {/* Create Post Dialog (own profile) */}
       {isOwnProfile && (
         <Dialog open={showCreatePost} onOpenChange={setShowCreatePost}>
-          <DialogContent className="max-w-lg p-0 bg-slate-900/95 backdrop-blur-xl border-cyan-400/20">
+          <DialogContent className="max-w-lg p-0 bg-background/95 backdrop-blur-xl border-border">
             <DialogHeader className="px-6 pt-6 pb-0">
               <DialogTitle>Create Post</DialogTitle>
             </DialogHeader>
