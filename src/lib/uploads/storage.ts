@@ -45,14 +45,59 @@ export async function uploadFileWithProgress(
   onProgress?: (percent: number) => void
 ): Promise<UploadResult> {
   const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) throw new Error("Not authenticated");
 
   const fileExt = file.name.split(".").pop();
   const fileName = path || `${crypto.randomUUID()}.${fileExt}`;
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const url = `${supabaseUrl}/storage/v1/object/${bucket}/${fileName}`;
+  // For admin buckets, request a signed upload URL from the server to
+  // bypass RLS policies. Falls back to direct auth upload otherwise.
+  const adminBuckets: StorageBucket[] = ["challenge-media", "submissions"];
+  const useSignedUrl = adminBuckets.includes(bucket);
+
+  let uploadUrl: string;
+
+  if (useSignedUrl) {
+    const res = await fetch("/api/admin/storage/upload-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bucket, path: fileName }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Failed to get upload URL (${res.status})`);
+    }
+    const { signedUrl } = await res.json();
+    uploadUrl = signedUrl;
+  } else {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error("Not authenticated");
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    uploadUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${fileName}`;
+  }
+
+  async function prepareHeaders(): Promise<{
+    method: string;
+    headers: Record<string, string>;
+  }> {
+    const headers: Record<string, string> = {
+      "Content-Type": file.type || "application/octet-stream",
+      "Cache-Control": "3600",
+    };
+    if (useSignedUrl) {
+      return { method: "PUT", headers };
+    }
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error("Not authenticated");
+    headers["Authorization"] = `Bearer ${session.access_token}`;
+    headers["x-upsert"] = "true";
+    return { method: "POST", headers };
+  }
+
+  const { method, headers } = await prepareHeaders();
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -65,28 +110,29 @@ export async function uploadFileWithProgress(
 
     xhr.addEventListener("load", () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        const { data: { publicUrl } } = supabase.storage
-          .from(bucket)
-          .getPublicUrl(fileName);
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from(bucket).getPublicUrl(fileName);
         resolve({ url: publicUrl, path: fileName });
       } else {
         let message = "Upload failed";
         try {
           const body = JSON.parse(xhr.responseText);
-          message = body.message || body.error || message;
+          message = body.message || body.error || body.statusCode || message;
         } catch {}
         reject(new Error(message));
       }
     });
 
-    xhr.addEventListener("error", () => reject(new Error("Upload failed")));
+    xhr.addEventListener("error", () =>
+      reject(new Error("Network error — check your connection and try again"))
+    );
     xhr.addEventListener("abort", () => reject(new Error("Upload cancelled")));
 
-    xhr.open("POST", url);
-    xhr.setRequestHeader("Authorization", `Bearer ${session.access_token}`);
-    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-    xhr.setRequestHeader("x-upsert", "true");
-    xhr.setRequestHeader("Cache-Control", "3600");
+    xhr.open(method, uploadUrl);
+    for (const [key, value] of Object.entries(headers)) {
+      xhr.setRequestHeader(key, value);
+    }
     xhr.send(file);
   });
 }

@@ -35,6 +35,7 @@ import { TrainerLinkBlockEditor } from "./blocks/trainer-link-editor";
 
 interface LessonBlockEditorProps {
   lessonId: string;
+  challengeId?: string;
   onBlockSettingsClick?: (block: BlockData) => void;
 }
 
@@ -67,6 +68,7 @@ function getBlockEditor(blockType: BlockType): React.ComponentType<BlockEditorPr
 
 export function LessonBlockEditor({
   lessonId,
+  challengeId,
   onBlockSettingsClick,
 }: LessonBlockEditorProps) {
   const queryClient = useQueryClient();
@@ -273,6 +275,7 @@ export function LessonBlockEditor({
                   <EditorComponent
                     block={block}
                     onUpdate={(updates) => handleBlockUpdate(block.id, updates)}
+                    challengeId={challengeId}
                   />
                 </BlockWrapper>
 

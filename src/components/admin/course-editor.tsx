@@ -323,6 +323,7 @@ export function CourseEditor({ challengeId }: CourseEditorProps) {
         {view === "lesson" && activeLessonId && (
           <LessonBlockEditor
             lessonId={activeLessonId}
+            challengeId={challengeId}
             onBlockSettingsClick={setActiveBlock}
           />
         )}

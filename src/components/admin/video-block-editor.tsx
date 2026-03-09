@@ -123,8 +123,11 @@ export function VideoBlockEditor({
       onSave(urlInput.trim());
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
-    } catch {
-      setError("Failed to save video URL. Try again.");
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to save video URL";
+      setError(msg);
+      console.error("Video save error:", err);
     } finally {
       setIsSaving(false);
     }
@@ -167,8 +170,11 @@ export function VideoBlockEditor({
         onSave(url);
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 2000);
-      } catch {
-        setError("Upload failed. Please try again.");
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : "Upload failed";
+        setError(msg);
+        console.error("Video upload error:", err);
       } finally {
         setIsUploading(false);
         onUploadEnd?.();

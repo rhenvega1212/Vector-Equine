@@ -35,6 +35,7 @@ export interface BlockData {
 export interface BlockEditorProps {
   block: BlockData;
   onUpdate: (updates: Partial<BlockData>) => void;
+  challengeId?: string;
 }
 
 export interface BlockRendererProps {
