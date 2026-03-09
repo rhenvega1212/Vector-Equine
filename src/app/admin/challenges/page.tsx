@@ -89,7 +89,7 @@ export default function AdminChallengesPage() {
       const response = await fetch(`/api/admin/challenges/${challengeId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: publish ? "active" : "draft" }),
+        body: JSON.stringify({ status: publish ? "published" : "draft" }),
       });
 
       if (response.ok) {
@@ -100,6 +100,13 @@ export default function AdminChallengesPage() {
             : "The challenge is now hidden.",
         });
         fetchChallenges();
+      } else {
+        const data = await response.json().catch(() => ({}));
+        toast({
+          title: "Error",
+          description: data.error || "Failed to update challenge status.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       toast({
@@ -224,7 +231,7 @@ export default function AdminChallengesPage() {
                   {challenge.status === "draft" && <Clock className="h-3 w-3 mr-1" />}
                   {(challenge.status === "published" || challenge.status === "active") && <CheckCircle className="h-3 w-3 mr-1" />}
                   {challenge.status === "archived" && <Archive className="h-3 w-3 mr-1" />}
-                  {challenge.status === "active" ? "Live" : challenge.status}
+                  {challenge.status === "published" || challenge.status === "active" ? "Live" : challenge.status}
                 </Badge>
               </TableCell>
               <TableCell>{challenge.enrollment_count}</TableCell>
@@ -263,20 +270,20 @@ export default function AdminChallengesPage() {
                         <Archive className="h-4 w-4 mr-2" />
                         Archived (locked)
                       </DropdownMenuItem>
-                    ) : challenge.status === "draft" ? (
+                    ) : challenge.status === "published" || challenge.status === "active" ? (
+                      <DropdownMenuItem
+                        onClick={() => handleToggleStatus(challenge.id, false)}
+                      >
+                        <EyeOff className="h-4 w-4 mr-2" />
+                        Unpublish (Move to Drafts)
+                      </DropdownMenuItem>
+                    ) : (
                       <DropdownMenuItem
                         onClick={() => handleToggleStatus(challenge.id, true)}
                         className="text-green-500"
                       >
                         <CheckCircle className="h-4 w-4 mr-2" />
                         Publish Challenge
-                      </DropdownMenuItem>
-                    ) : (
-                      <DropdownMenuItem
-                        onClick={() => handleToggleStatus(challenge.id, false)}
-                      >
-                        <EyeOff className="h-4 w-4 mr-2" />
-                        Unpublish (Move to Drafts)
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuSeparator />
