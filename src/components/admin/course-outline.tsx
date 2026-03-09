@@ -154,6 +154,8 @@ export function CourseOutline({
         const mod = await res.json();
         setExpandedModules((prev) => new Set(prev).add(mod.id));
         onDataChange();
+        setEditingModuleId(mod.id);
+        setEditingTitle("");
       }
     } catch {}
   }
@@ -202,20 +204,21 @@ export function CourseOutline({
   }
 
   async function commitEditingTitle() {
-    if (editingModuleId && editingTitle.trim()) {
-      const id = editingModuleId;
-      setEditingModuleId(null);
-      try {
-        await fetch(`/api/admin/modules/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: editingTitle.trim() }),
-        });
-        onDataChange();
-      } catch {}
-    } else {
-      setEditingModuleId(null);
-    }
+    const id = editingModuleId;
+    setEditingModuleId(null);
+    if (!id) return;
+
+    const title = editingTitle.trim();
+    if (!title) return;
+
+    try {
+      await fetch(`/api/admin/modules/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      onDataChange();
+    } catch {}
   }
 
   // --- Lesson actions ---
@@ -226,20 +229,31 @@ export function CourseOutline({
   }
 
   async function commitEditingLessonTitle() {
-    if (editingLessonId && editingLessonTitle.trim()) {
-      const id = editingLessonId;
-      setEditingLessonId(null);
-      try {
-        await fetch(`/api/admin/lessons/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: editingLessonTitle.trim() }),
-        });
-        onDataChange();
-      } catch {}
-    } else {
-      setEditingLessonId(null);
-    }
+    const id = editingLessonId;
+    setEditingLessonId(null);
+    if (!id) return;
+
+    const title = editingLessonTitle.trim();
+    if (!title) return;
+
+    try {
+      await fetch(`/api/admin/lessons/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      onDataChange();
+    } catch {}
+  }
+
+  async function deleteLesson(lessonId: string) {
+    if (!confirm("Delete this lesson and all its content blocks?")) return;
+    try {
+      const res = await fetch(`/api/admin/lessons/${lessonId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) onDataChange();
+    } catch {}
   }
 
   async function addLesson(moduleId: string, lessonCount: number) {
@@ -253,7 +267,12 @@ export function CourseOutline({
           sort_order: lessonCount,
         }),
       });
-      if (res.ok) onDataChange();
+      if (res.ok) {
+        const lesson = await res.json();
+        await onDataChange();
+        setEditingLessonId(lesson.id);
+        setEditingLessonTitle("");
+      }
     } catch {}
   }
 
@@ -397,6 +416,7 @@ export function CourseOutline({
                             <input
                               className="flex-1 min-w-0 bg-slate-800 border border-cyan-400/30 rounded px-1.5 py-0.5 text-xs text-white outline-none focus:border-cyan-400"
                               value={editingTitle}
+                              placeholder="Module name..."
                               onChange={(e) => setEditingTitle(e.target.value)}
                               onBlur={commitEditingTitle}
                               onKeyDown={(e) => {
@@ -503,6 +523,7 @@ export function CourseOutline({
                                             <input
                                               className="flex-1 min-w-0 bg-slate-800 border border-cyan-400/30 rounded px-1.5 py-0.5 text-xs text-white outline-none focus:border-cyan-400"
                                               value={editingLessonTitle}
+                                              placeholder="Lesson name..."
                                               onChange={(e) => setEditingLessonTitle(e.target.value)}
                                               onBlur={commitEditingLessonTitle}
                                               onKeyDown={(e) => {
@@ -536,17 +557,30 @@ export function CourseOutline({
                                             </Badge>
                                           )}
                                           {editingLessonId !== lesson.id && (
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              className="h-5 w-5 opacity-0 group-hover:opacity-100 text-slate-500 hover:text-white shrink-0"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                startEditingLessonTitle(lesson);
-                                              }}
-                                            >
-                                              <Pencil className="h-2.5 w-2.5" />
-                                            </Button>
+                                            <>
+                                              <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-5 w-5 opacity-0 group-hover:opacity-100 text-slate-500 hover:text-white shrink-0"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  startEditingLessonTitle(lesson);
+                                                }}
+                                              >
+                                                <Pencil className="h-2.5 w-2.5" />
+                                              </Button>
+                                              <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-5 w-5 opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 shrink-0"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  deleteLesson(lesson.id);
+                                                }}
+                                              >
+                                                <Trash2 className="h-2.5 w-2.5" />
+                                              </Button>
+                                            </>
                                           )}
                                         </div>
                                       )}

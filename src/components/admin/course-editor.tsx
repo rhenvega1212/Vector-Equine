@@ -42,7 +42,15 @@ interface Challenge {
   price_display?: string;
   cover_image_url?: string;
   status: string;
+  is_private?: boolean;
   challenge_modules: Module[];
+}
+
+// "active" was introduced in a later migration but "published" is the canonical
+// value understood by all RLS policies. Normalize on load so the editor always
+// saves a universally accepted value.
+function normalizeStatus(s: string): string {
+  return s === "active" ? "published" : s;
 }
 
 interface CourseEditorProps {
@@ -73,6 +81,7 @@ export function CourseEditor({ challengeId }: CourseEditorProps) {
     price_display: string;
     cover_image_url: string;
     status: string;
+    is_private: boolean;
   } | null>(null);
 
   const form = editForm ?? {
@@ -82,7 +91,8 @@ export function CourseEditor({ challengeId }: CourseEditorProps) {
     duration_days: challenge?.duration_days?.toString() ?? "",
     price_display: challenge?.price_display ?? "",
     cover_image_url: challenge?.cover_image_url ?? "",
-    status: challenge?.status ?? "draft",
+    status: normalizeStatus(challenge?.status ?? "draft"),
+    is_private: (challenge as any)?.is_private ?? false,
   };
 
   const setForm = (
@@ -122,6 +132,7 @@ export function CourseEditor({ challengeId }: CourseEditorProps) {
       price_display: form.price_display || null,
       cover_image_url: form.cover_image_url || null,
       status: form.status,
+      is_private: form.is_private,
     });
   }
 
@@ -263,8 +274,8 @@ export function CourseEditor({ challengeId }: CourseEditorProps) {
                 <div className="space-y-2">
                   <Label>Status</Label>
                   <Select
-                    value={form.status === "active" ? "published" : form.status}
-                    onValueChange={(value) => setForm({ status: value === "published" ? "active" : value })}
+                    value={form.status}
+                    onValueChange={(value) => setForm({ status: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -276,6 +287,19 @@ export function CourseEditor({ challengeId }: CourseEditorProps) {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              <div className="flex items-center space-x-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="is_private"
+                  checked={form.is_private}
+                  onChange={(e) => setForm({ is_private: e.target.checked })}
+                  className="h-4 w-4 rounded border-border"
+                />
+                <Label htmlFor="is_private" className="cursor-pointer text-sm">
+                  Private challenge (only visible to enrolled users)
+                </Label>
               </div>
 
               <div className="pt-4">
