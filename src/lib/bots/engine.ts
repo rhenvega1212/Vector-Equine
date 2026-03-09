@@ -136,9 +136,17 @@ async function insertPost(
   bot: BotProfile,
   content: ContentTemplate,
   media: MediaItem | null,
+  hour: number,
   minuteOffset: number
 ): Promise<{ postId: string; botName: string; type: string } | null> {
-  const postTime = new Date(Date.now() - minuteOffset * 60 * 1000);
+  // Build a timestamp for today at the planned hour + minute offset.
+  // This spreads posts across the day even when the cron fires once.
+  const now = new Date();
+  const postTime = new Date(now);
+  postTime.setHours(hour, minuteOffset, Math.floor(Math.random() * 60), 0);
+  if (postTime > now) {
+    postTime.setDate(postTime.getDate() - 1);
+  }
   const tags = randomSubset(content.tags, 3);
 
   const { data: post, error: postError } = await admin
@@ -275,6 +283,7 @@ export async function executeScheduledPosts(slots: PlannedPost[]): Promise<{
       slot.bot,
       content,
       media,
+      slot.hour,
       slot.minuteOffset
     );
 

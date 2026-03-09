@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { executeScheduledPosts } from "@/lib/bots/engine";
-import {
-  generateDailyPlan,
-  getCurrentLocalHour,
-  getPostsForHour,
-} from "@/lib/bots/scheduler";
+import { generateDailyPlan } from "@/lib/bots/scheduler";
 
 export async function POST(request: NextRequest) {
   const headersList = await headers();
@@ -19,27 +15,27 @@ export async function POST(request: NextRequest) {
   try {
     const now = new Date();
     const plan = generateDailyPlan(now);
-    const currentHour = getCurrentLocalHour(now);
-    const scheduled = getPostsForHour(plan, currentHour);
 
-    if (scheduled.length === 0) {
+    if (plan.posts.length === 0) {
       return NextResponse.json({
         status: "skipped",
-        hour: currentHour,
-        plan: {
-          date: plan.date,
-          quietDay: plan.isQuietDay,
-          totalPosts: plan.posts.length,
-          hours: plan.posts.map((p) => p.hour),
-        },
+        plan: { date: plan.date, quietDay: plan.isQuietDay, totalPosts: 0 },
       });
     }
 
-    const results = await executeScheduledPosts(scheduled);
+    // On Hobby plan the cron fires once daily, so create all of today's
+    // posts in a single run. Each post already carries a unique hour and
+    // minuteOffset from the deterministic plan — the engine uses those to
+    // backdate created_at so posts appear spread across the day.
+    const results = await executeScheduledPosts(plan.posts);
 
     return NextResponse.json({
       status: "posted",
-      hour: currentHour,
+      plan: {
+        date: plan.date,
+        quietDay: plan.isQuietDay,
+        totalPosts: plan.posts.length,
+      },
       ...results,
     });
   } catch (e) {
