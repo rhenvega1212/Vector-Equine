@@ -258,10 +258,10 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 sm:gap-6">
             {/* Avatar with camera overlay */}
             <div className="relative group">
-              <Avatar className="h-24 w-24 ring-2 ring-primary/20">
+              <Avatar className="h-20 w-20 sm:h-24 sm:w-24 ring-2 ring-primary/20">
                 <AvatarImage src={avatarUrl || undefined} />
                 <AvatarFallback className="text-xl">{initials}</AvatarFallback>
               </Avatar>

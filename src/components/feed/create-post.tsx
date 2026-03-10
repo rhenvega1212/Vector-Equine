@@ -346,7 +346,7 @@ export function CreatePost({ discussionMode }: CreatePostProps = {}) {
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-4">
+        <div className="flex items-center justify-between mt-3 sm:mt-4">
           <div className="flex gap-2">
             <input
               ref={fileInputRef}

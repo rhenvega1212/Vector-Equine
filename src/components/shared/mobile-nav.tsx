@@ -27,7 +27,7 @@ export function MobileNav({ profile }: MobileNavProps) {
       <div
         className="flex items-center justify-around"
         style={{
-          height: "calc(68px + env(safe-area-inset-bottom))",
+          height: "calc(60px + env(safe-area-inset-bottom))",
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
@@ -43,13 +43,12 @@ export function MobileNav({ profile }: MobileNavProps) {
               <div
                 key={item.href}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 px-4 py-2 text-xs touch-target cursor-not-allowed opacity-70 text-muted-foreground"
+                  "flex flex-col items-center justify-center gap-0.5 px-2 py-1.5 text-[10px] touch-target cursor-not-allowed opacity-70 text-muted-foreground"
                 )}
                 title="Coming soon"
               >
-                <Icon className="h-6 w-6" />
+                <Icon className="h-5 w-5" />
                 <span className="font-medium">{item.label}</span>
-                <span className="text-[10px] text-muted-foreground/80">Soon</span>
               </div>
             );
           }
@@ -59,15 +58,14 @@ export function MobileNav({ profile }: MobileNavProps) {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 px-4 py-2 text-xs transition-all duration-300 touch-target",
+                "flex flex-col items-center justify-center gap-0.5 px-2 py-1.5 text-[10px] transition-all duration-300 touch-target",
                 isActive
-                  ? "text-primary scale-110 drop-shadow-[0_0_8px_rgba(var(--primary),0.5)]"
+                  ? "text-primary scale-105"
                   : "text-muted-foreground active:text-foreground active:scale-95"
               )}
             >
-              <Icon className={cn("h-6 w-6", isActive && "animate-pulse")} />
-              <span className={cn("font-medium", isActive && "magical-text")}>{item.label}</span>
-              {isTrain && <span className="text-[10px] text-muted-foreground/80">Soon</span>}
+              <Icon className={cn("h-5 w-5", isActive && "text-primary")} />
+              <span className={cn("font-medium", isActive && "text-primary")}>{item.label}</span>
             </Link>
           );
         })}

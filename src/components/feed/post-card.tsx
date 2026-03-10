@@ -163,20 +163,20 @@ export function PostCard({
   return (
     <>
       <Card className="transition-all duration-200 hover:bg-muted/30 dark:hover:bg-white/[0.02] hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5">
-        <CardContent className="pt-6">
+        <CardContent className="px-3 sm:px-6 pt-4 sm:pt-6">
           <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               <Link
                 href={`/profile/${post.profiles.username}`}
-                className="flex items-center gap-3 group shrink-0"
+                className="flex items-center gap-2 sm:gap-3 group shrink-0"
               >
-                <Avatar className="ring-2 ring-transparent group-hover:ring-primary/30 transition-all duration-200">
+                <Avatar className="h-8 w-8 sm:h-10 sm:w-10 ring-2 ring-transparent group-hover:ring-primary/30 transition-all duration-200">
                   <AvatarImage src={post.profiles.avatar_url || undefined} />
-                  <AvatarFallback>{initials}</AvatarFallback>
+                  <AvatarFallback className="text-xs sm:text-sm">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold group-hover:text-primary transition-colors truncate">
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                    <p className="text-sm sm:text-base font-semibold group-hover:text-primary transition-colors truncate max-w-[120px] sm:max-w-none">
                       {post.profiles.display_name}
                     </p>
                     {isSuggested && (
@@ -251,7 +251,7 @@ export function PostCard({
             </Link>
           )}
 
-          <p className="mt-4 whitespace-pre-wrap">{post.content}</p>
+          <p className="mt-3 sm:mt-4 text-sm sm:text-base whitespace-pre-wrap break-words">{post.content}</p>
 
           {post.post_media.length > 0 && (
             post.post_media.length === 1 ? (
@@ -326,7 +326,7 @@ export function PostCard({
           )}
         </CardContent>
 
-        <CardFooter className="flex items-center gap-2 pt-2 pb-4">
+        <CardFooter className="flex items-center gap-1 sm:gap-2 px-3 sm:px-6 pt-1 sm:pt-2 pb-3 sm:pb-4">
           {/* Like button */}
           <button
             onClick={handleLike}

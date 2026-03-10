@@ -18,7 +18,7 @@ import {
   isValidVideoType,
 } from "@/lib/uploads/storage";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, Image as ImageIcon, X, ImagePlus } from "lucide-react";
+import { Loader2, Image as ImageIcon, X, ImagePlus, Trash2 } from "lucide-react";
 
 const AVAILABLE_TAGS = [
   "training", "dressage", "jumping", "eventing", "western",
@@ -68,6 +68,7 @@ export function EditPostDialog({ open, onOpenChange, post }: EditPostDialogProps
     post.post_media.map((m) => ({ kind: "existing" as const, data: m }))
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [progress, setProgress] = useState(0);
 
   function toggleTag(tag: string) {
@@ -217,9 +218,34 @@ export function EditPostDialog({ open, onOpenChange, post }: EditPostDialogProps
     }
   }
 
+  async function handleDelete() {
+    if (!confirm("Are you sure you want to delete this post? This cannot be undone.")) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/posts/${post.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete post");
+      }
+      queryClient.invalidateQueries({ queryKey: ["feed"] });
+      queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      toast({ title: "Post deleted" });
+      onOpenChange(false);
+    } catch (err: unknown) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to delete.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Post</DialogTitle>
         </DialogHeader>
@@ -315,13 +341,27 @@ export function EditPostDialog({ open, onOpenChange, post }: EditPostDialogProps
             </div>
           )}
 
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isSaving}>
-              Cancel
+          <div className="flex justify-between gap-2">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
+              disabled={isSaving || isDeleting}
+            >
+              {isDeleting ? (
+                <><Loader2 className="h-4 w-4 animate-spin mr-2" />Deleting...</>
+              ) : (
+                <><Trash2 className="h-4 w-4 mr-2" />Delete Post</>
+              )}
             </Button>
-            <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving...</> : "Save Changes"}
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isSaving || isDeleting}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={isSaving || isDeleting}>
+                {isSaving ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving...</> : "Save Changes"}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

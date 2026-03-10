@@ -83,10 +83,10 @@ export function MainLayoutClient({
       )}
       <MainNav profile={profile} />
       <main
-        className="container mx-auto px-4 py-4 sm:py-6 md:pb-6"
+        className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:pb-6"
         style={{
-          paddingTop: "calc(4rem + env(safe-area-inset-top) + 1rem)",
-          paddingBottom: "calc(80px + env(safe-area-inset-bottom))",
+          paddingTop: "calc(3.5rem + env(safe-area-inset-top) + 0.75rem)",
+          paddingBottom: "calc(72px + env(safe-area-inset-bottom))",
         }}
       >
         {children}

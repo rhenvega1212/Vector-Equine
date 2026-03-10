@@ -61,9 +61,9 @@ export function MainNav({ profile }: MainNavProps) {
       className="fixed top-0 left-0 right-0 z-50 w-full border-b glass"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
-      <div className="container mx-auto flex h-16 items-center px-4">
-        <Link href="/feed" className="mr-6 flex items-center space-x-2">
-          <span className="text-2xl font-bold magical-text">Vector Equine</span>
+      <div className="container mx-auto flex h-14 sm:h-16 items-center px-3 sm:px-4">
+        <Link href="/feed" className="mr-4 sm:mr-6 flex items-center space-x-2">
+          <span className="text-lg sm:text-2xl font-bold magical-text">Vector Equine</span>
         </Link>
 
         <nav className="hidden md:flex items-center space-x-1 flex-1">

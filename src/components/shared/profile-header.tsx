@@ -173,48 +173,48 @@ export function ProfileHeader({
       </div>
 
       {/* Stats row - glass card style */}
-      <div className="flex justify-between items-center mt-6 p-4 rounded-xl bg-muted/50 border border-border">
+      <div className="flex justify-between items-center mt-5 sm:mt-6 p-3 sm:p-4 rounded-xl bg-muted/50 border border-border">
         <button className="flex-1 text-center group cursor-default">
-          <p className="text-2xl sm:text-3xl font-bold text-foreground group-hover:text-primary transition-colors">
+          <p className="text-xl sm:text-3xl font-bold text-foreground group-hover:text-primary transition-colors">
             {formatCount(postsCount)}
           </p>
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">Posts</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">Posts</p>
         </button>
-        <div className="w-px h-10 bg-border" />
+        <div className="w-px h-8 sm:h-10 bg-border" />
         <button className="flex-1 text-center group cursor-default">
-          <p className="text-2xl sm:text-3xl font-bold text-foreground group-hover:text-primary transition-colors">
+          <p className="text-xl sm:text-3xl font-bold text-foreground group-hover:text-primary transition-colors">
             {formatCount(followers)}
           </p>
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">Followers</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">Followers</p>
         </button>
-        <div className="w-px h-10 bg-border" />
+        <div className="w-px h-8 sm:h-10 bg-border" />
         <button className="flex-1 text-center group cursor-default">
-          <p className="text-2xl sm:text-3xl font-bold text-foreground group-hover:text-primary transition-colors">
+          <p className="text-xl sm:text-3xl font-bold text-foreground group-hover:text-primary transition-colors">
             {formatCount(followingCount)}
           </p>
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">Following</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">Following</p>
         </button>
       </div>
 
       {/* Action buttons */}
-      <div className="flex gap-3 mt-6">
+      <div className="flex gap-2 sm:gap-3 mt-5 sm:mt-6">
         {isOwnProfile ? (
           <>
             <Link href="/settings" className="flex-1">
               <Button 
                 variant="outline" 
-                className="w-full h-11 border-primary/30 hover:bg-primary/10 hover:border-primary/50 transition-all"
+                className="w-full h-9 sm:h-11 text-sm border-primary/30 hover:bg-primary/10 hover:border-primary/50 transition-all"
               >
                 Edit Profile
               </Button>
             </Link>
             <Button 
               variant="outline"
-              className="h-11 px-6 border-primary/30 hover:bg-primary/10 hover:border-primary/50 transition-all"
+              className="h-9 sm:h-11 px-4 sm:px-6 text-sm border-primary/30 hover:bg-primary/10 hover:border-primary/50 transition-all"
               onClick={handleShare}
             >
-              <Share2 className="h-4 w-4 mr-2" />
-              Share
+              <Share2 className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Share</span>
             </Button>
           </>
         ) : currentUserId ? (
@@ -223,7 +223,7 @@ export function ProfileHeader({
               variant={isFollowing ? "outline" : "default"}
               onClick={handleFollowToggle}
               disabled={isLoading}
-              className={`flex-1 h-11 ${
+              className={`flex-1 h-9 sm:h-11 text-sm ${
                 !isFollowing 
                   ? "bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-black font-semibold shadow-lg shadow-cyan-500/25" 
                   : "border-primary/30 hover:bg-primary/10"
@@ -239,7 +239,7 @@ export function ProfileHeader({
             </Button>
             <Button 
               variant="outline"
-              className="h-11 px-6 border-primary/30 hover:bg-primary/10 hover:border-primary/50"
+              className="h-9 sm:h-11 px-4 sm:px-6 border-primary/30 hover:bg-primary/10 hover:border-primary/50"
             >
               <MessageCircle className="h-4 w-4" />
             </Button>

@@ -74,30 +74,30 @@ export default async function ChallengesPage({ searchParams }: ChallengesPagePro
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Challenges</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold">Challenges</h1>
+          <p className="text-sm text-muted-foreground">
             Structured courses to improve your skills
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {enrolledChallengeIds.length > 0 && (
             <Link href="/challenges/my">
-              <Button variant="outline">My Challenges</Button>
+              <Button variant="outline" size="sm" className="sm:size-default">My Challenges</Button>
             </Link>
           )}
           {isAdmin && (
             <>
               <Link href="/admin/challenges">
-                <Button variant="outline">
-                  Manage Challenges
+                <Button variant="outline" size="sm" className="sm:size-default">
+                  Manage
                 </Button>
               </Link>
               <Link href="/admin/challenges/create">
-                <Button className="bg-cyan-500 hover:bg-cyan-400 text-black">
-                  <PenTool className="h-4 w-4 mr-2" />
-                  Build Challenge
+                <Button size="sm" className="sm:size-default bg-cyan-500 hover:bg-cyan-400 text-black">
+                  <PenTool className="h-4 w-4 mr-1 sm:mr-2" />
+                  Build
                 </Button>
               </Link>
             </>
@@ -105,7 +105,7 @@ export default async function ChallengesPage({ searchParams }: ChallengesPagePro
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="flex flex-wrap gap-2 mb-6 overflow-x-auto scrollbar-hide">
         <Link
           href="/challenges"
           className={!nicheFilter ? "pointer-events-none" : undefined}
@@ -157,7 +157,7 @@ export default async function ChallengesPage({ searchParams }: ChallengesPagePro
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2">
           {challenges.map((challenge) => {
             const isEnrolled = enrolledChallengeIds.includes(challenge.id);
             const enrollmentCount = challenge.challenge_enrollments?.length || 0;
@@ -169,11 +169,11 @@ export default async function ChallengesPage({ searchParams }: ChallengesPagePro
                     <img
                       src={challenge.cover_image_url}
                       alt=""
-                      className="w-full h-40 object-cover"
+                      className="w-full h-32 sm:h-40 object-cover"
                     />
                   ) : (
-                    <div className="w-full h-40 bg-muted flex items-center justify-center">
-                      <Trophy className="h-12 w-12 text-muted-foreground" />
+                    <div className="w-full h-32 sm:h-40 bg-muted flex items-center justify-center">
+                      <Trophy className="h-10 sm:h-12 w-10 sm:w-12 text-muted-foreground" />
                     </div>
                   )}
                   <CardContent className="p-4">

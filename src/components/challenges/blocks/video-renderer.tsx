@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { CheckCircle } from "lucide-react";
 import type { BlockRendererProps } from "@/lib/blocks/types";
@@ -23,6 +24,10 @@ export function VideoBlockRenderer({ block, isCompleted, onComplete }: BlockRend
   const settings = block.settings as unknown as Partial<VideoSettings>;
   const parsed = parseVideoUrl(block.content);
 
+  const preventContext = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+  }, []);
+
   return (
     <div className="space-y-3">
       {settings?.title && (
@@ -32,26 +37,34 @@ export function VideoBlockRenderer({ block, isCompleted, onComplete }: BlockRend
         <p className="text-sm text-muted-foreground">{settings.description}</p>
       )}
 
-      <div className="relative w-full overflow-hidden rounded-lg border border-border">
+      <div
+        className="relative w-full overflow-hidden rounded-lg border border-border"
+        onContextMenu={preventContext}
+      >
         {parsed.type === "youtube" ? (
           <iframe
-            src={`https://www.youtube.com/embed/${parsed.id}`}
+            src={`https://www.youtube-nocookie.com/embed/${parsed.id}?rel=0&modestbranding=1&showinfo=0&disablekb=0&fs=1`}
             className="aspect-video w-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
+            referrerPolicy="no-referrer"
           />
         ) : parsed.type === "vimeo" ? (
           <iframe
-            src={`https://player.vimeo.com/video/${parsed.id}`}
+            src={`https://player.vimeo.com/video/${parsed.id}?title=0&byline=0&portrait=0`}
             className="aspect-video w-full"
             allow="autoplay; fullscreen; picture-in-picture"
             allowFullScreen
+            referrerPolicy="no-referrer"
           />
         ) : (
           <video
             src={block.content}
             controls
+            controlsList="nodownload noremoteplayback"
+            disablePictureInPicture
             className="aspect-video w-full"
+            onContextMenu={preventContext}
           />
         )}
       </div>

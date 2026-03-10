@@ -113,7 +113,7 @@ export function ProfileTabs({
   return (
     <>
       <Tabs defaultValue="posts" className="w-full">
-        <TabsList className="w-full justify-center gap-4 sm:gap-8 bg-transparent border-y border-border rounded-none h-14 p-0">
+        <TabsList className="w-full justify-center gap-2 sm:gap-8 bg-transparent border-y border-border rounded-none h-12 sm:h-14 p-0">
           <TabsTrigger 
             value="posts" 
             className="gap-2 text-xs uppercase tracking-widest font-medium data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-4 data-[state=active]:shadow-none data-[state=active]:bg-transparent bg-transparent text-muted-foreground hover:text-foreground transition-colors"
@@ -155,7 +155,7 @@ export function ProfileTabs({
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-3 md:grid-cols-4 gap-1">
+              <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
                 {posts.map((post) => {
                   const hasMedia = post.post_media && post.post_media.length > 0;
                   const firstMedia = hasMedia ? post.post_media[0] : null;
@@ -349,7 +349,7 @@ export function ProfileTabs({
 
       {/* Post Detail Modal */}
       <Dialog open={!!selectedPost} onOpenChange={() => setSelectedPost(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0 bg-background/95 backdrop-blur-xl border-border">
+        <DialogContent className="w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0 bg-background/95 backdrop-blur-xl border-border">
           <DialogHeader className="sr-only">
             <DialogTitle>Post Details</DialogTitle>
           </DialogHeader>

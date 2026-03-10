@@ -53,14 +53,25 @@
 @layer base {
   * {
     @apply border-border;
+    -webkit-tap-highlight-color: transparent;
   }
   html {
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
   }
   body {
     @apply bg-background text-foreground antialiased;
     overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
+  }
+  input, textarea, select {
+    font-size: 16px; /* Prevents iOS zoom on focus */
+  }
+  @media (min-width: 640px) {
+    input, textarea, select {
+      font-size: inherit;
+    }
   }
 }
 
