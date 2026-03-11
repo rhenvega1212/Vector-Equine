@@ -14,16 +14,27 @@ import { evaluateGating, calculateLessonProgress, type LessonProgressData, type 
 
 interface LessonPageProps {
   params: Promise<{ id: string; lessonId: string }>;
+  searchParams: Promise<{ preview?: string }>;
 }
 
-export default async function LessonPage({ params }: LessonPageProps) {
+export default async function LessonPage({ params, searchParams }: LessonPageProps) {
   const { id: challengeId, lessonId } = await params;
+  const resolvedSearchParams = await searchParams;
+  const isPreview = resolvedSearchParams.preview === "1";
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
     redirect("/login");
   }
+
+  let isAdmin = false;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single() as { data: { role?: string } | null };
+  isAdmin = profile?.role === "admin";
 
   const { data: enrollment } = await supabase
     .from("challenge_enrollments")
@@ -32,7 +43,8 @@ export default async function LessonPage({ params }: LessonPageProps) {
     .eq("challenge_id", challengeId)
     .single();
 
-  if (!enrollment) {
+  const isAdminPreview = isAdmin && isPreview && !enrollment;
+  if (!enrollment && !isAdminPreview) {
     redirect(`/challenges/${challengeId}`);
   }
 
@@ -123,6 +135,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
     manuallyApproved: false,
   };
   const gatingResult = evaluateGating(gatingConfig, lessonProgressData);
+  const bypassGating = isAdminPreview;
 
   // Check for submission
   let userSubmission = null;
@@ -139,18 +152,21 @@ export default async function LessonPage({ params }: LessonPageProps) {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-4">
-        <Link href={`/challenges/${challengeId}`}>
+        <Link href={`/challenges/${challengeId}${isAdminPreview ? "?preview=1" : ""}`}>
           <Button variant="ghost" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Challenge
           </Button>
         </Link>
         <div className="flex items-center gap-4">
+          {isAdminPreview && (
+            <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/40">Admin preview</Badge>
+          )}
           <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
             <span>{completedLessonIds.length}/{allLessons.length}</span>
             <Progress value={progressPercent} className="w-24 h-2" />
           </div>
-          {isCompleted && (
+          {isCompleted && !isAdminPreview && (
             <Badge variant="outline" className="gap-1">
               <CheckCircle className="h-3 w-3" />
               Completed
@@ -191,9 +207,15 @@ export default async function LessonPage({ params }: LessonPageProps) {
         completedBlockIds={completedBlockIds}
       />
 
-      {gatingConfig.gatingType !== "none" && (
+      {gatingConfig.gatingType !== "none" && !bypassGating && (
         <div className="mt-6">
           <GatingStatus gatingResult={gatingResult} gatingType={gatingConfig.gatingType} />
+        </div>
+      )}
+
+      {bypassGating && gatingConfig.gatingType !== "none" && (
+        <div className="mt-6 p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-sm text-cyan-200">
+          Preview: gates bypassed — you can navigate to any lesson.
         </div>
       )}
 
@@ -206,6 +228,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
           isCompleted={isCompleted}
           hasSubmission={lesson.requires_submission && lesson.assignments?.length > 0}
           hasUserSubmission={!!userSubmission}
+          previewMode={bypassGating}
         />
       </div>
     </div>

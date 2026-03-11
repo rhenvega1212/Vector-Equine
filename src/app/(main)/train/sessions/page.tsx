@@ -8,13 +8,14 @@ import { Plus } from "lucide-react";
 import { TrainSessionsFilters } from "@/components/train/sessions-filters";
 
 interface SessionsPageProps {
-  searchParams: Promise<{ range?: string; horse?: string; session_type?: string }> | { range?: string; horse?: string; session_type?: string };
+  searchParams: Promise<{ range?: string; horse?: string; horse_id?: string; session_type?: string }> | { range?: string; horse?: string; horse_id?: string; session_type?: string };
 }
 
 export default async function TrainSessionsPage({ searchParams }: SessionsPageProps) {
   const resolved = await Promise.resolve(searchParams);
   const range = resolved.range || "30";
   const horse = resolved.horse || "";
+  const horseId = resolved.horse_id || "";
   const sessionType = resolved.session_type || "";
 
   const supabase = await createClient();
@@ -35,16 +36,26 @@ export default async function TrainSessionsPage({ searchParams }: SessionsPagePr
     .order("session_date", { ascending: false })
     .order("created_at", { ascending: false });
 
-  if (horse) query = query.eq("horse", horse);
+  if (horseId) query = query.eq("horse_id", horseId);
+  else if (horse) query = query.eq("horse", horse);
   if (sessionType) query = query.eq("session_type", sessionType);
 
   const { data: sessions } = await query;
 
-  const horses = await supabase
-    .from("training_sessions")
-    .select("horse")
-    .eq("user_id", user.id);
-  const horseList = Array.from(new Set((horses.data || []).map((r) => r.horse).filter(Boolean))).sort();
+  const { data: horseProfiles } = await supabase
+    .from("horse_profiles")
+    .select("id, name, barn_name")
+    .eq("user_id", user.id)
+    .order("name");
+
+  const horseMap = new Map((horseProfiles || []).map((h) => [h.id, h]));
+  function horseDisplay(s: { horse_id?: string | null; horse?: string | null }) {
+    if (s.horse_id) {
+      const hp = horseMap.get(s.horse_id);
+      return hp ? (hp.barn_name?.trim() ? `${hp.name} (“${hp.barn_name}”)` : hp.name) : "Unassigned";
+    }
+    return (s.horse && s.horse.trim()) || "Unassigned";
+  }
 
   return (
     <div className="space-y-6">
@@ -63,9 +74,9 @@ export default async function TrainSessionsPage({ searchParams }: SessionsPagePr
 
       <TrainSessionsFilters
         currentRange={range}
-        currentHorse={horse}
+        currentHorseId={horseId}
         currentSessionType={sessionType}
-        horseList={horseList}
+        horseProfiles={horseProfiles || []}
       />
 
       <Card className="border-cyan-400/20">
@@ -79,7 +90,7 @@ export default async function TrainSessionsPage({ searchParams }: SessionsPagePr
             </div>
           ) : (
             <ul className="divide-y divide-cyan-400/10">
-              {sessions.map((s) => (
+              {sessions.map((s: { id: string; session_date: string; session_title?: string | null; session_type: string; duration_minutes?: number | null; overall_feel: number; horse?: string | null; horse_id?: string | null; video_link_url?: string | null; video_upload_path?: string | null }) => (
                 <li key={s.id}>
                   <Link
                     href={`/train/sessions/${s.id}`}
@@ -87,14 +98,20 @@ export default async function TrainSessionsPage({ searchParams }: SessionsPagePr
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{format(parseISO(s.session_date), "MMM d, yyyy")}</span>
+                      {s.session_title && <span className="text-muted-foreground">·</span>}
+                      {s.session_title && <span className="text-foreground">{s.session_title}</span>}
                       <span className="text-muted-foreground">·</span>
-                      <span>{s.horse}</span>
+                      <span>{horseDisplay(s)}</span>
                       <span className="text-muted-foreground">·</span>
                       <span className="text-sm text-cyan-400/90">
                         {SESSION_TYPE_LABELS[s.session_type] || s.session_type}
                       </span>
+                      {s.duration_minutes != null && <span className="text-xs text-muted-foreground">{s.duration_minutes} min</span>}
                     </div>
-                    <span className="text-cyan-400 font-medium">{s.overall_feel}/10</span>
+                    <div className="flex items-center gap-2">
+                      {(s.video_link_url || s.video_upload_path) && <span className="text-xs text-muted-foreground">Video</span>}
+                      <span className="text-cyan-400 font-medium">{s.overall_feel}/10</span>
+                    </div>
                   </Link>
                 </li>
               ))}

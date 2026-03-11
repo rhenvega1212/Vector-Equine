@@ -15,6 +15,8 @@ interface LessonNavigationProps {
   isCompleted: boolean;
   hasSubmission: boolean;
   hasUserSubmission: boolean;
+  /** When true (admin preview), always show Next/Previous; no completion required */
+  previewMode?: boolean;
 }
 
 export function LessonNavigation({
@@ -25,6 +27,7 @@ export function LessonNavigation({
   isCompleted,
   hasSubmission,
   hasUserSubmission,
+  previewMode = false,
 }: LessonNavigationProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -74,12 +77,14 @@ export function LessonNavigation({
     }
   }
 
+  const previewSuffix = previewMode ? "?preview=1" : "";
+
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t">
       <div>
         {prevLesson ? (
           <Link
-            href={`/challenges/${challengeId}/lessons/${prevLesson.id}`}
+            href={`/challenges/${challengeId}/lessons/${prevLesson.id}${previewSuffix}`}
           >
             <Button variant="outline" className="gap-2">
               <ArrowLeft className="h-4 w-4" />
@@ -93,7 +98,7 @@ export function LessonNavigation({
       </div>
 
       <div className="flex gap-2">
-        {!isCompleted && (
+        {!previewMode && !isCompleted && (
           <Button onClick={handleMarkComplete} disabled={isMarking}>
             {isMarking ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -104,9 +109,9 @@ export function LessonNavigation({
           </Button>
         )}
 
-        {isCompleted && nextLesson && (
+        {(isCompleted || previewMode) && nextLesson && (
           <Link
-            href={`/challenges/${challengeId}/lessons/${nextLesson.id}`}
+            href={`/challenges/${challengeId}/lessons/${nextLesson.id}${previewSuffix}`}
           >
             <Button className="gap-2">
               Next: <span className="truncate max-w-[150px]">{nextLesson.title}</span>

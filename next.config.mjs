@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Use a different build output dir to avoid OneDrive/sync issues with .next (readlink errors)
+  distDir: '.next-build',
   // Don't fail production build on ESLint warnings (e.g. react-hooks/exhaustive-deps)
   eslint: { ignoreDuringBuilds: true },
   images: {

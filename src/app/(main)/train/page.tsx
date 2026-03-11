@@ -2,16 +2,17 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Flame, Calendar, TrendingUp, Target } from "lucide-react";
+import { Flame, Calendar, TrendingUp, Target, Plus } from "lucide-react";
+import { HorseHeadIcon } from "@/components/icons/horse-head";
 import { SESSION_TYPE_LABELS } from "@/lib/validations/training-session";
 import { format, parseISO } from "date-fns";
+import { HorseCard } from "@/components/train/horse-card";
 
 export default async function TrainDashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const today = new Date().toISOString().split("T")[0];
   const weekStart = new Date();
   weekStart.setDate(weekStart.getDate() - 7);
   const weekStartStr = weekStart.toISOString().split("T")[0];
@@ -19,9 +20,15 @@ export default async function TrainDashboardPage() {
   monthStart.setDate(monthStart.getDate() - 30);
   const monthStartStr = monthStart.toISOString().split("T")[0];
 
+  const { data: horses } = await supabase
+    .from("horse_profiles")
+    .select("id, name, barn_name, discipline, profile_photo_url")
+    .eq("user_id", user.id)
+    .order("name");
+
   const { data: sessions } = await supabase
     .from("training_sessions")
-    .select("id, session_date, overall_feel, horse, session_type")
+    .select("id, session_date, overall_feel, horse, horse_id, session_type")
     .eq("user_id", user.id)
     .order("session_date", { ascending: false });
 
@@ -54,11 +61,20 @@ export default async function TrainDashboardPage() {
 
   const { data: recentSessions } = await supabase
     .from("training_sessions")
-    .select("*")
+    .select("id, session_date, session_title, session_type, duration_minutes, overall_feel, horse, horse_id, video_link_url, video_upload_path")
     .eq("user_id", user.id)
     .order("session_date", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(5);
+
+  const horseMap = new Map((horses || []).map((h) => [h.id, h]));
+  function horseDisplay(s: { horse_id?: string | null; horse?: string | null }) {
+    if (s.horse_id) {
+      const hp = horseMap.get(s.horse_id);
+      return hp ? (hp.barn_name?.trim() ? `${hp.name} (“${hp.barn_name}”)` : hp.name) : "Unassigned";
+    }
+    return (s.horse && s.horse.trim()) || "Unassigned";
+  }
 
   return (
     <div className="space-y-6">
@@ -67,12 +83,35 @@ export default async function TrainDashboardPage() {
           <h1 className="text-2xl font-bold">Train</h1>
           <p className="text-muted-foreground">Your performance command center</p>
         </div>
-        <Link href="/train/sessions/new">
-          <Button className="bg-cyan-500 hover:bg-cyan-400 text-black w-full sm:w-auto">
-            Log a Session
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/train/horses/new">
+            <Button variant="outline" size="sm" className="gap-1">
+              <HorseHeadIcon size={16} className="h-4 w-4" /> Add horse
+            </Button>
+          </Link>
+          <Link href="/train/sessions/new">
+            <Button className="bg-cyan-500 hover:bg-cyan-400 text-black">
+              Log session
+            </Button>
+          </Link>
+        </div>
       </div>
+
+      {horses && horses.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-medium text-muted-foreground">Your horses</h2>
+          <div className="flex flex-wrap gap-2">
+            {horses.slice(0, 5).map((horse) => (
+              <HorseCard key={horse.id} horse={horse} compact showSessionCount={list.filter((s) => s.horse_id === horse.id).length} />
+            ))}
+            {horses.length > 5 && (
+              <Link href="/train/horses">
+                <Button variant="ghost" size="sm">View all</Button>
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="border-cyan-400/20 bg-slate-800/30">
@@ -141,7 +180,7 @@ export default async function TrainDashboardPage() {
               </p>
             ) : (
               <ul className="space-y-2">
-                {recentSessions.map((s: any) => (
+                {recentSessions.map((s: { id: string; session_date: string; session_title?: string | null; session_type: string; duration_minutes?: number | null; overall_feel: number; horse?: string | null; horse_id?: string | null; video_link_url?: string | null; video_upload_path?: string | null }) => (
                   <li key={s.id}>
                     <Link
                       href={`/train/sessions/${s.id}`}
@@ -151,14 +190,20 @@ export default async function TrainDashboardPage() {
                         <span className="font-medium text-foreground">
                           {format(parseISO(s.session_date), "MMM d, yyyy")}
                         </span>
+                        {s.session_title && <span className="text-muted-foreground">·</span>}
+                        {s.session_title && <span className="text-foreground truncate max-w-[120px]">{s.session_title}</span>}
                         <span className="text-muted-foreground">·</span>
-                        <span>{s.horse}</span>
+                        <span>{horseDisplay(s)}</span>
                         <span className="text-muted-foreground">·</span>
                         <span className="text-sm text-cyan-400/90">
                           {SESSION_TYPE_LABELS[s.session_type] || s.session_type}
                         </span>
+                        {s.duration_minutes != null && <span className="text-xs text-muted-foreground">{s.duration_minutes} min</span>}
                       </div>
-                      <span className="text-cyan-400 font-medium">{s.overall_feel}/10</span>
+                      <div className="flex items-center gap-2">
+                        {(s.video_link_url || s.video_upload_path) && <span className="text-xs text-muted-foreground">Video</span>}
+                        <span className="text-cyan-400 font-medium">{s.overall_feel}/10</span>
+                      </div>
                     </Link>
                   </li>
                 ))}

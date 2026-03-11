@@ -23,8 +23,12 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
 
   const defaultValues = {
     session_date: session.session_date,
-    horse: session.horse,
+    horse_id: session.horse_id ?? undefined,
+    horse: session.horse ?? undefined,
+    session_title: session.session_title ?? undefined,
     session_type: session.session_type,
+    duration_minutes: session.duration_minutes ?? undefined,
+    location: session.location ?? undefined,
     overall_feel: session.overall_feel,
     discipline: session.discipline ?? undefined,
     exercises: session.exercises ?? undefined,
@@ -35,9 +39,23 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
     impulsion: session.impulsion ?? undefined,
     straightness: session.straightness ?? undefined,
     collection: session.collection ?? undefined,
+    ride_quality: session.ride_quality ?? undefined,
+    horse_energy: session.horse_energy ?? undefined,
+    responsiveness: session.responsiveness ?? undefined,
+    balance: session.balance ?? undefined,
+    suppleness: session.suppleness ?? undefined,
+    rider_position: session.rider_position ?? undefined,
+    rider_effectiveness: session.rider_effectiveness ?? undefined,
+    focus: session.focus ?? undefined,
+    confidence: session.confidence ?? undefined,
+    progress_today: session.progress_today ?? undefined,
+    soundness: session.soundness ?? undefined,
+    stamina: session.stamina ?? undefined,
+    behavior_attitude: session.behavior_attitude ?? undefined,
     competition_prep: session.competition_prep ?? false,
     focused_goal_session: session.focused_goal_session ?? false,
     video_link_url: session.video_link_url ?? undefined,
+    video_upload_path: session.video_upload_path ?? undefined,
   };
 
   return (

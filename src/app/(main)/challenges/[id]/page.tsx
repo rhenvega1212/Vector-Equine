@@ -21,10 +21,13 @@ import { calculateModuleProgress } from "@/lib/challenges/gating";
 
 interface ChallengePageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ preview?: string }>;
 }
 
-export default async function ChallengePage({ params }: ChallengePageProps) {
+export default async function ChallengePage({ params, searchParams }: ChallengePageProps) {
   const { id } = await params;
+  const resolvedSearchParams = await searchParams;
+  const isPreview = resolvedSearchParams.preview === "1";
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -104,8 +107,12 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
     ? challenge.challenge_enrollments.some((e: any) => e.user_id === user.id)
     : false;
 
+  // Admin preview: show enrolled view and allow navigating to all lessons without enrolling
+  const isAdminPreview = isAdmin && isPreview && !isEnrolled;
+  const showAsEnrolled = isEnrolled || isAdminPreview;
+
   let completedLessonIds: string[] = [];
-  if (user && isEnrolled) {
+  if (user && (isEnrolled || isAdminPreview)) {
     const allLessonIds = challenge.challenge_modules.flatMap((m: any) =>
       m.challenge_lessons.map((l: any) => l.id)
     );
@@ -154,16 +161,25 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
       </Link>
 
       {isDraft && isAdmin && (
-        <div className="mb-4 p-3 bg-yellow-500/20 border border-yellow-500/50 rounded-lg flex items-center justify-between">
+        <div className="mb-4 p-3 bg-amber-600 border border-amber-700 rounded-lg flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2">
-            <Badge className="bg-yellow-500 text-black">Draft</Badge>
-            <span className="text-sm text-yellow-200">This challenge is not yet published. Only admins can see it.</span>
+            <Badge className="bg-amber-500 text-amber-950 border-0">Draft</Badge>
+            <span className="text-sm text-amber-50">This challenge is not yet published. Only admins can see it.</span>
           </div>
           <Link href={`/admin/challenges/${challenge.id}/edit`}>
-            <Button size="sm" variant="outline" className="border-yellow-500/50 text-yellow-200 hover:bg-yellow-500/20">
+            <Button size="sm" variant="secondary" className="bg-amber-500 text-amber-950 border-amber-400 hover:bg-amber-400 hover:text-amber-950">
               Edit & Publish
             </Button>
           </Link>
+        </div>
+      )}
+
+      {isAdminPreview && (
+        <div className="mb-4 p-3 bg-cyan-500/20 border border-cyan-500/50 rounded-lg flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <Badge className="bg-cyan-500 text-black">Admin preview</Badge>
+            <span className="text-sm text-cyan-200">Viewing as a learner. You can open any lesson and bypass gates; assignments are not submitted.</span>
+          </div>
         </div>
       )}
 
@@ -242,7 +258,8 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
                               : true;
                             const lessonGating = lesson.gating_type || "none";
                             const isLocked =
-                              isEnrolled &&
+                              showAsEnrolled &&
+                              !isAdminPreview &&
                               !isLessonCompleted &&
                               !isCurrent &&
                               lessonGating === "hard" &&
@@ -262,9 +279,9 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
                                 )}
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    {isEnrolled && !isLocked ? (
+                                    {showAsEnrolled && !isLocked ? (
                                       <Link
-                                        href={`/challenges/${challenge.id}/lessons/${lesson.id}`}
+                                        href={`/challenges/${challenge.id}/lessons/${lesson.id}${isAdminPreview ? "?preview=1" : ""}`}
                                         className="font-medium hover:underline"
                                       >
                                         {lesson.title}
@@ -305,7 +322,7 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
         <div className="space-y-6">
           <Card>
             <CardContent className="pt-6">
-              {isEnrolled ? (
+              {showAsEnrolled ? (
                 <div className="space-y-4">
                   <div>
                     <div className="flex justify-between text-sm mb-2">
@@ -319,17 +336,20 @@ export default async function ChallengePage({ params }: ChallengePageProps) {
                       {progressPercent}% complete
                     </p>
                   </div>
-                  {currentLessonId && (
+                  {(currentLessonId || (isAdminPreview && totalLessons > 0)) && (
                     <Link
-                      href={`/challenges/${challenge.id}/lessons/${currentLessonId}`}
+                      href={currentLessonId
+                        ? `/challenges/${challenge.id}/lessons/${currentLessonId}${isAdminPreview ? "?preview=1" : ""}`
+                        : `/challenges/${challenge.id}/lessons/${sortedModules[0]?.challenge_lessons[0]?.id}?preview=1`
+                      }
                     >
                       <Button className="w-full">
                         <PlayCircle className="h-4 w-4 mr-2" />
-                        Continue Learning
+                        {currentLessonId ? "Continue Learning" : "Start preview"}
                       </Button>
                     </Link>
                   )}
-                  {progressPercent === 100 && (
+                  {progressPercent === 100 && !isAdminPreview && (
                     <div className="text-center p-4 bg-primary/10 rounded-lg">
                       <Trophy className="h-8 w-8 text-primary mx-auto mb-2" />
                       <p className="font-semibold">Challenge Complete!</p>

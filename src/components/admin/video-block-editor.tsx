@@ -230,7 +230,7 @@ export function VideoBlockEditor({
           )}
         </div>
       ) : (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             type="button"
             size="sm"
@@ -240,7 +240,9 @@ export function VideoBlockEditor({
             <Upload className="h-3 w-3 mr-1" />
             Upload Video
           </Button>
-          <span className="text-xs text-muted-foreground">or paste a link below</span>
+          <span className="text-xs text-muted-foreground">
+            or paste a link below · Max {MAX_VIDEO_SIZE_MB}MB
+          </span>
         </div>
       )}
 

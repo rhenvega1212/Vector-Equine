@@ -259,7 +259,7 @@ export default function AdminChallengesPage() {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href={challenge.status === "archived" ? `/challenges/${challenge.id}/archive` : `/challenges/${challenge.id}`}>
+                      <Link href={challenge.status === "archived" ? `/challenges/${challenge.id}/archive` : `/challenges/${challenge.id}?preview=1`}>
                         <Eye className="h-4 w-4 mr-2" />
                         {challenge.status === "archived" ? "View archive" : "Preview"}
                       </Link>

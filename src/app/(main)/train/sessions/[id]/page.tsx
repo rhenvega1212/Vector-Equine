@@ -3,23 +3,22 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { SESSION_TYPE_LABELS } from "@/lib/validations/training-session";
+import { SESSION_TYPE_LABELS, QUICK_RATING_LABELS } from "@/lib/validations/training-session";
 import { format, parseISO } from "date-fns";
-import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Video } from "lucide-react";
 import { SessionDeleteButton } from "@/components/train/session-delete-button";
 
 interface SessionPageProps {
   params: Promise<{ id: string }>;
 }
 
-const SCORE_LABELS: Record<string, string> = {
-  rhythm: "Rhythm",
-  relaxation: "Relaxation",
-  connection: "Connection",
-  impulsion: "Impulsion",
-  straightness: "Straightness",
-  collection: "Collection",
-};
+const QUICK_RATING_KEYS = [
+  "ride_quality", "horse_energy", "relaxation", "responsiveness", "connection",
+  "straightness", "balance", "suppleness", "rider_position", "rider_effectiveness",
+  "focus", "confidence", "progress_today", "soundness", "stamina", "behavior_attitude",
+] as const;
+
+const LEGACY_SCORES = ["rhythm", "relaxation", "connection", "impulsion", "straightness", "collection"] as const;
 
 export default async function TrainSessionDetailPage({ params }: SessionPageProps) {
   const { id } = await params;
@@ -36,7 +35,31 @@ export default async function TrainSessionDetailPage({ params }: SessionPageProp
 
   if (error || !session) notFound();
 
-  const scores = ["rhythm", "relaxation", "connection", "impulsion", "straightness", "collection"] as const;
+  let horseDisplay: string;
+  if (session.horse_id) {
+    const { data: horse } = await supabase
+      .from("horse_profiles")
+      .select("name, barn_name")
+      .eq("id", session.horse_id)
+      .eq("user_id", user.id)
+      .single();
+    horseDisplay = horse
+      ? (horse.barn_name?.trim() ? `${horse.name} (“${horse.barn_name}”)` : horse.name)
+      : "Unassigned";
+  } else {
+    horseDisplay = (session.horse && session.horse.trim()) || "Unassigned";
+  }
+
+  let videoUrl: string | null = null;
+  if (session.video_upload_path) {
+    const { data: signed } = await supabase.storage
+      .from("session-videos")
+      .createSignedUrl(session.video_upload_path, 3600);
+    videoUrl = signed?.signedUrl ?? null;
+  }
+
+  const hasQuickRatings = QUICK_RATING_KEYS.some((k) => session[k] != null);
+  const hasLegacyScores = LEGACY_SCORES.some((k) => session[k] != null);
 
   return (
     <div className="space-y-6">
@@ -61,28 +84,40 @@ export default async function TrainSessionDetailPage({ params }: SessionPageProp
       <Card className="border-cyan-400/20">
         <CardHeader>
           <CardTitle className="text-xl">
-            {format(parseISO(session.session_date), "EEEE, MMMM d, yyyy")}
+            {session.session_title?.trim() || format(parseISO(session.session_date), "EEEE, MMMM d, yyyy")}
           </CardTitle>
           <p className="text-muted-foreground">
-            {session.horse} · {SESSION_TYPE_LABELS[session.session_type] || session.session_type}
+            {format(parseISO(session.session_date), "MMM d, yyyy")} · {horseDisplay} · {SESSION_TYPE_LABELS[session.session_type] || session.session_type}
+            {session.duration_minutes != null && ` · ${session.duration_minutes} min`}
+            {session.location?.trim() && ` · ${session.location}`}
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
-            <h3 className="text-sm font-medium text-muted-foreground mb-1">Overall Feel</h3>
+            <h3 className="text-sm font-medium text-muted-foreground mb-1">Overall feel</h3>
             <p className="text-2xl font-bold text-cyan-400">{session.overall_feel}/10</p>
           </div>
 
-          {(session.rhythm ?? session.relaxation ?? session.connection ?? session.impulsion ?? session.straightness ?? session.collection) && (
+          {(hasQuickRatings || hasLegacyScores) && (
             <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-2">Performance scores (1–5)</h3>
-              <div className="flex flex-wrap gap-4">
-                {scores.map((key) => {
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">Ratings (1–5)</h3>
+              <div className="flex flex-wrap gap-3">
+                {QUICK_RATING_KEYS.map((key) => {
                   const v = session[key];
                   if (v == null) return null;
                   return (
                     <div key={key} className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">{SCORE_LABELS[key]}:</span>
+                      <span className="text-sm text-muted-foreground">{QUICK_RATING_LABELS[key]}:</span>
+                      <span className="font-medium">{v}/5</span>
+                    </div>
+                  );
+                })}
+                {LEGACY_SCORES.map((key) => {
+                  const v = session[key];
+                  if (v == null) return null;
+                  return (
+                    <div key={key} className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">{key.charAt(0).toUpperCase() + key.slice(1)}:</span>
                       <span className="font-medium">{v}/5</span>
                     </div>
                   );
@@ -107,7 +142,7 @@ export default async function TrainSessionDetailPage({ params }: SessionPageProp
 
           {session.notes && (
             <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">Notes / Reflections</h3>
+              <h3 className="text-sm font-medium text-muted-foreground mb-1">Journal</h3>
               <p className="whitespace-pre-wrap">{session.notes}</p>
             </div>
           )}
@@ -121,17 +156,30 @@ export default async function TrainSessionDetailPage({ params }: SessionPageProp
             )}
           </div>
 
-          {session.video_link_url && (
+          {(session.video_link_url || videoUrl) && (
             <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">Video</h3>
-              <a
-                href={session.video_link_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-cyan-400 hover:text-cyan-300 underline"
-              >
-                View video
-              </a>
+              <h3 className="text-sm font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                <Video className="h-4 w-4" /> Video
+              </h3>
+              {session.video_link_url ? (
+                <a
+                  href={session.video_link_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan-400 hover:text-cyan-300 underline"
+                >
+                  View video
+                </a>
+              ) : videoUrl ? (
+                <a
+                  href={videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan-400 hover:text-cyan-300 underline"
+                >
+                  View uploaded video
+                </a>
+              ) : null}
             </div>
           )}
         </CardContent>

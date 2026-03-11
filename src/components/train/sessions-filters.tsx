@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -11,18 +10,24 @@ import {
 } from "@/components/ui/select";
 import { SESSION_TYPE_LABELS } from "@/lib/validations/training-session";
 
+interface HorseProfile {
+  id: string;
+  name: string;
+  barn_name?: string | null;
+}
+
 interface TrainSessionsFiltersProps {
   currentRange: string;
-  currentHorse: string;
+  currentHorseId: string;
   currentSessionType: string;
-  horseList: string[];
+  horseProfiles: HorseProfile[];
 }
 
 export function TrainSessionsFilters({
   currentRange,
-  currentHorse,
+  currentHorseId,
   currentSessionType,
-  horseList,
+  horseProfiles,
 }: TrainSessionsFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -31,6 +36,9 @@ export function TrainSessionsFilters({
     const p = new URLSearchParams(searchParams.toString());
     if (value) p.set(key, value);
     else p.delete(key);
+    if (key === "horse_id") {
+      p.delete("horse");
+    }
     router.push(`/train/sessions?${p.toString()}`);
   }
 
@@ -46,14 +54,16 @@ export function TrainSessionsFilters({
           <SelectItem value="90">Last 90 days</SelectItem>
         </SelectContent>
       </Select>
-      <Select value={currentHorse || "all"} onValueChange={(v) => update("horse", v === "all" ? "" : v)}>
-        <SelectTrigger className="w-[140px]">
+      <Select value={currentHorseId || "all"} onValueChange={(v) => update("horse_id", v === "all" ? "" : v)}>
+        <SelectTrigger className="w-[160px]">
           <SelectValue placeholder="Horse" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All horses</SelectItem>
-          {horseList.map((h) => (
-            <SelectItem key={h} value={h}>{h}</SelectItem>
+          {horseProfiles.map((h) => (
+            <SelectItem key={h.id} value={h.id}>
+              {h.barn_name?.trim() ? `${h.name} (“${h.barn_name}”)` : h.name}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>

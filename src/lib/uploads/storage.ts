@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 
-export type StorageBucket = "avatars" | "post-media" | "event-banners" | "challenge-media" | "submissions" | "ai-training-videos";
+export type StorageBucket = "avatars" | "post-media" | "event-banners" | "challenge-media" | "submissions" | "ai-training-videos" | "session-videos" | "horse-photos";
 
 export interface UploadResult {
   url: string;
@@ -171,5 +171,5 @@ export function isValidFileSize(file: File, maxSizeMB: number): boolean {
 }
 
 export const MAX_IMAGE_SIZE_MB = 10;
-export const MAX_VIDEO_SIZE_MB = 100;
+export const MAX_VIDEO_SIZE_MB = 500;
 export const MAX_FILE_SIZE_MB = 50;

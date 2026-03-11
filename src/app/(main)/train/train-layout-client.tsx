@@ -4,9 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, ClipboardList, BarChart3, Bot } from "lucide-react";
+import { HorseHeadIcon } from "@/components/icons/horse-head";
 
 const trainNavItems = [
   { href: "/train", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/train/horses", label: "Horses", icon: HorseHeadIcon },
   { href: "/train/sessions", label: "Sessions", icon: ClipboardList },
   { href: "/train/insights", label: "Insights", icon: BarChart3 },
   { href: "/train/ai-trainer", label: "AI Trainer", icon: Bot },
