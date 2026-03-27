@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Use a different build output dir to avoid OneDrive/sync issues with .next (readlink errors)
-  distDir: '.next-build',
+  // Local: alternate dir avoids OneDrive/sync issues with `.next` (readlink errors).
+  // Vercel: must use `.next` so the deploy step finds routes-manifest.json.
+  distDir: process.env.VERCEL ? ".next" : ".next-build",
   // Don't fail production build on ESLint warnings (e.g. react-hooks/exhaustive-deps)
   eslint: { ignoreDuringBuilds: true },
   images: {
