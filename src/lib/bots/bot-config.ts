@@ -33,6 +33,22 @@ export const SCHEDULE_CONFIG = {
 
   /** Cap photos per photo-post to keep the 95-image pool lasting months */
   maxPhotosPerPost: 1,
+
+  /**
+   * How far back (local calendar days) we look for missing bot seed runs.
+   * Recent days (see seedRecentPrioritySpan) are always processed before older gaps.
+   */
+  seedBackfillLookbackDays: 60,
+
+  /** Max calendar days to seed in one cron run (avoid Vercel timeout). */
+  seedMaxDaysPerRun: 14,
+
+  /**
+   * When backfilling, always prioritize this many local calendar days ending today
+   * (e.g. 3 = today + yesterday + day before) so recent activity is never stuck
+   * behind a long historical backlog.
+   */
+  seedRecentPrioritySpan: 3,
 };
 
 // =============================================================================

@@ -1,48 +1,87 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { executeScheduledPosts } from "@/lib/bots/engine";
-import { generateDailyPlan } from "@/lib/bots/scheduler";
+import { runBotSeedBackfill } from "@/lib/bots/seed-orchestrator";
 
-export async function POST(request: NextRequest) {
+/**
+ * Vercel Cron Jobs invoke this route with **GET** (not POST).
+ * @see https://vercel.com/docs/cron-jobs
+ *
+ * Fills missing bot posts for each local calendar day (America/New_York):
+ * - Prioritizes the last `seedRecentPrioritySpan` days (today + past days) so recent
+ *   activity is not blocked by older backlog.
+ * - Heals seed log when bot posts already exist for a day but the log row is missing.
+ * - Backfills up to `seedMaxDaysPerRun` days per run after that.
+ * - Requires `bot_feed_seed_log` migration for idempotency.
+ *
+ * Manual triggers: same URL with POST and optional `?force=1` (reserved; same as GET for now).
+ */
+async function verifyCronAuth(): Promise<boolean> {
   const headersList = await headers();
-  const authHeader = headersList.get("authorization");
-  const secret = process.env.CRON_SECRET;
+  const authHeader =
+    headersList.get("authorization") ?? headersList.get("Authorization");
+  const secret = process.env.CRON_SECRET?.trim();
+  if (!secret) return true;
+  const token = authHeader?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+  return token === secret;
+}
 
-  if (secret && authHeader !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  try {
-    const now = new Date();
-    const plan = generateDailyPlan(now);
-
-    if (plan.posts.length === 0) {
-      return NextResponse.json({
-        status: "skipped",
-        plan: { date: plan.date, quietDay: plan.isQuietDay, totalPosts: 0 },
-      });
-    }
-
-    // On Hobby plan the cron fires once daily, so create all of today's
-    // posts in a single run. Each post already carries a unique hour and
-    // minuteOffset from the deterministic plan — the engine uses those to
-    // backdate created_at so posts appear spread across the day.
-    const results = await executeScheduledPosts(plan.posts);
-
-    return NextResponse.json({
-      status: "posted",
-      plan: {
-        date: plan.date,
-        quietDay: plan.isQuietDay,
-        totalPosts: plan.posts.length,
-      },
-      ...results,
-    });
-  } catch (e) {
-    console.error("Cron seed-posts error:", e);
+function checkSupabaseEnv(): NextResponse | null {
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.SUPABASE_SERVICE_ROLE_KEY
+  ) {
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+      {
+        error:
+          "Server misconfigured: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for bot seeding.",
+      },
+      { status: 503 }
     );
   }
+  return null;
+}
+
+async function runHandler() {
+  const bad = checkSupabaseEnv();
+  if (bad) return bad;
+
+  try {
+    const { processed, remainingMissingEstimate } = await runBotSeedBackfill();
+    const seeded = processed.filter((p) => p.status === "seeded").length;
+    const partial = processed.filter((p) => p.status === "partial").length;
+    const failed = processed.filter((p) => p.status === "failed").length;
+
+    return NextResponse.json({
+      status: processed.length === 0 ? "nothing_to_do" : "ok",
+      summary: {
+        daysProcessed: processed.length,
+        daysSeeded: seeded,
+        daysPartial: partial,
+        daysFailed: failed,
+        remainingMissingEstimate,
+      },
+      processed,
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("Cron seed-posts error:", e);
+    if (message.includes("bot_feed_seed_log")) {
+      return NextResponse.json({ error: message }, { status: 503 });
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+export async function GET() {
+  if (!(await verifyCronAuth())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return runHandler();
+}
+
+export async function POST(_request: NextRequest) {
+  if (!(await verifyCronAuth())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return runHandler();
 }

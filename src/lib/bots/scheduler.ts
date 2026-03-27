@@ -1,3 +1,4 @@
+import { TZDate } from "@date-fns/tz";
 import { BOT_PROFILES, SCHEDULE_CONFIG, type BotProfile } from "./bot-config";
 
 // =============================================================================
@@ -60,6 +61,53 @@ export function getCurrentLocalHour(date: Date): number {
     10
   );
   return h === 24 ? 0 : h;
+}
+
+/** Today's calendar date in the feed timezone (YYYY-MM-DD). */
+export function getTodayLocalDateString(
+  timeZone: string = SCHEDULE_CONFIG.timezone
+): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone });
+}
+
+/**
+ * Anchor instant (noon local) for a calendar day string, for deterministic plans.
+ * `generateDailyPlan(anchor)` must yield `plan.date === dateStr`.
+ */
+export function dateAnchorForLocalDay(
+  dateStr: string,
+  timeZone: string = SCHEDULE_CONFIG.timezone
+): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new TZDate(y, m - 1, d, 12, 0, 0, timeZone);
+}
+
+/** Add calendar days in the feed timezone; returns YYYY-MM-DD. */
+export function addLocalCalendarDays(
+  dateStr: string,
+  deltaDays: number,
+  timeZone: string = SCHEDULE_CONFIG.timezone
+): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const t = new TZDate(y, m - 1, d, 12, 0, 0, timeZone);
+  t.setDate(t.getDate() + deltaDays);
+  return t.toLocaleDateString("en-CA", { timeZone });
+}
+
+/** Inclusive range of local calendar date strings (sorted ascending). */
+export function listLocalCalendarDaysInclusive(
+  fromInclusive: string,
+  toInclusive: string,
+  timeZone: string = SCHEDULE_CONFIG.timezone
+): string[] {
+  const out: string[] = [];
+  let cur = fromInclusive;
+  while (cur <= toInclusive) {
+    out.push(cur);
+    if (cur === toInclusive) break;
+    cur = addLocalCalendarDays(cur, 1, timeZone);
+  }
+  return out;
 }
 
 // =============================================================================

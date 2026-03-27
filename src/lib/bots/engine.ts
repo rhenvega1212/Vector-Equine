@@ -1,3 +1,4 @@
+import { TZDate } from "@date-fns/tz";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   BOT_PROFILES,
@@ -137,16 +138,21 @@ async function insertPost(
   content: ContentTemplate,
   media: MediaItem | null,
   hour: number,
-  minuteOffset: number
+  minuteOffset: number,
+  /** Calendar day for the post in SCHEDULE_CONFIG.timezone (YYYY-MM-DD). */
+  planDateStr: string
 ): Promise<{ postId: string; botName: string; type: string } | null> {
-  // Build a timestamp for today at the planned hour + minute offset.
-  // This spreads posts across the day even when the cron fires once.
-  const now = new Date();
-  const postTime = new Date(now);
-  postTime.setHours(hour, minuteOffset, Math.floor(Math.random() * 60), 0);
-  if (postTime > now) {
-    postTime.setDate(postTime.getDate() - 1);
-  }
+  const [y, mo, d] = planDateStr.split("-").map(Number);
+  const sec = Math.floor(Math.random() * 60);
+  const postTime = new TZDate(
+    y,
+    mo - 1,
+    d,
+    hour,
+    minuteOffset,
+    sec,
+    SCHEDULE_CONFIG.timezone
+  );
   const tags = randomSubset(content.tags, 3);
 
   const { data: post, error: postError } = await admin
@@ -155,6 +161,7 @@ async function insertPost(
       author_id: bot.id,
       content: content.content,
       tags,
+      is_feed_visible: true,
       created_at: postTime.toISOString(),
     })
     .select()
@@ -255,7 +262,11 @@ async function generateEngagement(
 // the deterministic daily plan.
 // =============================================================================
 
-export async function executeScheduledPosts(slots: PlannedPost[]): Promise<{
+export async function executeScheduledPosts(
+  slots: PlannedPost[],
+  /** Must match scheduler daily plan date (YYYY-MM-DD in feed timezone). */
+  planDateStr: string
+): Promise<{
   posts: { postId: string; botName: string; type: string }[];
   engagement: { likes: number; comments: number };
 }> {
@@ -284,7 +295,8 @@ export async function executeScheduledPosts(slots: PlannedPost[]): Promise<{
       content,
       media,
       slot.hour,
-      slot.minuteOffset
+      slot.minuteOffset,
+      planDateStr
     );
 
     if (result) {
