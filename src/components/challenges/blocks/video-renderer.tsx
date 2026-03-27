@@ -20,19 +20,20 @@ function parseVideoUrl(url: string) {
 
 export function VideoBlockRenderer({ block, isCompleted, onComplete }: BlockRendererProps) {
   const [embedFailed, setEmbedFailed] = useState(false);
-  if (!block.content) return null;
-
-  const settings = block.settings as unknown as Partial<VideoSettings>;
-  const parsed = parseVideoUrl(block.content);
 
   const preventContext = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
   }, []);
 
-  const youtubeWatchUrl =
+  if (!block.content) return null;
+
+  const settings = block.settings as unknown as Partial<VideoSettings>;
+  const parsed = parseVideoUrl(block.content);
+
+  const youtubeWatchUrl: string | undefined =
     parsed.type === "youtube"
       ? `https://www.youtube.com/watch?v=${parsed.id}`
-      : null;
+      : undefined;
 
   return (
     <div className="space-y-3">
