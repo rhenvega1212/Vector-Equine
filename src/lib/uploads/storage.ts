@@ -102,14 +102,33 @@ export async function uploadFileWithProgress(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
+    // XHR can fire progress very frequently; forwarding every tick to React
+    // setState stalls the main thread and makes uploads feel "stuck" at low %.
+    let lastReported = -1;
+    let lastReportAt = 0;
+    const MIN_STEP = 2;
+    const MIN_MS = 200;
+
     xhr.upload.addEventListener("progress", (e) => {
-      if (e.lengthComputable && onProgress) {
-        onProgress(Math.round((e.loaded / e.total) * 100));
+      if (!e.lengthComputable || !onProgress) return;
+      const percent = Math.round((e.loaded / e.total) * 100);
+      const now = Date.now();
+      const due =
+        percent >= 100 ||
+        percent - lastReported >= MIN_STEP ||
+        (percent > lastReported && now - lastReportAt >= MIN_MS);
+      if (due) {
+        lastReported = percent;
+        lastReportAt = now;
+        onProgress(percent);
       }
     });
 
     xhr.addEventListener("load", () => {
       if (xhr.status >= 200 && xhr.status < 300) {
+        if (onProgress && lastReported < 100) {
+          onProgress(100);
+        }
         const {
           data: { publicUrl },
         } = supabase.storage.from(bucket).getPublicUrl(fileName);
@@ -171,5 +190,10 @@ export function isValidFileSize(file: File, maxSizeMB: number): boolean {
 }
 
 export const MAX_IMAGE_SIZE_MB = 10;
-export const MAX_VIDEO_SIZE_MB = 500;
+/**
+ * Challenge / lesson direct uploads (browser → Supabase signed URL).
+ * Keep in sync with Supabase Storage global limit (Dashboard → Storage → Settings, and supabase/config.toml for local).
+ * Single-request uploads are typically practical up to ~5 GiB; above that use YouTube/Vimeo or resumable uploads.
+ */
+export const MAX_VIDEO_SIZE_MB = 5120;
 export const MAX_FILE_SIZE_MB = 50;

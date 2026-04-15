@@ -43,8 +43,9 @@ port = 54324
 
 [storage]
 enabled = true
-# The maximum file size allowed (e.g. "5MB", "500MB"). Challenge videos upload directly here.
-file_size_limit = "500MB"
+# Global max for Storage (challenge-media, etc.). Match this in hosted Supabase: Dashboard → Storage → Settings.
+# Use YouTube/Vimeo links for huge masters, or resumable uploads if you need > ~5 GiB per object.
+file_size_limit = "5120MiB"
 
 [auth]
 enabled = true

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, startTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -157,7 +157,9 @@ export function VideoBlockEditor({
           "challenge-media",
           file,
           storagePath,
-          (percent) => setUploadProgress(percent)
+          (percent) => {
+            startTransition(() => setUploadProgress(percent));
+          }
         );
         // Also PATCH to DB
         await fetch(`/api/admin/content-blocks/${blockId}`, {
@@ -221,12 +223,16 @@ export function VideoBlockEditor({
           </div>
           <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-300 ease-out"
+              className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
+          <p className="text-xs text-muted-foreground">
+            Large files upload directly to storage (not through Vercel). For very large
+            videos, a YouTube or Vimeo link is often faster and more reliable.
+          </p>
           {uploadProgress === 100 && (
-            <p className="text-xs text-muted-foreground">Processing...</p>
+            <p className="text-xs text-muted-foreground">Saving lesson…</p>
           )}
         </div>
       ) : (
@@ -241,7 +247,7 @@ export function VideoBlockEditor({
             Upload Video
           </Button>
           <span className="text-xs text-muted-foreground">
-            or paste a link below · Max {MAX_VIDEO_SIZE_MB}MB
+            or paste YouTube / Vimeo below · Max {MAX_VIDEO_SIZE_MB}MB per file
           </span>
         </div>
       )}
