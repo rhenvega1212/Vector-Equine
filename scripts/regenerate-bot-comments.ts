@@ -31,7 +31,7 @@ import { runEngagementPass } from "@/lib/bots/engine";
     if (r.reply_to_id) referenced.add(r.reply_to_id);
   }
 
-  const deletable = [...botCommentIds].filter((id) => !referenced.has(id));
+  const deletable = Array.from(botCommentIds).filter((id) => !referenced.has(id));
   const skipped = botCommentIds.size - deletable.length;
 
   let deleted = 0;

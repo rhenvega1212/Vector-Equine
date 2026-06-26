@@ -264,7 +264,7 @@ function inferPostTags(content: string, tags: string[]): string[] {
   for (const [topic, keywords] of Object.entries(TOPIC_KEYWORDS)) {
     if (keywords.some((k) => lower.includes(k))) set.add(topic);
   }
-  return [...set];
+  return Array.from(set);
 }
 
 /**
