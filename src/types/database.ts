@@ -24,6 +24,10 @@ export type Database = {
           trainer_approved: boolean;
           trainer_approved_at: string | null;
           is_beta_tester: boolean;
+          is_suspended: boolean;
+          suspended_at: string | null;
+          suspended_by: string | null;
+          suspension_reason: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -41,6 +45,10 @@ export type Database = {
           trainer_approved?: boolean;
           trainer_approved_at?: string | null;
           is_beta_tester?: boolean;
+          is_suspended?: boolean;
+          suspended_at?: string | null;
+          suspended_by?: string | null;
+          suspension_reason?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -58,8 +66,38 @@ export type Database = {
           trainer_approved?: boolean;
           trainer_approved_at?: string | null;
           is_beta_tester?: boolean;
+          is_suspended?: boolean;
+          suspended_at?: string | null;
+          suspended_by?: string | null;
+          suspension_reason?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+      suspension_messages: {
+        Row: {
+          id: string;
+          user_id: string;
+          sender_id: string | null;
+          sender_role: "admin" | "user";
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          sender_id?: string | null;
+          sender_role: "admin" | "user";
+          body: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          sender_id?: string | null;
+          sender_role?: "admin" | "user";
+          body?: string;
+          created_at?: string;
         };
       };
       feature_flags: {
@@ -997,6 +1035,7 @@ export type UserLocationBucket = Tables<"user_location_bucket">;
 export type Ad = Tables<"ads">;
 export type FeatureFlag = Tables<"feature_flags">;
 export type FeatureFlagOverride = Tables<"feature_flag_overrides">;
+export type SuspensionMessage = Tables<"suspension_messages">;
 
 export type UserRole = "rider" | "trainer" | "admin";
 export type FlagStage = "off" | "internal" | "closed_beta" | "open_beta" | "ga";

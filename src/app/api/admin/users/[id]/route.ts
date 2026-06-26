@@ -74,3 +74,72 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: userId } = await params;
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    const { data: adminProfile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single() as { data: { role?: string } | null };
+
+    if (adminProfile?.role !== "admin") {
+      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    }
+
+    if (userId === user.id) {
+      return NextResponse.json(
+        { error: "You cannot delete your own account here." },
+        { status: 400 }
+      );
+    }
+
+    const adminClient = createAdminClient();
+
+    // Block deleting other admins as a safety rail.
+    const { data: target } = await adminClient
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .single() as { data: { role?: string } | null };
+
+    if (target?.role === "admin") {
+      return NextResponse.json(
+        { error: "Admins cannot be deleted. Demote them first." },
+        { status: 400 }
+      );
+    }
+
+    // Remove the auth login. The profile row (and its content) is removed via
+    // ON DELETE CASCADE from auth.users -> profiles.
+    const { error: authError } = await adminClient.auth.admin.deleteUser(userId);
+    if (authError) {
+      return NextResponse.json({ error: authError.message }, { status: 400 });
+    }
+
+    // Belt-and-suspenders: ensure the profile row is gone even if the cascade
+    // is not configured in this environment.
+    await adminClient.from("profiles").delete().eq("id", userId);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}

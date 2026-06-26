@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -25,11 +26,45 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
-import { Loader2, Check, X, Shield, Users, UserCog, LogIn, FlaskConical } from "lucide-react";
+import { SuspensionChatDialog } from "@/components/admin/suspension-chat-dialog";
+import {
+  Loader2,
+  Check,
+  X,
+  Shield,
+  Users,
+  UserCog,
+  LogIn,
+  FlaskConical,
+  MoreVertical,
+  Ban,
+  ShieldCheck,
+  Trash2,
+  ExternalLink,
+  MessageSquare,
+} from "lucide-react";
 
 interface User {
   id: string;
@@ -40,19 +75,129 @@ interface User {
   role: "rider" | "trainer" | "admin";
   trainer_approved: boolean;
   is_beta_tester: boolean;
+  is_suspended: boolean;
+  suspended_at: string | null;
+  suspension_reason: string | null;
   created_at: string;
 }
 
 export default function AdminUsersPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [roleFilter, setRoleFilter] = useState("all");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+  // Suspend dialog
+  const [suspendUser, setSuspendUser] = useState<User | null>(null);
+  const [suspendReason, setSuspendReason] = useState("");
+  const [suspendSubmitting, setSuspendSubmitting] = useState(false);
+
+  // Delete dialog
+  const [deleteUser, setDeleteUser] = useState<User | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
+  // Suspension chat dialog
+  const [chatUser, setChatUser] = useState<User | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+
   useEffect(() => {
     fetchUsers();
   }, [roleFilter]);
+
+  function openChat(user: User) {
+    setChatUser(user);
+    setChatOpen(true);
+  }
+
+  async function submitSuspend() {
+    if (!suspendUser) return;
+    const reason = suspendReason.trim();
+    if (!reason) return;
+    setSuspendSubmitting(true);
+    try {
+      const res = await fetch(`/api/admin/users/${suspendUser.id}/suspend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast({
+          title: "Account suspended",
+          description: `${suspendUser.display_name} has been suspended.`,
+        });
+        setSuspendUser(null);
+        setSuspendReason("");
+        fetchUsers();
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Could not suspend account.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setSuspendSubmitting(false);
+    }
+  }
+
+  async function handleUnsuspend(user: User) {
+    setActionLoading(user.id);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/suspend`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast({
+          title: "Suspension lifted",
+          description: `${user.display_name} can access the app again.`,
+        });
+        fetchUsers();
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Could not lift suspension.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function submitDelete() {
+    if (!deleteUser) return;
+    setDeleteSubmitting(true);
+    try {
+      const res = await fetch(`/api/admin/users/${deleteUser.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast({
+          title: "Account deleted",
+          description: `${deleteUser.display_name} has been permanently removed.`,
+        });
+        setDeleteUser(null);
+        setDeleteConfirm("");
+        fetchUsers();
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Could not delete account.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  }
 
   async function fetchUsers() {
     setIsLoading(true);
@@ -221,6 +366,76 @@ export default function AdminUsersPage() {
     }
   };
 
+  const renderActionsMenu = (user: User) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          disabled={actionLoading === user.id}
+        >
+          {actionLoading === user.id ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <MoreVertical className="h-4 w-4" />
+          )}
+          <span className="sr-only">Actions</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuLabel>Account actions</DropdownMenuLabel>
+        <DropdownMenuItem onClick={() => router.push(`/profile/${user.username}`)}>
+          <ExternalLink className="h-4 w-4 mr-2" />
+          View profile
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleLoginAsUser(user.id)}>
+          <LogIn className="h-4 w-4 mr-2" />
+          Login as user
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => openChat(user)}>
+          <MessageSquare className="h-4 w-4 mr-2" />
+          Suspension chat
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {user.role === "admin" ? (
+          <DropdownMenuItem disabled>
+            <Shield className="h-4 w-4 mr-2" />
+            Admins are protected
+          </DropdownMenuItem>
+        ) : user.is_suspended ? (
+          <DropdownMenuItem onClick={() => handleUnsuspend(user)}>
+            <ShieldCheck className="h-4 w-4 mr-2" />
+            Lift suspension
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem
+            onClick={() => {
+              setSuspendReason("");
+              setSuspendUser(user);
+            }}
+          >
+            <Ban className="h-4 w-4 mr-2" />
+            Suspend account
+          </DropdownMenuItem>
+        )}
+        {user.role !== "admin" && (
+          <DropdownMenuItem
+            className="text-destructive focus:text-destructive"
+            onClick={() => {
+              setDeleteConfirm("");
+              setDeleteUser(user);
+            }}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete account
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -286,10 +501,24 @@ export default function AdminUsersPage() {
                             Joined {formatDate(user.created_at)}
                           </p>
                         </div>
-                        <Badge variant={getRoleBadgeVariant(user.role)} className="gap-1">
-                          {getRoleIcon(user.role)}
-                          {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                        </Badge>
+                        <div className="flex flex-col items-end gap-1">
+                          <div className="flex items-center gap-1">
+                            <Badge
+                              variant={getRoleBadgeVariant(user.role)}
+                              className="gap-1"
+                            >
+                              {getRoleIcon(user.role)}
+                              {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                            </Badge>
+                            {renderActionsMenu(user)}
+                          </div>
+                          {user.is_suspended && (
+                            <Badge variant="destructive" className="gap-1">
+                              <Ban className="h-3 w-3" />
+                              Suspended
+                            </Badge>
+                          )}
+                        </div>
                       </div>
 
                       {/* Role Change */}
@@ -507,20 +736,31 @@ export default function AdminUsersPage() {
                               </Select>
                             </TableCell>
                             <TableCell>
-                              {user.role === "trainer" && (
-                                <Badge
-                                  variant={
-                                    user.trainer_approved ? "default" : "secondary"
-                                  }
-                                >
-                                  {user.trainer_approved
-                                    ? "Approved"
-                                    : "Pending Approval"}
-                                </Badge>
-                              )}
-                              {user.role === "admin" && (
-                                <Badge variant="destructive">Full Access</Badge>
-                              )}
+                              <div className="flex flex-col gap-1">
+                                {user.is_suspended && (
+                                  <Badge variant="destructive" className="gap-1 w-fit">
+                                    <Ban className="h-3 w-3" />
+                                    Suspended
+                                  </Badge>
+                                )}
+                                {user.role === "trainer" && (
+                                  <Badge
+                                    variant={
+                                      user.trainer_approved ? "default" : "secondary"
+                                    }
+                                    className="w-fit"
+                                  >
+                                    {user.trainer_approved
+                                      ? "Approved"
+                                      : "Pending Approval"}
+                                  </Badge>
+                                )}
+                                {user.role === "admin" && !user.is_suspended && (
+                                  <Badge variant="destructive" className="w-fit">
+                                    Full Access
+                                  </Badge>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell>
                               <Switch
@@ -534,25 +774,9 @@ export default function AdminUsersPage() {
                             </TableCell>
                             <TableCell>{formatDate(user.created_at)}</TableCell>
                             <TableCell>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="gap-1"
-                                onClick={() => handleLoginAsUser(user.id)}
-                                disabled={actionLoading === user.id}
-                              >
-                                {actionLoading === user.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <>
-                                    <LogIn className="h-4 w-4" />
-                                    Login as
-                                  </>
-                                )}
-                              </Button>
+                              <div className="flex items-center gap-1">
                               {user.role === "trainer" && (
-                                <div className="inline-flex gap-2 ml-2">
+                                <div className="inline-flex gap-2">
                                   {!user.trainer_approved ? (
                                     <Button
                                       size="sm"
@@ -591,6 +815,8 @@ export default function AdminUsersPage() {
                                   )}
                                 </div>
                               )}
+                              {renderActionsMenu(user)}
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -603,6 +829,133 @@ export default function AdminUsersPage() {
           </Card>
         </>
       )}
+
+      {/* Suspend dialog */}
+      <Dialog
+        open={!!suspendUser}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSuspendUser(null);
+            setSuspendReason("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Suspend {suspendUser?.display_name}
+            </DialogTitle>
+            <DialogDescription>
+              They&apos;ll be locked out of the app and shown this reason. They can
+              reply to appeal, and you can chat with them from the suspension chat.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Reason for suspension</label>
+            <Textarea
+              value={suspendReason}
+              onChange={(e) => setSuspendReason(e.target.value)}
+              placeholder="Explain why this account is being suspended…"
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setSuspendUser(null);
+                setSuspendReason("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={submitSuspend}
+              disabled={!suspendReason.trim() || suspendSubmitting}
+              className="gap-1"
+            >
+              {suspendSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Ban className="h-4 w-4" />
+              )}
+              Suspend account
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete dialog */}
+      <Dialog
+        open={!!deleteUser}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteUser(null);
+            setDeleteConfirm("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive">
+              Delete {deleteUser?.display_name}
+            </DialogTitle>
+            <DialogDescription>
+              This permanently removes their login and all of their content. This
+              cannot be undone. Type{" "}
+              <span className="font-semibold">{deleteUser?.username}</span> to
+              confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={deleteConfirm}
+            onChange={(e) => setDeleteConfirm(e.target.value)}
+            placeholder={deleteUser?.username}
+            autoComplete="off"
+          />
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setDeleteUser(null);
+                setDeleteConfirm("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={submitDelete}
+              disabled={
+                deleteConfirm.trim() !== deleteUser?.username || deleteSubmitting
+              }
+              className="gap-1"
+            >
+              {deleteSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              Permanently delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Suspension chat dialog */}
+      <SuspensionChatDialog
+        userId={chatUser?.id ?? null}
+        userName={chatUser?.display_name ?? ""}
+        isSuspended={chatUser?.is_suspended ?? false}
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+        onChanged={fetchUsers}
+      />
     </div>
   );
 }

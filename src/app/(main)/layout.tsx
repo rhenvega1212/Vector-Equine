@@ -21,6 +21,12 @@ export default async function MainLayout({
     redirect("/onboarding");
   }
 
+  // Suspended users are locked out of the app and routed to the appeal screen.
+  // Admins viewing the app while impersonating keep full access.
+  if (profile.is_suspended && !isImpersonating) {
+    redirect("/suspended");
+  }
+
   const flags = await getFlagsForProfile(profile);
 
   // Admins (incl. while impersonating a rider) can moderate content.
