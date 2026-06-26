@@ -213,17 +213,17 @@ export function VideoBlockEditor({
 
       {/* Upload button + progress bar */}
       {isUploading ? (
-        <div className="space-y-2 p-3 rounded-lg border border-cyan-400/20 bg-cyan-400/5">
+        <div className="space-y-2 p-3 rounded-lg border border-gold/20 bg-gold/5">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
+              <Loader2 className="h-4 w-4 animate-spin text-gold" />
               <span className="font-medium">Uploading video...</span>
             </div>
             <span className="text-muted-foreground tabular-nums">{uploadProgress}%</span>
           </div>
           <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full"
+              className="h-full bg-gradient-to-r from-gold to-gold rounded-full"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
@@ -283,7 +283,7 @@ export function VideoBlockEditor({
           className={
             saveSuccess
               ? "bg-green-600 hover:bg-green-500 text-white"
-              : "bg-cyan-500 hover:bg-cyan-400 text-black"
+              : "bg-gold text-navy font-semibold hover:bg-gold/90"
           }
         >
           {isSaving ? (
@@ -301,7 +301,7 @@ export function VideoBlockEditor({
 
       {/* Thumbnail / Preview */}
       {savedUrl && parsed && (
-        <div className="relative rounded-lg overflow-hidden border border-cyan-400/20 bg-black/30">
+        <div className="relative rounded-lg overflow-hidden border border-gold/20 bg-black/30">
           {thumbnailUrl ? (
             /* YouTube / Vimeo thumbnail */
             <div className="relative">
@@ -340,8 +340,8 @@ export function VideoBlockEditor({
           ) : (
             /* Unknown / fallback */
             <div className="flex items-center gap-3 p-4">
-              <div className="w-12 h-12 rounded-lg bg-cyan-400/10 flex items-center justify-center flex-shrink-0">
-                <Play className="h-6 w-6 text-cyan-400" />
+              <div className="w-12 h-12 rounded-lg bg-gold/10 flex items-center justify-center flex-shrink-0">
+                <Play className="h-6 w-6 text-gold" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium truncate">{savedUrl}</p>

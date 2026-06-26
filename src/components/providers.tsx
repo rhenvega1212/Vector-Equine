@@ -19,7 +19,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+    <ThemeProvider attribute="class" forcedTheme="light" enableSystem={false}>
       <QueryClientProvider client={queryClient}>
         <UploadManagerProvider>{children}</UploadManagerProvider>
       </QueryClientProvider>

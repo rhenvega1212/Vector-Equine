@@ -43,8 +43,8 @@ function AuthScreen() {
       {/* Subtle background elements */}
       <div className="absolute inset-0">
         {/* Gradient orbs */}
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-gradient-radial from-cyan-500/10 via-transparent to-transparent rounded-full blur-3xl" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-gradient-radial from-blue-600/10 via-transparent to-transparent rounded-full blur-3xl" />
+        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-gradient-radial from-gold/10 via-transparent to-transparent rounded-full blur-3xl" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-gradient-radial from-gold/10 via-transparent to-transparent rounded-full blur-3xl" />
       </div>
 
       {/* Content */}
@@ -61,7 +61,7 @@ function AuthScreen() {
                 priority
               />
             </div>
-            <p className="text-cyan-300/60 text-sm tracking-widest uppercase font-trajan">
+            <p className="text-gold-bright/60 text-sm tracking-widest uppercase font-trajan">
               Connect. Learn. Compete.
             </p>
           </div>
@@ -139,7 +139,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
           id="email"
           type="email"
           placeholder="you@example.com"
-          className="bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-cyan-400/50 focus:ring-cyan-400/20"
+          className="bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-gold/50 focus:ring-gold/20"
           {...register("email")}
         />
         {errors.email && (
@@ -153,7 +153,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
           id="password"
           type="password"
           placeholder="••••••••"
-          className="bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-cyan-400/50 focus:ring-cyan-400/20"
+          className="bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-gold/50 focus:ring-gold/20"
           {...register("password")}
         />
         {errors.password && (
@@ -164,7 +164,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
       <Button
         type="submit"
         disabled={isLoading}
-        className="w-full h-11 bg-cyan-500 hover:bg-cyan-400 text-[#020617] font-semibold rounded-full transition-all hover:scale-[1.02] active:scale-[0.98]"
+        className="w-full h-11 bg-gold hover:bg-gold text-[#020617] font-semibold rounded-full transition-all hover:scale-[1.02] active:scale-[0.98]"
       >
         {isLoading ? (
           <Loader2 className="h-5 w-5 animate-spin" />
@@ -178,7 +178,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
         <button
           type="button"
           onClick={onSwitch}
-          className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
+          className="text-gold hover:text-gold-bright font-medium transition-colors"
         >
           Sign up
         </button>
@@ -235,7 +235,7 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
   if (success) {
     return (
       <div className="text-center py-8">
-        <CheckCircle className="h-12 w-12 text-cyan-400 mx-auto mb-4" />
+        <CheckCircle className="h-12 w-12 text-gold mx-auto mb-4" />
         <h2 className="text-xl font-semibold text-white mb-2">Account created!</h2>
         <p className="text-white/50 text-sm">Setting up your profile...</p>
       </div>
@@ -261,7 +261,7 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
           id="signup-email"
           type="email"
           placeholder="you@example.com"
-          className="bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-cyan-400/50 focus:ring-cyan-400/20"
+          className="bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-gold/50 focus:ring-gold/20"
           {...register("email")}
         />
         {errors.email && (
@@ -275,7 +275,7 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
           id="signup-password"
           type="password"
           placeholder="••••••••"
-          className="bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-cyan-400/50 focus:ring-cyan-400/20"
+          className="bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-gold/50 focus:ring-gold/20"
           {...register("password")}
         />
         {errors.password && (
@@ -287,7 +287,7 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
       <Button
         type="submit"
         disabled={isLoading}
-        className="w-full h-11 bg-cyan-500 hover:bg-cyan-400 text-[#020617] font-semibold rounded-full transition-all hover:scale-[1.02] active:scale-[0.98]"
+        className="w-full h-11 bg-gold hover:bg-gold text-[#020617] font-semibold rounded-full transition-all hover:scale-[1.02] active:scale-[0.98]"
       >
         {isLoading ? (
           <Loader2 className="h-5 w-5 animate-spin" />
@@ -301,7 +301,7 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
         <button
           type="button"
           onClick={onSwitch}
-          className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
+          className="text-gold hover:text-gold-bright font-medium transition-colors"
         >
           Sign in
         </button>

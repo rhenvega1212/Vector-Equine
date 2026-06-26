@@ -30,9 +30,9 @@ export default function LoginPage() {
 
 function LoginSkeleton() {
   return (
-    <Card>
+    <Card className="border-gold/15 shadow-2xl shadow-black/30">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Welcome back</CardTitle>
+        <CardTitle className="text-3xl font-serif">Welcome back</CardTitle>
         <CardDescription>Sign in to your Vector Equine account</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -98,10 +98,11 @@ function LoginForm() {
   }
 
   return (
-    <Card>
+    <Card className="border-gold/15 shadow-2xl shadow-black/30">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Welcome back</CardTitle>
+        <CardTitle className="text-3xl font-serif">Welcome back</CardTitle>
         <CardDescription>Sign in to your Vector Equine account</CardDescription>
+        <p className="mt-1 text-sm italic text-gold">Every rider knows the moment.</p>
       </CardHeader>
       <form
         onSubmit={handleSubmit(onSubmit, (validationErrors) => {
@@ -122,6 +123,7 @@ function LoginForm() {
               id="email"
               type="email"
               placeholder="you@example.com"
+              className="bg-white/[0.04] border-border focus-visible:ring-gold/60"
               {...register("email")}
             />
             {errors.email && (
@@ -134,6 +136,7 @@ function LoginForm() {
               id="password"
               type="password"
               placeholder="••••••••"
+              className="bg-white/[0.04] border-border focus-visible:ring-gold/60"
               {...register("password")}
             />
             {errors.password && (
@@ -155,10 +158,10 @@ function LoginForm() {
             </Link>
           </p>
           <div className="flex gap-4 text-xs text-muted-foreground">
-            <Link href="/privacy" className="hover:text-cyan-400 transition-colors">
+            <Link href="/privacy" className="hover:text-gold transition-colors">
               Privacy Policy
             </Link>
-            <Link href="/terms" className="hover:text-cyan-400 transition-colors">
+            <Link href="/terms" className="hover:text-gold transition-colors">
               Terms of Service
             </Link>
           </div>

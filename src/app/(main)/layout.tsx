@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
 import { MainLayoutClient } from "@/components/layouts/main-layout-client";
-import { getImpersonateCookieName } from "@/lib/admin/impersonate";
+import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getFlagsForProfile } from "@/lib/flags/server";
 
 // Always fetch fresh profile so role/permission changes from admin panel take effect
 export const dynamic = "force-dynamic";
@@ -12,41 +11,28 @@ export default async function MainLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user, profile, isImpersonating } = await getCurrentProfile();
 
   if (!user) {
     redirect("/login");
   }
 
-  const { data: myProfile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single() as { data: any };
-
-  if (!myProfile?.username) {
+  if (!profile?.username) {
     redirect("/onboarding");
   }
 
-  let profile = myProfile;
-  let isImpersonating = false;
-  const cookieStore = await cookies();
-  const impersonateId = cookieStore.get(getImpersonateCookieName())?.value;
-  if (impersonateId && myProfile?.role === "admin" && impersonateId !== user.id) {
-    const { data: targetProfile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", impersonateId)
-      .single() as { data: any };
-    if (targetProfile?.username) {
-      profile = targetProfile;
-      isImpersonating = true;
-    }
-  }
+  const flags = await getFlagsForProfile(profile);
+
+  // Admins (incl. while impersonating a rider) can moderate content.
+  const canModerate = isImpersonating || profile.role === "admin";
 
   return (
-    <MainLayoutClient profile={profile} isImpersonating={isImpersonating}>
+    <MainLayoutClient
+      profile={profile}
+      isImpersonating={isImpersonating}
+      flags={flags}
+      canModerate={canModerate}
+    >
       {children}
     </MainLayoutClient>
   );

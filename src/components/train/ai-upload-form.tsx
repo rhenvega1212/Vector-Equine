@@ -87,10 +87,10 @@ export function AiUploadForm() {
   }
 
   return (
-    <Card className="border-cyan-400/20 bg-slate-800/30">
+    <Card className="border-gold/20 bg-slate-800/30">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Video className="h-5 w-5 text-cyan-400" />
+          <Video className="h-5 w-5 text-gold" />
           Upload training video
         </CardTitle>
       </CardHeader>

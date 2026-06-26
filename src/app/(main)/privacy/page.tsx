@@ -12,7 +12,7 @@ export default function PrivacyPolicyPage() {
     <div className="max-w-3xl mx-auto px-4 py-8">
       <Link 
         href="/"
-        className="inline-flex items-center gap-2 text-muted-foreground hover:text-cyan-400 transition-colors mb-6"
+        className="inline-flex items-center gap-2 text-muted-foreground hover:text-gold transition-colors mb-6"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to Home
@@ -24,7 +24,7 @@ export default function PrivacyPolicyPage() {
 
         <div className="prose prose-invert max-w-none space-y-6">
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">1. Introduction</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">1. Introduction</h2>
             <p className="text-muted-foreground leading-relaxed">
               Welcome to Vector Equine (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;). We are committed to protecting your 
               personal information and your right to privacy. This Privacy Policy explains how we collect, 
@@ -33,7 +33,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">2. Information We Collect</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">2. Information We Collect</h2>
             <p className="text-muted-foreground leading-relaxed mb-3">
               We collect information that you provide directly to us, including:
             </p>
@@ -47,7 +47,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">3. How We Use Your Information</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">3. How We Use Your Information</h2>
             <p className="text-muted-foreground leading-relaxed mb-3">
               We use the information we collect to:
             </p>
@@ -63,7 +63,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">4. Sharing of Information</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">4. Sharing of Information</h2>
             <p className="text-muted-foreground leading-relaxed mb-3">
               We may share your information in the following circumstances:
             </p>
@@ -77,7 +77,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">5. Data Security</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">5. Data Security</h2>
             <p className="text-muted-foreground leading-relaxed">
               We implement appropriate technical and organizational measures to protect your personal 
               information against unauthorized access, alteration, disclosure, or destruction. However, 
@@ -86,7 +86,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">6. Your Rights</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">6. Your Rights</h2>
             <p className="text-muted-foreground leading-relaxed mb-3">
               Depending on your location, you may have the right to:
             </p>
@@ -100,7 +100,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">7. Data Retention</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">7. Data Retention</h2>
             <p className="text-muted-foreground leading-relaxed">
               We retain your personal information for as long as your account is active or as needed 
               to provide you services. You can request deletion of your account and associated data 
@@ -109,7 +109,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">8. Children&apos;s Privacy</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">8. Children&apos;s Privacy</h2>
             <p className="text-muted-foreground leading-relaxed">
               Our services are not intended for children under 13 years of age. We do not knowingly 
               collect personal information from children under 13. If you are a parent or guardian 
@@ -118,7 +118,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">9. Changes to This Policy</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">9. Changes to This Policy</h2>
             <p className="text-muted-foreground leading-relaxed">
               We may update this Privacy Policy from time to time. We will notify you of any changes 
               by posting the new Privacy Policy on this page and updating the &quot;Last updated&quot; date.
@@ -126,11 +126,11 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">10. Contact Us</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">10. Contact Us</h2>
             <p className="text-muted-foreground leading-relaxed">
               If you have questions about this Privacy Policy or our privacy practices, please contact us at:
             </p>
-            <p className="text-cyan-400 mt-2">support@vectorequine.com</p>
+            <p className="text-gold mt-2">support@vectorequine.com</p>
           </section>
         </div>
       </div>

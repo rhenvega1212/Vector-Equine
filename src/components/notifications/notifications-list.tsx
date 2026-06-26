@@ -88,7 +88,7 @@ export function NotificationsList({ notifications, userId }: NotificationsListPr
       case "like":
         return <Heart className="h-3.5 w-3.5 text-red-400 fill-red-400" />;
       case "comment":
-        return <MessageCircle className="h-3.5 w-3.5 text-blue-400" />;
+        return <MessageCircle className="h-3.5 w-3.5 text-gold" />;
       case "reply":
         return <Reply className="h-3.5 w-3.5 text-green-400" />;
       default:

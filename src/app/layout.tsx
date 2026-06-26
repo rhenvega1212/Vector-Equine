@@ -68,21 +68,13 @@ export const viewport: Viewport = {
 
 const criticalStyles = `
   :root {
-    --background: 220 14% 96%;
-    --foreground: 222 47% 11%;
-    --muted: 220 14% 90%;
-    --muted-foreground: 220 9% 46%;
-    --primary: 191 80% 32%;
-    --border: 220 13% 87%;
+    --background: 33 79% 95%;
+    --foreground: 223 32% 15%;
+    --muted: 33 24% 90%;
+    --muted-foreground: 223 12% 42%;
+    --primary: 41 57% 58%;
+    --border: 33 22% 86%;
     --radius: 0.75rem;
-  }
-  .dark {
-    --background: 224 71% 4%;
-    --foreground: 210 40% 98%;
-    --muted: 215 25% 27%;
-    --muted-foreground: 217 10% 64%;
-    --primary: 191 91% 50%;
-    --border: 215 25% 27%;
   }
   html { -webkit-text-size-adjust: 100%; }
   body {

@@ -42,7 +42,7 @@ export default async function AiTrainerPage() {
       <AiUploadForm />
 
       {list.length > 0 && (
-        <Card className="border-cyan-400/20">
+        <Card className="border-gold/20">
           <CardHeader>
             <CardTitle>Recent uploads</CardTitle>
           </CardHeader>
@@ -51,16 +51,16 @@ export default async function AiTrainerPage() {
               {list.map((v) => {
                 const analysis = analysisByVideo(v);
                 return (
-                  <li key={v.id} className="flex items-center justify-between gap-4 rounded-lg border border-cyan-400/10 p-3">
+                  <li key={v.id} className="flex items-center justify-between gap-4 rounded-lg border border-gold/10 p-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <Video className="h-5 w-5 shrink-0 text-cyan-400/80" />
+                      <Video className="h-5 w-5 shrink-0 text-gold/80" />
                       <div className="min-w-0">
                         <p className="font-medium truncate">{v.horse || "Untitled"}</p>
                         <p className="text-sm text-muted-foreground">{format(new Date(v.created_at), "MMM d, yyyy")}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <Button variant="outline" size="sm" asChild className="border-cyan-400/20">
+                      <Button variant="outline" size="sm" asChild className="border-gold/20">
                         <Link href={`/train/ai-trainer/${v.id}`}>Results</Link>
                       </Button>
                       {analysis?.id && (

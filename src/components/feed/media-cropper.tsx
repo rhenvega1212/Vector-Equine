@@ -130,7 +130,7 @@ export function MediaCropper({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg bg-slate-900 border-cyan-400/20">
+      <DialogContent className="sm:max-w-lg bg-slate-900 border-gold/20">
         <DialogHeader>
           <DialogTitle>Crop Image</DialogTitle>
           <DialogDescription>
@@ -149,7 +149,7 @@ export function MediaCropper({
             onCropComplete={onCropCompleteHandler}
             classes={{
               containerClassName: "rounded-lg",
-              cropAreaClassName: "!border-cyan-400 !border-2",
+              cropAreaClassName: "!border-gold !border-2",
             }}
           />
         </div>
@@ -163,8 +163,8 @@ export function MediaCropper({
               variant={aspectIdx === idx ? "default" : "outline"}
               className={`h-8 text-xs ${
                 aspectIdx === idx
-                  ? "bg-cyan-500 hover:bg-cyan-400 text-black"
-                  : "border-cyan-400/30 hover:bg-cyan-400/10"
+                  ? "bg-gold text-navy font-semibold hover:bg-gold/90"
+                  : "border-gold/30 hover:bg-gold/10"
               }`}
               onClick={() => setAspectIdx(idx)}
             >
@@ -192,7 +192,7 @@ export function MediaCropper({
             variant="outline"
             size="sm"
             onClick={handleReset}
-            className="w-full border-cyan-400/30 hover:bg-cyan-400/10"
+            className="w-full border-gold/30 hover:bg-gold/10"
           >
             <RotateCcw className="h-4 w-4 mr-2" />
             Reset
@@ -206,7 +206,7 @@ export function MediaCropper({
           <Button
             onClick={handleSave}
             disabled={isProcessing}
-            className="bg-cyan-500 hover:bg-cyan-400 text-black"
+            className="bg-gold text-navy font-semibold hover:bg-gold/90"
           >
             {isProcessing ? (
               <>

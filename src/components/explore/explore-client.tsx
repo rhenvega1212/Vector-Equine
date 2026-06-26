@@ -122,6 +122,27 @@ export function ExploreClient({ userId }: ExploreClientProps) {
     fetchTrending();
   }, []);
 
+  const applyLikeChange = useCallback(
+    (postId: string, liked: boolean) => {
+      const syncLikes = (likes: { user_id: string }[] | undefined) => {
+        const next = (likes ?? []).filter((l) => l.user_id !== userId);
+        if (liked) next.push({ user_id: userId });
+        return next;
+      };
+      setTrendingPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId ? { ...p, post_likes: syncLikes(p.post_likes) } : p
+        )
+      );
+      setSelectedPost((prev: any) =>
+        prev && prev.id === postId
+          ? { ...prev, post_likes: syncLikes(prev.post_likes) }
+          : prev
+      );
+    },
+    [userId]
+  );
+
   const accountItems = items.filter((i) => i.type === "account_suggestion");
 
   return (
@@ -318,6 +339,13 @@ export function ExploreClient({ userId }: ExploreClientProps) {
                     selectedPost.profiles?.id ?? selectedPost.author_id;
                   if (id)
                     setFollowingIds((prev) => new Set(prev).add(id));
+                }}
+                onLikeChange={applyLikeChange}
+                onDeleted={(postId) => {
+                  setTrendingPosts((prev) =>
+                    prev.filter((p) => p.id !== postId)
+                  );
+                  setSelectedPost(null);
                 }}
               />
             </div>

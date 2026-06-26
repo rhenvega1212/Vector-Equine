@@ -81,10 +81,10 @@ export function DiscussionBlockRenderer({
     <div className="space-y-5">
       {/* Prompt */}
       {prompt && (
-        <div className="flex items-start gap-3 rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-4">
+        <div className="flex items-start gap-3 rounded-lg border border-gold/30 bg-gold/5 p-4">
           <MessageSquare
             size={18}
-            className="mt-0.5 shrink-0 text-cyan-400"
+            className="mt-0.5 shrink-0 text-gold"
           />
           <p className="text-sm font-medium text-white">{prompt}</p>
         </div>
@@ -124,7 +124,7 @@ export function DiscussionBlockRenderer({
             onClick={() => setSort(s)}
             className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
               sort === s
-                ? "bg-cyan-500/20 text-cyan-400"
+                ? "bg-gold/20 text-gold"
                 : "text-slate-400 hover:text-white"
             }`}
           >

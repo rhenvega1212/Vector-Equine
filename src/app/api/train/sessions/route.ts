@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { flagGuardForApi } from "@/lib/flags/guards";
 import { createTrainingSessionSchema } from "@/lib/validations/training-session";
 import { z } from "zod";
 
@@ -11,6 +12,9 @@ export async function GET(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
+
+    const flagBlock = await flagGuardForApi("training_diary");
+    if (flagBlock) return flagBlock;
 
     const { searchParams } = request.nextUrl;
     const range = searchParams.get("range") || "30"; // 7, 30, 90
@@ -57,6 +61,9 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
+
+    const flagBlock = await flagGuardForApi("training_diary");
+    if (flagBlock) return flagBlock;
 
     const body = await request.json();
     const parsed = createTrainingSessionSchema.parse(body);

@@ -75,16 +75,16 @@ export function AiTrainerChat({ analysisId }: { analysisId: string }) {
 
   if (loading) {
     return (
-      <Card className="border-cyan-400/20">
+      <Card className="border-gold/20">
         <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
+          <Loader2 className="h-8 w-8 animate-spin text-gold" />
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="border-cyan-400/20 flex flex-col overflow-hidden">
+    <Card className="border-gold/20 flex flex-col overflow-hidden">
       <CardContent className="flex flex-col flex-1 min-h-[320px] p-0">
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 && (
@@ -100,8 +100,8 @@ export function AiTrainerChat({ analysisId }: { analysisId: string }) {
               <div
                 className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
                   m.role === "user"
-                    ? "bg-cyan-400/20 text-foreground"
-                    : "bg-muted text-muted-foreground border border-cyan-400/10"
+                    ? "bg-gold/20 text-foreground"
+                    : "bg-muted text-muted-foreground border border-gold/10"
                 }`}
               >
                 {m.content}
@@ -110,7 +110,7 @@ export function AiTrainerChat({ analysisId }: { analysisId: string }) {
           ))}
           <div ref={bottomRef} />
         </div>
-        <form onSubmit={handleSubmit} className="border-t border-cyan-400/10 p-4">
+        <form onSubmit={handleSubmit} className="border-t border-gold/10 p-4">
           <div className="flex gap-2">
             <Textarea
               value={input}

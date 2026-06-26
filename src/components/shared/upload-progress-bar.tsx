@@ -14,7 +14,7 @@ function JobRow({ job, onDismiss }: { job: UploadJob; onDismiss: () => void }) {
       <div className="shrink-0">
         {isDone && <CheckCircle2 className="h-5 w-5 text-green-400" />}
         {isError && <AlertCircle className="h-5 w-5 text-red-400" />}
-        {isActive && <Loader2 className="h-5 w-5 text-cyan-400 animate-spin" />}
+        {isActive && <Loader2 className="h-5 w-5 text-gold animate-spin" />}
       </div>
 
       <div className="flex-1 min-w-0">

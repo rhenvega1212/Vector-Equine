@@ -70,7 +70,7 @@ export function VideoBlockRenderer({ block, isCompleted, onComplete }: BlockRend
                   href={youtubeWatchUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-cyan-400 hover:text-cyan-300 font-medium"
+                  className="inline-flex items-center gap-2 text-gold hover:text-gold-bright font-medium"
                 >
                   <ExternalLink className="h-4 w-4" />
                   Watch on YouTube
@@ -85,7 +85,7 @@ export function VideoBlockRenderer({ block, isCompleted, onComplete }: BlockRend
                 href={youtubeWatchUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-cyan-400 hover:text-cyan-300 inline-flex items-center gap-1 font-medium"
+                className="text-xs text-gold hover:text-gold-bright inline-flex items-center gap-1 font-medium"
               >
                 <ExternalLink className="h-3 w-3" />
                 Watch video on YouTube

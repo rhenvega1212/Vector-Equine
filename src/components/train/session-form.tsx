@@ -248,7 +248,7 @@ export function SessionForm({ mode, sessionId, defaultValues }: SessionFormProps
         </Button>
       </Link>
 
-      <Card className="border-cyan-400/20">
+      <Card className="border-gold/20">
         <CardHeader>
           <CardTitle>{mode === "create" ? "Log a session" : "Edit session"}</CardTitle>
           <p className="text-sm text-muted-foreground">Quick and clear. Select your horse and add details.</p>
@@ -281,7 +281,7 @@ export function SessionForm({ mode, sessionId, defaultValues }: SessionFormProps
                 <div className="space-y-2">
                   <Input id="horse" placeholder="Horse name" {...register("horse")} />
                   <p className="text-xs text-muted-foreground">
-                    <Link href="/train/horses/new" className="text-cyan-400 hover:text-cyan-300">Add a horse profile</Link> to track sessions by horse.
+                    <Link href="/train/horses/new" className="text-gold hover:text-gold-bright">Add a horse profile</Link> to track sessions by horse.
                   </p>
                 </div>
               )}
@@ -342,7 +342,7 @@ export function SessionForm({ mode, sessionId, defaultValues }: SessionFormProps
                   onValueChange={([v]) => setValue("overall_feel", v)}
                   className="flex-1"
                 />
-                <span className="text-cyan-400 font-medium w-8">{overallFeel}</span>
+                <span className="text-gold font-medium w-8">{overallFeel}</span>
               </div>
             </div>
 
@@ -362,7 +362,7 @@ export function SessionForm({ mode, sessionId, defaultValues }: SessionFormProps
                           className={cn(
                             "h-8 w-8 rounded text-sm font-medium transition-colors",
                             watch(key) === n
-                              ? "bg-cyan-500 text-black"
+                              ? "bg-gold text-navy"
                               : "bg-muted hover:bg-muted/80 text-muted-foreground"
                           )}
                         >

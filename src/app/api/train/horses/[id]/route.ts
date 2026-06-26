@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { flagGuardForApi } from "@/lib/flags/guards";
 import { updateHorseProfileSchema } from "@/lib/validations/horse-profile";
 import { z } from "zod";
 
@@ -15,6 +16,9 @@ export async function GET(
     if (!user) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
+
+    const flagBlock = await flagGuardForApi("training_diary");
+    if (flagBlock) return flagBlock;
 
     const { data: horse, error } = await supabase
       .from("horse_profiles")
@@ -45,6 +49,9 @@ export async function PATCH(
     if (!user) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
+
+    const flagBlock = await flagGuardForApi("training_diary");
+    if (flagBlock) return flagBlock;
 
     const body = await request.json();
     const parsed = updateHorseProfileSchema.parse(body);
@@ -96,6 +103,9 @@ export async function DELETE(
     if (!user) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
+
+    const flagBlock = await flagGuardForApi("training_diary");
+    if (flagBlock) return flagBlock;
 
     const { error } = await supabase
       .from("horse_profiles")

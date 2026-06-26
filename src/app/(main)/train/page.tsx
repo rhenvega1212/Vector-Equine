@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Flame, Calendar, TrendingUp, Target, Plus } from "lucide-react";
-import { HorseHeadIcon } from "@/components/icons/horse-head";
 import { SESSION_TYPE_LABELS } from "@/lib/validations/training-session";
 import { format, parseISO } from "date-fns";
 import { HorseCard } from "@/components/train/horse-card";
@@ -84,13 +83,8 @@ export default async function TrainDashboardPage() {
           <p className="text-muted-foreground">Your performance command center</p>
         </div>
         <div className="flex gap-2">
-          <Link href="/train/horses/new">
-            <Button variant="outline" size="sm" className="gap-1">
-              <HorseHeadIcon size={16} className="h-4 w-4" /> Add horse
-            </Button>
-          </Link>
           <Link href="/train/sessions/new">
-            <Button className="bg-cyan-500 hover:bg-cyan-400 text-black">
+            <Button className="bg-gold text-navy font-semibold hover:bg-gold/90">
               Log session
             </Button>
           </Link>
@@ -114,31 +108,31 @@ export default async function TrainDashboardPage() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-cyan-400/20 bg-slate-800/30">
+        <Card className="dark border-gold/20 bg-navy">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Current streak
             </CardTitle>
-            <Flame className="h-4 w-4 text-cyan-400" />
+            <Flame className="h-4 w-4 text-gold" />
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{currentStreak}</p>
             <p className="text-xs text-muted-foreground">days in a row</p>
           </CardContent>
         </Card>
-        <Card className="border-cyan-400/20 bg-slate-800/30">
+        <Card className="dark border-gold/20 bg-navy">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               This week
             </CardTitle>
-            <Calendar className="h-4 w-4 text-cyan-400" />
+            <Calendar className="h-4 w-4 text-gold" />
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{sessionsThisWeek}</p>
             <p className="text-xs text-muted-foreground">sessions</p>
           </CardContent>
         </Card>
-        <Card className="border-cyan-400/20 bg-slate-800/30">
+        <Card className="dark border-gold/20 bg-navy">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               This month
@@ -149,12 +143,12 @@ export default async function TrainDashboardPage() {
             <p className="text-xs text-muted-foreground">sessions</p>
           </CardContent>
         </Card>
-        <Card className="border-cyan-400/20 bg-slate-800/30">
+        <Card className="dark border-gold/20 bg-navy">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Avg. Overall Feel
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-cyan-400" />
+            <TrendingUp className="h-4 w-4 text-gold" />
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">
@@ -168,7 +162,7 @@ export default async function TrainDashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2 border-cyan-400/20">
+        <Card className="lg:col-span-2 border-gold/20">
           <CardHeader>
             <CardTitle>Recent Sessions</CardTitle>
             <p className="text-sm text-muted-foreground">Last 5 sessions · tap to view details</p>
@@ -184,7 +178,7 @@ export default async function TrainDashboardPage() {
                   <li key={s.id}>
                     <Link
                       href={`/train/sessions/${s.id}`}
-                      className="flex items-center justify-between rounded-lg border border-cyan-400/10 bg-slate-800/30 p-3 hover:border-cyan-400/30 hover:bg-slate-800/50 transition-colors"
+                      className="flex items-center justify-between rounded-lg border border-gold/10 bg-card p-3 hover:border-gold/30 hover:bg-muted transition-colors"
                     >
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium text-foreground">
@@ -195,14 +189,14 @@ export default async function TrainDashboardPage() {
                         <span className="text-muted-foreground">·</span>
                         <span>{horseDisplay(s)}</span>
                         <span className="text-muted-foreground">·</span>
-                        <span className="text-sm text-cyan-400/90">
+                        <span className="text-sm text-gold/90">
                           {SESSION_TYPE_LABELS[s.session_type] || s.session_type}
                         </span>
                         {s.duration_minutes != null && <span className="text-xs text-muted-foreground">{s.duration_minutes} min</span>}
                       </div>
                       <div className="flex items-center gap-2">
                         {(s.video_link_url || s.video_upload_path) && <span className="text-xs text-muted-foreground">Video</span>}
-                        <span className="text-cyan-400 font-medium">{s.overall_feel}/10</span>
+                        <span className="text-gold font-medium">{s.overall_feel}/10</span>
                       </div>
                     </Link>
                   </li>
@@ -210,16 +204,16 @@ export default async function TrainDashboardPage() {
               </ul>
             )}
             {recentSessions && recentSessions.length > 0 && (
-              <Link href="/train/sessions" className="mt-4 inline-block text-sm text-cyan-400 hover:text-cyan-300">
+              <Link href="/train/sessions" className="mt-4 inline-block text-sm text-gold hover:text-gold-bright">
                 View all sessions →
               </Link>
             )}
           </CardContent>
         </Card>
 
-        <Card className="border-cyan-400/20 bg-slate-800/30">
+        <Card className="dark border-gold/20 bg-navy">
           <CardHeader className="flex flex-row items-center gap-2">
-            <Target className="h-5 w-5 text-cyan-400" />
+            <Target className="h-5 w-5 text-gold" />
             <CardTitle>Suggested focus</CardTitle>
           </CardHeader>
           <CardContent>

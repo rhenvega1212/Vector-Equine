@@ -73,7 +73,7 @@ export function SubscriptionManager() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-blue-400" />
+                <Sparkles className="h-5 w-5 text-gold" />
                 {tier?.display_name || "Free"}
                 {isActive && tier?.price_amount > 0 && (
                   <Badge variant="outline" className="ml-2">
@@ -240,7 +240,7 @@ export function SubscriptionManager() {
               </p>
               <Button
                 variant="default"
-                className="bg-blue-500 hover:bg-blue-600"
+                className="bg-gold hover:bg-gold"
                 onClick={() => (window.location.href = "/pricing")}
               >
                 View Plans

@@ -1,25 +1,15 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { requireFeatureFlag } from "@/lib/flags/guards";
 import { TrainLayoutClient } from "./train-layout-client";
+
+// Re-evaluate the flag on every request so stage/cohort changes take effect.
+export const dynamic = "force-dynamic";
 
 export default async function TrainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (profile?.role !== "admin") {
-    redirect("/feed");
-  }
+  await requireFeatureFlag("training_diary");
 
   return <TrainLayoutClient>{children}</TrainLayoutClient>;
 }

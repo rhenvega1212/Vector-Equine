@@ -314,7 +314,7 @@ export default function AdminChallengesPage() {
           </p>
         </div>
         <Link href="/admin/challenges/create">
-          <Button className="bg-cyan-500 hover:bg-cyan-400 text-black">
+          <Button className="bg-gold text-navy font-semibold hover:bg-gold/90">
             <Plus className="h-4 w-4 mr-2" />
             Create Challenge
           </Button>

@@ -26,9 +26,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
-import { Loader2, Check, X, Shield, Users, UserCog, LogIn } from "lucide-react";
+import { Loader2, Check, X, Shield, Users, UserCog, LogIn, FlaskConical } from "lucide-react";
 
 interface User {
   id: string;
@@ -38,6 +39,7 @@ interface User {
   avatar_url: string | null;
   role: "rider" | "trainer" | "admin";
   trainer_approved: boolean;
+  is_beta_tester: boolean;
   created_at: string;
 }
 
@@ -120,6 +122,42 @@ export default function AdminUsersPage() {
       toast({
         title: "Error",
         description: "Failed to update role.",
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleToggleBeta(userId: string, value: boolean) {
+    setActionLoading(userId);
+    // Optimistic update
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, is_beta_tester: value } : u))
+    );
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_beta_tester: value }),
+      });
+      if (!response.ok) throw new Error("Failed");
+      toast({
+        title: value ? "Added to beta" : "Removed from beta",
+        description: value
+          ? "This user now sees closed-beta features."
+          : "This user no longer sees closed-beta features.",
+      });
+    } catch {
+      // Revert on failure
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userId ? { ...u, is_beta_tester: !value } : u
+        )
+      );
+      toast({
+        title: "Error",
+        description: "Failed to update beta access.",
         variant: "destructive",
       });
     } finally {
@@ -291,6 +329,24 @@ export default function AdminUsersPage() {
                           </Select>
                         </div>
 
+                        {/* Beta tester toggle */}
+                        <div className="flex items-center justify-between pt-2 border-t">
+                          <div className="flex items-center gap-2">
+                            <FlaskConical className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                              <p className="text-sm font-medium">Beta tester</p>
+                              <p className="text-xs text-muted-foreground">
+                                Sees closed-beta features
+                              </p>
+                            </div>
+                          </div>
+                          <Switch
+                            checked={user.is_beta_tester}
+                            onCheckedChange={(v) => handleToggleBeta(user.id, v)}
+                            disabled={actionLoading === user.id}
+                          />
+                        </div>
+
                         {/* Login as user (impersonate) */}
                         <div className="pt-2 border-t">
                           <Button
@@ -378,6 +434,7 @@ export default function AdminUsersPage() {
                       <TableHead>User</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Beta</TableHead>
                       <TableHead>Joined</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
@@ -385,7 +442,7 @@ export default function AdminUsersPage() {
                   <TableBody>
                     {users.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
                           No users found.
                         </TableCell>
                       </TableRow>
@@ -464,6 +521,16 @@ export default function AdminUsersPage() {
                               {user.role === "admin" && (
                                 <Badge variant="destructive">Full Access</Badge>
                               )}
+                            </TableCell>
+                            <TableCell>
+                              <Switch
+                                checked={user.is_beta_tester}
+                                onCheckedChange={(v) =>
+                                  handleToggleBeta(user.id, v)
+                                }
+                                disabled={actionLoading === user.id}
+                                aria-label="Toggle beta tester"
+                              />
                             </TableCell>
                             <TableCell>{formatDate(user.created_at)}</TableCell>
                             <TableCell>

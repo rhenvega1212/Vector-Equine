@@ -722,7 +722,7 @@ function CommentBubble({
         </Avatar>
       </Link>
       <div className="flex-1 min-w-0">
-        <div className="bg-muted rounded-lg px-3 py-2">
+        <div className="bg-card border border-border rounded-lg px-3 py-2">
           <div className="flex items-center gap-1.5 flex-wrap">
             <Link
               href={`/profile/${comment.profiles.username}`}

@@ -155,7 +155,7 @@ export function CourseEditor({ challengeId }: CourseEditorProps) {
   if (isLoading || !challenge) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-gold" />
       </div>
     );
   }
@@ -306,7 +306,7 @@ export function CourseEditor({ challengeId }: CourseEditorProps) {
                 <Button
                   onClick={handleSave}
                   disabled={saveMutation.isPending}
-                  className="bg-cyan-500 text-black hover:bg-cyan-400"
+                  className="bg-gold text-navy font-semibold hover:bg-gold/90"
                 >
                   {saveMutation.isPending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -65,7 +65,7 @@ export default async function TrainSessionsPage({ searchParams }: SessionsPagePr
           <p className="text-muted-foreground">View and manage your training sessions</p>
         </div>
         <Link href="/train/sessions/new">
-          <Button className="bg-cyan-500 hover:bg-cyan-400 text-black w-full sm:w-auto">
+          <Button className="bg-gold text-navy font-semibold hover:bg-gold/90 w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             Log Session
           </Button>
@@ -79,22 +79,22 @@ export default async function TrainSessionsPage({ searchParams }: SessionsPagePr
         horseProfiles={horseProfiles || []}
       />
 
-      <Card className="border-cyan-400/20">
+      <Card className="border-gold/20">
         <CardContent className="p-0">
           {(!sessions || sessions.length === 0) ? (
             <div className="py-12 text-center text-muted-foreground">
               <p>No sessions in this range.</p>
-              <Link href="/train/sessions/new" className="mt-2 inline-block text-cyan-400 hover:text-cyan-300">
+              <Link href="/train/sessions/new" className="mt-2 inline-block text-gold hover:text-gold-bright">
                 Log your first session
               </Link>
             </div>
           ) : (
-            <ul className="divide-y divide-cyan-400/10">
+            <ul className="divide-y divide-gold/10">
               {sessions.map((s: { id: string; session_date: string; session_title?: string | null; session_type: string; duration_minutes?: number | null; overall_feel: number; horse?: string | null; horse_id?: string | null; video_link_url?: string | null; video_upload_path?: string | null }) => (
                 <li key={s.id}>
                   <Link
                     href={`/train/sessions/${s.id}`}
-                    className="flex flex-wrap items-center justify-between gap-2 p-4 hover:bg-slate-800/30 transition-colors"
+                    className="flex flex-wrap items-center justify-between gap-2 p-4 hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{format(parseISO(s.session_date), "MMM d, yyyy")}</span>
@@ -103,14 +103,14 @@ export default async function TrainSessionsPage({ searchParams }: SessionsPagePr
                       <span className="text-muted-foreground">·</span>
                       <span>{horseDisplay(s)}</span>
                       <span className="text-muted-foreground">·</span>
-                      <span className="text-sm text-cyan-400/90">
+                      <span className="text-sm text-gold/90">
                         {SESSION_TYPE_LABELS[s.session_type] || s.session_type}
                       </span>
                       {s.duration_minutes != null && <span className="text-xs text-muted-foreground">{s.duration_minutes} min</span>}
                     </div>
                     <div className="flex items-center gap-2">
                       {(s.video_link_url || s.video_upload_path) && <span className="text-xs text-muted-foreground">Video</span>}
-                      <span className="text-cyan-400 font-medium">{s.overall_feel}/10</span>
+                      <span className="text-gold font-medium">{s.overall_feel}/10</span>
                     </div>
                   </Link>
                 </li>

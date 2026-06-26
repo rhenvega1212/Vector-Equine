@@ -6,12 +6,23 @@ import { cn } from "@/lib/utils";
 import { Home, Trophy, User, Compass } from "lucide-react";
 import { HorseHeadIcon } from "@/components/icons/horse-head";
 import type { Profile } from "@/types/database";
+import { useFeatureFlags } from "@/lib/flags/context";
+import type { FeatureFlagKey } from "@/lib/flags/registry";
+import type { ComponentType } from "react";
 
-const navItems = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  adminOnly?: boolean;
+  flag?: FeatureFlagKey;
+};
+
+const navItems: NavItem[] = [
   { href: "/feed", label: "Feed", icon: Home },
   { href: "/explore", label: "Explore", icon: Compass },
-  { href: "/train", label: "Train", icon: HorseHeadIcon, adminOnly: true },
-  { href: "/challenges", label: "Challenges", icon: Trophy },
+  { href: "/train", label: "Train", icon: HorseHeadIcon, flag: "training_diary" },
+  { href: "/challenges", label: "Challenges", icon: Trophy, adminOnly: true },
   { href: "/profile", label: "Profile", icon: User },
 ];
 
@@ -21,6 +32,7 @@ interface MobileNavProps {
 
 export function MobileNav({ profile }: MobileNavProps) {
   const pathname = usePathname();
+  const flags = useFeatureFlags();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t glass md:hidden safe-area-bottom">
@@ -33,9 +45,9 @@ export function MobileNav({ profile }: MobileNavProps) {
       >
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isTrain = item.href === "/train";
-          const canAccessTrain = isTrain && profile.role === "admin";
-          const showAsDisabled = isTrain && !canAccessTrain;
+          const flagBlocked = !!item.flag && !flags[item.flag];
+          const adminBlocked = !!item.adminOnly && profile.role !== "admin";
+          const showAsDisabled = flagBlocked || adminBlocked;
           const isActive = !showAsDisabled && pathname.startsWith(item.href);
 
           if (showAsDisabled) {

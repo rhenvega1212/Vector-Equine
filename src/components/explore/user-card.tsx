@@ -55,14 +55,14 @@ export function UserCard({
   return (
     <div className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-white/[0.02] transition-colors">
       <Link href={`/profile/${user.username}`} className="shrink-0">
-        <Avatar className="h-12 w-12 ring-2 ring-transparent hover:ring-cyan-400/30 transition-all">
+        <Avatar className="h-12 w-12 ring-2 ring-transparent hover:ring-gold/30 transition-all">
           <AvatarImage src={user.avatar_url || undefined} />
           <AvatarFallback>{initials}</AvatarFallback>
         </Avatar>
       </Link>
       <div className="min-w-0 flex-1">
         <Link href={`/profile/${user.username}`}>
-          <p className="font-semibold truncate hover:text-cyan-400 transition-colors">
+          <p className="font-semibold truncate hover:text-gold transition-colors">
             {user.display_name}
           </p>
           <p className="text-sm text-muted-foreground truncate">
@@ -79,7 +79,7 @@ export function UserCard({
         <Button
           size="sm"
           variant={isFollowing ? "secondary" : "outline"}
-          className="shrink-0 gap-1 text-cyan-400 border-cyan-400/40 hover:bg-cyan-400/10"
+          className="shrink-0 gap-1 text-gold border-gold/40 hover:bg-gold/10"
           onClick={handleFollow}
           disabled={isLoading || isFollowing}
         >

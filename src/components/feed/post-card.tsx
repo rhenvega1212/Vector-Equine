@@ -17,6 +17,7 @@ import {
 import { PostComments } from "./post-comments";
 import { ReportDialog } from "./report-dialog";
 import { AdminBadge } from "@/components/shared/admin-badge";
+import { useCanModerate } from "@/lib/auth/current-user-context";
 import { formatRelativeTime } from "@/lib/utils";
 import {
   Heart,
@@ -66,6 +67,10 @@ interface PostCardProps {
   isSuggested?: boolean;
   onFollowSuccess?: () => void;
   hideChallengeBadge?: boolean;
+  /** Notified after a like toggles so parents (e.g. grids) can stay in sync. */
+  onLikeChange?: (postId: string, liked: boolean, likesCount: number) => void;
+  /** Notified after a post is deleted so parents can close modals / drop tiles. */
+  onDeleted?: (postId: string) => void;
 }
 
 export function PostCard({
@@ -74,8 +79,11 @@ export function PostCard({
   isSuggested = false,
   onFollowSuccess,
   hideChallengeBadge = false,
+  onLikeChange,
+  onDeleted,
 }: PostCardProps) {
   const queryClient = useQueryClient();
+  const canModerate = useCanModerate();
   const [showComments, setShowComments] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -88,6 +96,7 @@ export function PostCard({
   const [isLiking, setIsLiking] = useState(false);
 
   const isOwnPost = post.profiles.id === currentUserId;
+  const canDelete = isOwnPost || canModerate;
   const isAdmin = post.profiles.role === "admin";
   const authorId = post.profiles.id;
 
@@ -101,25 +110,32 @@ export function PostCard({
   async function handleLike() {
     if (!currentUserId || isLiking) return;
 
+    const wasLiked = liked;
+    const nextLiked = !wasLiked;
+    const nextCount = wasLiked ? likesCount - 1 : likesCount + 1;
+
     // Optimistic update
-    setLiked(!liked);
-    setLikesCount((prev) => (liked ? prev - 1 : prev + 1));
+    setLiked(nextLiked);
+    setLikesCount(nextCount);
+    onLikeChange?.(post.id, nextLiked, nextCount);
     setIsLiking(true);
 
     try {
       const response = await fetch(`/api/posts/${post.id}/like`, {
-        method: liked ? "DELETE" : "POST",
+        method: wasLiked ? "DELETE" : "POST",
       });
 
       if (!response.ok) {
         // Revert on error
-        setLiked(liked);
-        setLikesCount((prev) => (liked ? prev + 1 : prev - 1));
+        setLiked(wasLiked);
+        setLikesCount(likesCount);
+        onLikeChange?.(post.id, wasLiked, likesCount);
       }
     } catch (error) {
       // Revert on error
-      setLiked(liked);
-      setLikesCount((prev) => (liked ? prev + 1 : prev - 1));
+      setLiked(wasLiked);
+      setLikesCount(likesCount);
+      onLikeChange?.(post.id, wasLiked, likesCount);
     } finally {
       setIsLiking(false);
     }
@@ -134,8 +150,9 @@ export function PostCard({
       });
 
       if (response.ok) {
-        queryClient.invalidateQueries({ queryKey: ["feed"] });
-        queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+        onDeleted?.(post.id);
+        // Refresh any active list (feed, explore, profile, etc.)
+        queryClient.invalidateQueries();
       }
     } catch (error) {
       console.error("Failed to delete post:", error);
@@ -162,7 +179,7 @@ export function PostCard({
 
   return (
     <>
-      <Card className="transition-all duration-200 hover:bg-muted/30 dark:hover:bg-white/[0.02] hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5">
+      <Card className="transition-all duration-200 hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5">
         <CardContent className="px-3 sm:px-6 pt-4 sm:pt-6">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -190,7 +207,11 @@ export function PostCard({
                         size="sm"
                         variant="outline"
                         className="h-7 gap-1 shrink-0 text-primary border-primary/40 hover:bg-primary/10"
-                        onClick={handleFollow}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleFollow();
+                        }}
                         disabled={isFollowLoading || isFollowing}
                       >
                         {isFollowLoading ? (
@@ -216,26 +237,32 @@ export function PostCard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {isOwnPost ? (
+                {isOwnPost && (
                   <>
                     <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
                       <Pencil className="h-4 w-4 mr-2" />
                       Edit
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
+                  </>
+                )}
+                {!isOwnPost && (
+                  <DropdownMenuItem onClick={() => setShowReportDialog(true)}>
+                    <Flag className="h-4 w-4 mr-2" />
+                    Report
+                  </DropdownMenuItem>
+                )}
+                {canDelete && (
+                  <>
+                    {!isOwnPost && <DropdownMenuSeparator />}
                     <DropdownMenuItem
                       className="text-destructive"
                       onClick={handleDelete}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
+                      Delete{!isOwnPost ? " (moderate)" : ""}
                     </DropdownMenuItem>
                   </>
-                ) : (
-                  <DropdownMenuItem onClick={() => setShowReportDialog(true)}>
-                    <Flag className="h-4 w-4 mr-2" />
-                    Report
-                  </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>

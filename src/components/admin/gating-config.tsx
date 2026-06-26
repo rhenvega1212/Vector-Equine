@@ -74,7 +74,7 @@ export function GatingConfig({
                 className={cn(
                   "flex flex-col items-center gap-2 rounded-lg border p-4 text-center transition-colors",
                   selected
-                    ? "border-cyan-500 bg-cyan-500/10 text-cyan-400"
+                    ? "border-gold bg-gold/10 text-gold"
                     : "border-border bg-card hover:border-muted-foreground/40"
                 )}
               >

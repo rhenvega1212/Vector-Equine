@@ -175,10 +175,10 @@ export default async function ChallengePage({ params, searchParams }: ChallengeP
       )}
 
       {isAdminPreview && (
-        <div className="mb-4 p-3 bg-cyan-500/20 border border-cyan-500/50 rounded-lg flex items-center justify-between flex-wrap gap-2">
+        <div className="mb-4 p-3 bg-gold/20 border border-gold/50 rounded-lg flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
-            <Badge className="bg-cyan-500 text-black">Admin preview</Badge>
-            <span className="text-sm text-cyan-200">Viewing as a learner. You can open any lesson and bypass gates; assignments are not submitted.</span>
+            <Badge className="bg-gold text-navy">Admin preview</Badge>
+            <span className="text-sm text-gold-bright">Viewing as a learner. You can open any lesson and bypass gates; assignments are not submitted.</span>
           </div>
         </div>
       )}

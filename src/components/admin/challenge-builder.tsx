@@ -237,7 +237,7 @@ export function ChallengeBuilder({ initialData, isEditing = false }: ChallengeBu
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="bg-cyan-500 hover:bg-cyan-400 text-black"
+            className="bg-gold text-navy font-semibold hover:bg-gold/90"
           >
             {isSubmitting ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />

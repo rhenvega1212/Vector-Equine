@@ -66,7 +66,7 @@ export function PaymentSuccess() {
         <Card className="max-w-md w-full">
           <CardContent className="py-12">
             <div className="flex flex-col items-center text-center">
-              <Loader2 className="h-12 w-12 animate-spin text-blue-400 mb-4" />
+              <Loader2 className="h-12 w-12 animate-spin text-gold mb-4" />
               <h2 className="text-xl font-semibold text-white">Processing your payment...</h2>
               <p className="text-white/60 mt-2">Please wait while we confirm your purchase.</p>
             </div>
@@ -94,7 +94,7 @@ export function PaymentSuccess() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 w-full">
-              <Button asChild className="flex-1 bg-blue-500 hover:bg-blue-600">
+              <Button asChild className="flex-1 bg-gold hover:bg-gold">
                 <Link href="/challenges">
                   <Sparkles className="h-4 w-4 mr-2" />
                   Go to Courses

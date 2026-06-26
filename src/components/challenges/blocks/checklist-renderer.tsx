@@ -31,7 +31,7 @@ export function ChecklistBlockRenderer({ block, onComplete }: BlockRendererProps
             type="checkbox"
             checked={checked[idx] ?? false}
             onChange={() => toggle(idx)}
-            className="h-4 w-4 rounded border-slate-600 bg-slate-800 text-cyan-400 focus:ring-cyan-400/50"
+            className="h-4 w-4 rounded border-slate-600 bg-slate-800 text-gold focus:ring-gold/50"
           />
           <span className="text-sm text-slate-200">
             {item.label}

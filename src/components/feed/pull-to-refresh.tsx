@@ -66,7 +66,7 @@ export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
         style={{ height: pullDistance > 0 || isRefreshing ? pullDistance : 0 }}
       >
         <Loader2
-          className={`h-6 w-6 text-cyan-400 transition-transform ${
+          className={`h-6 w-6 text-gold transition-transform ${
             isRefreshing ? "animate-spin" : ""
           }`}
           style={{

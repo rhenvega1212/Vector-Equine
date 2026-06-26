@@ -72,7 +72,7 @@ export function ChecklistBlockEditor({ block, onUpdate }: BlockEditorProps) {
       <Button
         variant="outline"
         size="sm"
-        className="border-dashed border-white/20 text-slate-300 hover:border-cyan-400 hover:text-cyan-400"
+        className="border-dashed border-white/20 text-slate-300 hover:border-gold hover:text-gold"
         onClick={addItem}
       >
         <Plus size={14} className="mr-1" /> Add Item

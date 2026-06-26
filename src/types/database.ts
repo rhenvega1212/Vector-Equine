@@ -23,6 +23,7 @@ export type Database = {
           role: "rider" | "trainer" | "admin";
           trainer_approved: boolean;
           trainer_approved_at: string | null;
+          is_beta_tester: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -39,6 +40,7 @@ export type Database = {
           role?: "rider" | "trainer" | "admin";
           trainer_approved?: boolean;
           trainer_approved_at?: string | null;
+          is_beta_tester?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -55,8 +57,55 @@ export type Database = {
           role?: "rider" | "trainer" | "admin";
           trainer_approved?: boolean;
           trainer_approved_at?: string | null;
+          is_beta_tester?: boolean;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+      feature_flags: {
+        Row: {
+          key: string;
+          description: string;
+          stage: "off" | "internal" | "closed_beta" | "open_beta" | "ga";
+          rollout_percentage: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          key: string;
+          description?: string;
+          stage?: "off" | "internal" | "closed_beta" | "open_beta" | "ga";
+          rollout_percentage?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          key?: string;
+          description?: string;
+          stage?: "off" | "internal" | "closed_beta" | "open_beta" | "ga";
+          rollout_percentage?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      feature_flag_overrides: {
+        Row: {
+          flag_key: string;
+          user_id: string;
+          enabled: boolean;
+          created_at: string;
+        };
+        Insert: {
+          flag_key: string;
+          user_id: string;
+          enabled?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          flag_key?: string;
+          user_id?: string;
+          enabled?: boolean;
+          created_at?: string;
         };
       };
       posts: {
@@ -946,8 +995,11 @@ export type UserInterest = Tables<"user_interests">;
 export type UserSeenItem = Tables<"user_seen_items">;
 export type UserLocationBucket = Tables<"user_location_bucket">;
 export type Ad = Tables<"ads">;
+export type FeatureFlag = Tables<"feature_flags">;
+export type FeatureFlagOverride = Tables<"feature_flag_overrides">;
 
 export type UserRole = "rider" | "trainer" | "admin";
+export type FlagStage = "off" | "internal" | "closed_beta" | "open_beta" | "ga";
 export type EventType = "clinic" | "show" | "run_club" | "workout_group" | "movie_night" | "networking";
 export type RsvpStatus = "going" | "interested" | "not_going";
 export type ChallengeDifficulty = "beginner" | "intermediate" | "advanced";

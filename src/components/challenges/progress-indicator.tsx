@@ -33,7 +33,7 @@ export function ProgressIndicator(props: ProgressIndicatorProps) {
       </div>
       <div className="h-1.5 w-full rounded-full bg-slate-700 overflow-hidden">
         <div
-          className="h-full rounded-full bg-cyan-400 transition-all duration-300"
+          className="h-full rounded-full bg-gold transition-all duration-300"
           style={{ width: `${Math.min(100, percent)}%` }}
         />
       </div>

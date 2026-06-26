@@ -12,7 +12,7 @@ export default function TermsOfServicePage() {
     <div className="max-w-3xl mx-auto px-4 py-8">
       <Link 
         href="/"
-        className="inline-flex items-center gap-2 text-muted-foreground hover:text-cyan-400 transition-colors mb-6"
+        className="inline-flex items-center gap-2 text-muted-foreground hover:text-gold transition-colors mb-6"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to Home
@@ -24,7 +24,7 @@ export default function TermsOfServicePage() {
 
         <div className="prose prose-invert max-w-none space-y-6">
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">1. Acceptance of Terms</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">1. Acceptance of Terms</h2>
             <p className="text-muted-foreground leading-relaxed">
               By accessing or using Vector Equine (&quot;the Service&quot;), you agree to be bound by these Terms of 
               Service. If you do not agree to these terms, please do not use the Service.
@@ -32,7 +32,7 @@ export default function TermsOfServicePage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">2. Description of Service</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">2. Description of Service</h2>
             <p className="text-muted-foreground leading-relaxed">
               Vector Equine is a social platform for equestrians that provides features including but not 
               limited to: social networking, event management, educational challenges, and community 
@@ -42,7 +42,7 @@ export default function TermsOfServicePage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">3. User Accounts</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">3. User Accounts</h2>
             <p className="text-muted-foreground leading-relaxed mb-3">
               To use certain features of the Service, you must create an account. You agree to:
             </p>
@@ -56,7 +56,7 @@ export default function TermsOfServicePage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">4. User Content</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">4. User Content</h2>
             <p className="text-muted-foreground leading-relaxed mb-3">
               You retain ownership of content you post on Vector Equine. By posting content, you grant us 
               a non-exclusive, worldwide, royalty-free license to use, display, and distribute your 
@@ -70,7 +70,7 @@ export default function TermsOfServicePage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">5. Prohibited Conduct</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">5. Prohibited Conduct</h2>
             <p className="text-muted-foreground leading-relaxed mb-3">
               You agree not to:
             </p>
@@ -88,7 +88,7 @@ export default function TermsOfServicePage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">6. Events and Challenges</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">6. Events and Challenges</h2>
             <p className="text-muted-foreground leading-relaxed">
               Events and challenges on Vector Equine are created by administrators and approved trainers. 
               Participation is at your own risk. We do not guarantee the quality, safety, or legality 
@@ -98,7 +98,7 @@ export default function TermsOfServicePage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">7. Intellectual Property</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">7. Intellectual Property</h2>
             <p className="text-muted-foreground leading-relaxed">
               The Service and its original content (excluding user content), features, and functionality 
               are owned by Vector Equine and are protected by international copyright, trademark, and other 
@@ -107,7 +107,7 @@ export default function TermsOfServicePage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">8. Termination</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">8. Termination</h2>
             <p className="text-muted-foreground leading-relaxed">
               We may terminate or suspend your account and access to the Service immediately, without 
               prior notice, for conduct that we believe violates these Terms or is harmful to other 
@@ -116,7 +116,7 @@ export default function TermsOfServicePage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">9. Disclaimers</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">9. Disclaimers</h2>
             <p className="text-muted-foreground leading-relaxed">
               THE SERVICE IS PROVIDED &quot;AS IS&quot; WITHOUT WARRANTIES OF ANY KIND. WE DISCLAIM ALL 
               WARRANTIES, EXPRESS OR IMPLIED, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR 
@@ -126,7 +126,7 @@ export default function TermsOfServicePage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">10. Limitation of Liability</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">10. Limitation of Liability</h2>
             <p className="text-muted-foreground leading-relaxed">
               TO THE MAXIMUM EXTENT PERMITTED BY LAW, VECTOR EQUINE SHALL NOT BE LIABLE FOR ANY INDIRECT, 
               INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING LOSS OF PROFITS, 
@@ -135,7 +135,7 @@ export default function TermsOfServicePage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">11. Changes to Terms</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">11. Changes to Terms</h2>
             <p className="text-muted-foreground leading-relaxed">
               We reserve the right to modify these Terms at any time. We will notify users of any 
               material changes by posting the new Terms on this page. Your continued use of the 
@@ -144,7 +144,7 @@ export default function TermsOfServicePage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">12. Governing Law</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">12. Governing Law</h2>
             <p className="text-muted-foreground leading-relaxed">
               These Terms shall be governed by and construed in accordance with the laws of the 
               United States, without regard to its conflict of law provisions.
@@ -152,11 +152,11 @@ export default function TermsOfServicePage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-cyan-400 mb-3">13. Contact Us</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">13. Contact Us</h2>
             <p className="text-muted-foreground leading-relaxed">
               If you have questions about these Terms of Service, please contact us at:
             </p>
-            <p className="text-cyan-400 mt-2">support@vectorequine.com</p>
+            <p className="text-gold mt-2">support@vectorequine.com</p>
           </section>
         </div>
       </div>

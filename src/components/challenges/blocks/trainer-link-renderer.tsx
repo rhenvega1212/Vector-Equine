@@ -93,7 +93,7 @@ export function TrainerLinkBlockRenderer({
               key={trainer.trainerId}
               className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3"
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500/30 to-purple-500/30 text-sm font-semibold text-white">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold/30 to-purple-500/30 text-sm font-semibold text-white">
                 {initials}
               </div>
 
@@ -115,7 +115,7 @@ export function TrainerLinkBlockRenderer({
                     profile,
                   })
                 }
-                className="shrink-0 bg-cyan-500 text-white hover:bg-cyan-600"
+                className="shrink-0 bg-gold text-white hover:bg-gold"
               >
                 Get Feedback
               </Button>
@@ -161,7 +161,7 @@ export function TrainerLinkBlockRenderer({
             </div>
 
             <Button
-              className="w-full bg-cyan-500 text-white hover:bg-cyan-600"
+              className="w-full bg-gold text-white hover:bg-gold"
               onClick={() => {
                 toast({ title: "Checkout flow coming soon!" });
                 setSelectedTrainer(null);

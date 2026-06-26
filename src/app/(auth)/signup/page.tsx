@@ -64,12 +64,12 @@ export default function SignUpPage() {
 
   if (success) {
     return (
-      <Card>
+      <Card className="border-gold/15 shadow-2xl shadow-black/30">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 text-cyan-400">
+          <div className="mx-auto mb-4 h-12 w-12 text-gold">
             <CheckCircle className="h-12 w-12" />
           </div>
-          <CardTitle className="text-2xl">Check your email!</CardTitle>
+          <CardTitle className="text-3xl font-serif">Check your email!</CardTitle>
           <CardDescription className="space-y-2">
             <p>
               We&apos;ve sent a verification link to your email address.
@@ -82,7 +82,7 @@ export default function SignUpPage() {
         </CardHeader>
         <CardContent>
           <div className="text-center">
-            <Link href="/login" className="text-sm text-cyan-400 hover:underline">
+            <Link href="/login" className="text-sm text-gold hover:underline">
               Already verified? Sign in
             </Link>
           </div>
@@ -92,9 +92,9 @@ export default function SignUpPage() {
   }
 
   return (
-    <Card>
+    <Card className="border-gold/15 shadow-2xl shadow-black/30">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Create an account</CardTitle>
+        <CardTitle className="text-3xl font-serif">Create an account</CardTitle>
         <CardDescription>Join the Vector Equine community</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
@@ -110,6 +110,7 @@ export default function SignUpPage() {
               id="email"
               type="email"
               placeholder="you@example.com"
+              className="bg-white/[0.04] border-border focus-visible:ring-gold/60"
               {...register("email")}
             />
             {errors.email && (
@@ -122,6 +123,7 @@ export default function SignUpPage() {
               id="password"
               type="password"
               placeholder="••••••••"
+              className="bg-white/[0.04] border-border focus-visible:ring-gold/60"
               {...register("password")}
             />
             {errors.password && (
@@ -137,11 +139,11 @@ export default function SignUpPage() {
         <CardFooter className="flex flex-col gap-4">
           <p className="text-xs text-muted-foreground text-center">
             By creating an account, you agree to our{" "}
-            <Link href="/terms" className="text-cyan-400 hover:underline">
+            <Link href="/terms" className="text-gold hover:underline">
               Terms of Service
             </Link>{" "}
             and{" "}
-            <Link href="/privacy" className="text-cyan-400 hover:underline">
+            <Link href="/privacy" className="text-gold hover:underline">
               Privacy Policy
             </Link>
           </p>

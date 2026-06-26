@@ -5,6 +5,9 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { UserX, Loader2 } from "lucide-react";
 import { UploadProgressBar } from "@/components/shared/upload-progress-bar";
+import { FeatureFlagsProvider } from "@/lib/flags/context";
+import { allFlagsOff, type EvaluatedFlags } from "@/lib/flags/registry";
+import { CurrentUserProvider } from "@/lib/auth/current-user-context";
 
 const MainNav = dynamic(
   () => import("@/components/shared/main-nav").then((m) => ({ default: m.MainNav })),
@@ -19,10 +22,14 @@ export function MainLayoutClient({
   children,
   profile,
   isImpersonating = false,
+  flags = allFlagsOff(),
+  canModerate = false,
 }: {
   children: React.ReactNode;
   profile: any;
   isImpersonating?: boolean;
+  flags?: EvaluatedFlags;
+  canModerate?: boolean;
 }) {
   const [stopping, setStopping] = useState(false);
 
@@ -53,20 +60,22 @@ export function MainLayoutClient({
   }
 
   return (
+    <FeatureFlagsProvider flags={flags}>
+    <CurrentUserProvider canModerate={canModerate}>
     <div className="min-h-screen bg-background">
       {isImpersonating && (
         <div
-          className="fixed top-0 left-0 right-0 z-[60] flex items-center justify-between gap-2 bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 text-sm text-amber-200 backdrop-blur-xl"
-          style={{ paddingTop: "env(safe-area-inset-top)" }}
+          className="fixed right-3 z-[60] flex items-center gap-3 rounded-xl border border-gold/30 bg-background/95 px-3 py-2 shadow-lg backdrop-blur-xl md:right-4"
+          style={{ bottom: "calc(72px + env(safe-area-inset-bottom) + 12px)" }}
         >
-          <span>
-            Viewing as <strong>{profile?.display_name}</strong> (@{profile?.username})
+          <span className="text-xs sm:text-sm text-foreground">
+            Viewing as <strong>{profile?.display_name}</strong>{" "}
+            <span className="text-muted-foreground">@{profile?.username}</span>
           </span>
           <Button
             type="button"
-            variant="outline"
             size="sm"
-            className="gap-1 border-amber-500/50 text-amber-200 hover:bg-amber-500/20"
+            className="gap-1 bg-navy text-cream font-semibold border-transparent shadow-sm hover:bg-navy/90"
             onClick={handleStopImpersonating}
             disabled={stopping}
           >
@@ -75,7 +84,7 @@ export function MainLayoutClient({
             ) : (
               <>
                 <UserX className="h-4 w-4" />
-                Stop impersonating
+                Exit view
               </>
             )}
           </Button>
@@ -94,5 +103,7 @@ export function MainLayoutClient({
       <MobileNav profile={profile} />
       <UploadProgressBar />
     </div>
+    </CurrentUserProvider>
+    </FeatureFlagsProvider>
   );
 }

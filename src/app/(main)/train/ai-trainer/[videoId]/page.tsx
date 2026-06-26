@@ -55,7 +55,7 @@ export default async function AiTrainerResultPage({
             <ArrowLeft className="h-4 w-4" /> Back to AI Trainer
           </Link>
         </Button>
-        <Card className="border-cyan-400/20">
+        <Card className="border-gold/20">
           <CardContent className="pt-6">
             <p className="text-muted-foreground">
               {analysis?.status === "processing" || analysis?.status === "pending"
@@ -94,7 +94,7 @@ export default async function AiTrainerResultPage({
       </div>
 
       {result.summary && (
-        <Card className="border-cyan-400/20 bg-slate-800/30">
+        <Card className="dark border-gold/20 bg-navy">
           <CardHeader>
             <CardTitle className="text-lg">Summary</CardTitle>
           </CardHeader>
@@ -105,16 +105,16 @@ export default async function AiTrainerResultPage({
       )}
 
       {result.scores && Object.keys(result.scores).length > 0 && (
-        <Card className="border-cyan-400/20">
+        <Card className="border-gold/20">
           <CardHeader>
             <CardTitle className="text-lg">Performance scores</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2">
               {Object.entries(result.scores).map(([key, value]) => (
-                <div key={key} className="flex justify-between items-center rounded-md bg-cyan-400/5 border border-cyan-400/10 px-3 py-2">
+                <div key={key} className="flex justify-between items-center rounded-md bg-gold/5 border border-gold/10 px-3 py-2">
                   <span className="text-sm font-medium">{SCORE_LABELS[key] ?? key}</span>
-                  <span className="text-cyan-400 font-semibold">{value}/5</span>
+                  <span className="text-gold font-semibold">{value}/5</span>
                 </div>
               ))}
             </div>
@@ -123,7 +123,7 @@ export default async function AiTrainerResultPage({
       )}
 
       {result.keyMoments && result.keyMoments.length > 0 && (
-        <Card className="border-cyan-400/20">
+        <Card className="border-gold/20">
           <CardHeader>
             <CardTitle className="text-lg">Key moments</CardTitle>
           </CardHeader>
@@ -131,7 +131,7 @@ export default async function AiTrainerResultPage({
             <ul className="space-y-2">
               {result.keyMoments.map((m, i) => (
                 <li key={i} className="flex gap-3 text-sm">
-                  <span className="shrink-0 font-mono text-cyan-400/90">{m.timestamp}</span>
+                  <span className="shrink-0 font-mono text-gold/90">{m.timestamp}</span>
                   <span className="text-muted-foreground">{m.note}</span>
                 </li>
               ))}
@@ -141,7 +141,7 @@ export default async function AiTrainerResultPage({
       )}
 
       {result.suggestedFocus && (
-        <Card className="border-cyan-400/20">
+        <Card className="border-gold/20">
           <CardHeader>
             <CardTitle className="text-lg">Suggested next focus</CardTitle>
           </CardHeader>

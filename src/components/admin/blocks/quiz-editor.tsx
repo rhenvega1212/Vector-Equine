@@ -106,7 +106,7 @@ export function QuizBlockEditor({ block, onUpdate }: BlockEditorProps) {
                   name={`q-${qIdx}-correct`}
                   checked={q.correctIndex === oIdx}
                   onChange={() => setQuestion(qIdx, { correctIndex: oIdx })}
-                  className="h-4 w-4 border-slate-600 bg-slate-800 text-cyan-400 focus:ring-cyan-400/50"
+                  className="h-4 w-4 border-slate-600 bg-slate-800 text-gold focus:ring-gold/50"
                 />
                 <Input
                   value={opt}
@@ -129,7 +129,7 @@ export function QuizBlockEditor({ block, onUpdate }: BlockEditorProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="text-xs text-slate-400 hover:text-cyan-400"
+              className="text-xs text-slate-400 hover:text-gold"
               onClick={() => addOption(qIdx)}
             >
               <Plus size={12} className="mr-1" /> Add Option
@@ -147,7 +147,7 @@ export function QuizBlockEditor({ block, onUpdate }: BlockEditorProps) {
               }
               placeholder="Why this answer is correct…"
               rows={2}
-              className="w-full resize-y rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
+              className="w-full resize-y rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-gold focus:outline-none"
             />
           </div>
         </div>
@@ -156,7 +156,7 @@ export function QuizBlockEditor({ block, onUpdate }: BlockEditorProps) {
       <Button
         variant="outline"
         size="sm"
-        className="border-dashed border-white/20 text-slate-300 hover:border-cyan-400 hover:text-cyan-400"
+        className="border-dashed border-white/20 text-slate-300 hover:border-gold hover:text-gold"
         onClick={addQuestion}
       >
         <Plus size={14} className="mr-1" /> Add Question

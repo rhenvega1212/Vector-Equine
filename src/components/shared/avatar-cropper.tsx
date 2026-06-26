@@ -134,7 +134,7 @@ export function AvatarCropper({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-slate-900 border-cyan-400/20">
+      <DialogContent className="sm:max-w-md bg-slate-900 border-gold/20">
         <DialogHeader>
           <DialogTitle>Edit Profile Photo</DialogTitle>
           <DialogDescription>
@@ -156,7 +156,7 @@ export function AvatarCropper({
             onCropComplete={onCropCompleteHandler}
             classes={{
               containerClassName: "rounded-lg",
-              cropAreaClassName: "!border-cyan-400 !border-2",
+              cropAreaClassName: "!border-gold !border-2",
             }}
           />
         </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { runBotSeedBackfill } from "@/lib/bots/seed-orchestrator";
+import { runEngagementPass } from "@/lib/bots/engine";
 
 /**
  * Vercel Cron Jobs invoke this route with **GET** (not POST).
@@ -51,14 +52,27 @@ async function runHandler() {
     const partial = processed.filter((p) => p.status === "partial").length;
     const failed = processed.filter((p) => p.status === "failed").length;
 
+    // Always top up engagement on recent posts, even when there's nothing new to
+    // seed, so existing posts (real users included) keep gaining likes/comments.
+    let engagement = { likes: 0, comments: 0 };
+    try {
+      engagement = await runEngagementPass();
+    } catch (engErr) {
+      console.error("Engagement pass error:", engErr);
+    }
+
     return NextResponse.json({
-      status: processed.length === 0 ? "nothing_to_do" : "ok",
+      status:
+        processed.length === 0 && engagement.likes === 0 && engagement.comments === 0
+          ? "nothing_to_do"
+          : "ok",
       summary: {
         daysProcessed: processed.length,
         daysSeeded: seeded,
         daysPartial: partial,
         daysFailed: failed,
         remainingMissingEstimate,
+        engagement,
       },
       processed,
     });

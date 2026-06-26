@@ -10,7 +10,10 @@ export const updateProfileSchema = z.object({
   location: z.string().max(100, "Location must be less than 100 characters").optional(),
   discipline: z.string().optional(),
   rider_level: z.string().optional(),
-  avatar_url: z.string().url("Invalid avatar URL").optional().nullable(),
+  avatar_url: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.string().url("Invalid avatar URL").nullable().optional()
+  ),
 });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

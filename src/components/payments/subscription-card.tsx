@@ -39,13 +39,13 @@ export function SubscriptionCard({ tier, isPopular, className }: SubscriptionCar
     <Card
       className={cn(
         "relative overflow-hidden transition-all",
-        isPopular && "border-blue-500/50 shadow-lg shadow-blue-500/10",
+        isPopular && "border-gold/50 shadow-lg shadow-gold/10",
         isCurrentTier && "border-green-500/50",
         className
       )}
     >
       {isPopular && (
-        <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
+        <div className="absolute top-0 right-0 bg-gold text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
           Most Popular
         </div>
       )}
@@ -59,11 +59,11 @@ export function SubscriptionCard({ tier, isPopular, className }: SubscriptionCar
         <div className="flex items-center gap-2 mb-2">
           <div className={cn(
             "p-2 rounded-lg",
-            isPopular ? "bg-blue-500/20" : "bg-white/10"
+            isPopular ? "bg-gold/20" : "bg-white/10"
           )}>
             <Icon className={cn(
               "h-5 w-5",
-              isPopular ? "text-blue-400" : "text-white/60"
+              isPopular ? "text-gold" : "text-white/60"
             )} />
           </div>
           <CardTitle className="text-xl">{tier.display_name}</CardTitle>
@@ -124,7 +124,7 @@ export function SubscriptionCard({ tier, isPopular, className }: SubscriptionCar
           variant={isPopular ? "default" : "outline"}
           className={cn(
             "w-full",
-            isPopular && "bg-blue-500 hover:bg-blue-600"
+            isPopular && "bg-gold hover:bg-gold"
           )}
           onClick={handleSubscribe}
           disabled={checkout.isPending || isCurrentTier}

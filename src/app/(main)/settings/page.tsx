@@ -30,8 +30,7 @@ import { updateProfileSchema, type UpdateProfileInput } from "@/lib/validations/
 import { createClient } from "@/lib/supabase/client";
 import { uploadFile, isValidImageType, MAX_IMAGE_SIZE_MB } from "@/lib/uploads/storage";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, ArrowLeft, Settings, Camera, Sun, Moon } from "lucide-react";
-import { useTheme } from "next-themes";
+import { Loader2, Upload, ArrowLeft, Settings, Camera } from "lucide-react";
 import type { Profile } from "@/types/database";
 
 const DISCIPLINES = [
@@ -56,8 +55,6 @@ const RIDER_LEVELS = [
 export default function SettingsPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -77,8 +74,6 @@ export default function SettingsPage() {
   } = useForm<UpdateProfileInput>({
     resolver: zodResolver(updateProfileSchema),
   });
-
-  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     async function loadProfile() {
@@ -148,6 +143,23 @@ export default function SettingsPage() {
     }
   }
 
+  // Persist the avatar URL to the database immediately so it updates across the app
+  async function persistAvatar(avatarUrl: string | null) {
+    if (!profile) return;
+
+    const response = await fetch(`/api/profiles/${profile.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ avatar_url: avatarUrl }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to save profile photo");
+    }
+
+    router.refresh();
+  }
+
   // Handle cropped image upload
   async function handleCroppedImage(croppedBlob: Blob) {
     if (!profile) return;
@@ -162,14 +174,42 @@ export default function SettingsPage() {
       const { url } = await uploadFile("avatars", file, `${profile.id}/${file.name}`);
       setValue("avatar_url", url);
       setProfile((prev) => prev ? { ...prev, avatar_url: url } : null);
+
+      // Save to the database right away so the new photo shows everywhere
+      await persistAvatar(url);
+
       toast({
-        title: "Avatar uploaded",
-        description: "Your profile photo has been updated.",
+        title: "Avatar updated",
+        description: "Your profile photo has been saved.",
       });
     } catch (error) {
       toast({
         title: "Upload failed",
         description: "Failed to upload avatar. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  }
+
+  // Remove the current avatar and persist immediately
+  async function handleRemoveAvatar() {
+    if (!profile) return;
+
+    setIsUploadingAvatar(true);
+    try {
+      setValue("avatar_url", "");
+      setProfile((prev) => prev ? { ...prev, avatar_url: null } : null);
+      await persistAvatar(null);
+      toast({
+        title: "Avatar removed",
+        description: "Your profile photo has been removed.",
+      });
+    } catch (error) {
+      toast({
+        title: "Remove failed",
+        description: "Failed to remove avatar. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -298,10 +338,8 @@ export default function SettingsPage() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => {
-                      setValue("avatar_url", "");
-                      setProfile((prev) => prev ? { ...prev, avatar_url: null } : null);
-                    }}
+                    disabled={isUploadingAvatar}
+                    onClick={handleRemoveAvatar}
                     className="text-muted-foreground hover:text-destructive"
                   >
                     Remove
@@ -335,49 +373,6 @@ export default function SettingsPage() {
         imageSrc={cropperImageSrc}
         onCropComplete={handleCroppedImage}
       />
-
-      <Card className="mb-6 bg-card border-border">
-        <CardHeader>
-          <CardTitle>Appearance</CardTitle>
-          <CardDescription>
-            Choose between light and dark mode
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {mounted && (
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setTheme("light")}
-                className={`flex-1 flex flex-col items-center gap-3 rounded-xl border-2 p-4 transition-all ${
-                  theme === "light"
-                    ? "border-primary bg-primary/10"
-                    : "border-border hover:border-muted-foreground/30"
-                }`}
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-400/20">
-                  <Sun className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-                </div>
-                <span className="text-sm font-medium">Light</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setTheme("dark")}
-                className={`flex-1 flex flex-col items-center gap-3 rounded-xl border-2 p-4 transition-all ${
-                  theme === "dark"
-                    ? "border-primary bg-primary/10"
-                    : "border-border hover:border-muted-foreground/30"
-                }`}
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800 dark:bg-slate-700">
-                  <Moon className="h-6 w-6 text-slate-300" />
-                </div>
-                <span className="text-sm font-medium">Dark</span>
-              </button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       <form onSubmit={handleSubmit(onSubmit)}>
         <Card className="bg-card border-border">

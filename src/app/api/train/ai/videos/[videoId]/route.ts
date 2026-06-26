@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { flagGuardForApi } from "@/lib/flags/guards";
 
 export async function GET(
   _request: NextRequest,
@@ -12,6 +13,9 @@ export async function GET(
     if (!user) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
+
+    const flagBlock = await flagGuardForApi("training_diary");
+    if (flagBlock) return flagBlock;
 
     const { data: video, error: videoError } = await supabase
       .from("ai_video_uploads")

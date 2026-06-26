@@ -16,14 +16,14 @@ export default function PricingPage() {
       {/* Hero Section */}
       <div className="relative py-16 px-4">
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gold/10 rounded-full blur-3xl" />
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
         </div>
 
         <div className="relative max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 bg-blue-500/20 px-4 py-2 rounded-full mb-6">
-            <Sparkles className="h-4 w-4 text-blue-400" />
-            <span className="text-sm text-blue-300">AI-Powered Horse Training</span>
+          <div className="inline-flex items-center gap-2 bg-gold/20 px-4 py-2 rounded-full mb-6">
+            <Sparkles className="h-4 w-4 text-gold" />
+            <span className="text-sm text-gold-bright">AI-Powered Horse Training</span>
           </div>
 
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
@@ -39,7 +39,7 @@ export default function PricingPage() {
       {/* Subscription Tiers */}
       <div className="max-w-6xl mx-auto px-4 pb-16">
         <h2 className="text-2xl font-bold text-white mb-8 flex items-center gap-2">
-          <Zap className="h-6 w-6 text-blue-400" />
+          <Zap className="h-6 w-6 text-gold" />
           AI Horse Trainer Subscriptions
         </h2>
 
@@ -101,7 +101,7 @@ export default function PricingPage() {
                   "Detailed progress analytics",
                 ].map((feature, i) => (
                   <li key={i} className="flex items-center gap-3 text-white/80">
-                    <CheckCircle className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                    <CheckCircle className="h-4 w-4 text-gold flex-shrink-0" />
                     {feature}
                   </li>
                 ))}
@@ -120,7 +120,7 @@ export default function PricingPage() {
             {products.map((product) => (
               <div
                 key={product.id}
-                className="bg-white/5 rounded-xl p-6 border border-white/10 hover:border-blue-500/30 transition-colors"
+                className="bg-white/5 rounded-xl p-6 border border-white/10 hover:border-gold/30 transition-colors"
               >
                 <h3 className="font-semibold text-white mb-2">{product.name}</h3>
                 <p className="text-sm text-white/60 mb-4 line-clamp-2">

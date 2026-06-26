@@ -131,10 +131,10 @@ export function CoverImageUpload({
           <img
             src={value}
             alt="Cover preview"
-            className={`w-full ${previewHeight} object-cover rounded-lg border border-cyan-400/20`}
+            className={`w-full ${previewHeight} object-cover rounded-lg border border-gold/20`}
           />
           {/* 16:9 overlay guide */}
-          <div className="absolute inset-0 rounded-lg pointer-events-none border-2 border-transparent group-hover:border-cyan-400/30 transition-colors" />
+          <div className="absolute inset-0 rounded-lg pointer-events-none border-2 border-transparent group-hover:border-gold/30 transition-colors" />
 
           {!disabled && (
             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-3">
@@ -170,7 +170,7 @@ export function CoverImageUpload({
           {isUploading && (
             <div className="absolute inset-0 bg-black/60 rounded-lg flex items-center justify-center">
               <div className="flex flex-col items-center gap-2">
-                <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-gold" />
                 <span className="text-sm text-white">Uploading...</span>
               </div>
             </div>
@@ -189,8 +189,8 @@ export function CoverImageUpload({
             flex flex-col items-center justify-center gap-2
             transition-all cursor-pointer
             ${isDragOver
-              ? "border-cyan-400 bg-cyan-400/10"
-              : "border-muted-foreground/25 hover:border-cyan-400/50 hover:bg-muted/50"
+              ? "border-gold bg-gold/10"
+              : "border-muted-foreground/25 hover:border-gold/50 hover:bg-muted/50"
             }
             ${disabled ? "opacity-50 cursor-not-allowed" : ""}
           `}
@@ -199,8 +199,8 @@ export function CoverImageUpload({
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           ) : (
             <>
-              <div className="w-12 h-12 rounded-full bg-cyan-400/10 flex items-center justify-center">
-                <ImageIcon className="h-6 w-6 text-cyan-400/70" />
+              <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center">
+                <ImageIcon className="h-6 w-6 text-gold/70" />
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium text-foreground/80">

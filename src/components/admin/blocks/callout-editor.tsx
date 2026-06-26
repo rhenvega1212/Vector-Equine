@@ -13,7 +13,7 @@ const CALLOUT_OPTIONS: {
 }[] = [
   { value: "tip", label: "Tip", icon: Lightbulb, border: "border-green-500", bg: "bg-green-500/10" },
   { value: "warning", label: "Warning", icon: AlertTriangle, border: "border-amber-500", bg: "bg-amber-500/10" },
-  { value: "info", label: "Info", icon: Info, border: "border-blue-500", bg: "bg-blue-500/10" },
+  { value: "info", label: "Info", icon: Info, border: "border-gold", bg: "bg-gold/10" },
   { value: "key_point", label: "Key Point", icon: Star, border: "border-purple-500", bg: "bg-purple-500/10" },
 ];
 
@@ -58,7 +58,7 @@ export function CalloutBlockEditor({ block, onUpdate }: BlockEditorProps) {
           onChange={(e) => onUpdate({ content: e.target.value })}
           placeholder="Callout text…"
           rows={3}
-          className="w-full resize-y rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
+          className="w-full resize-y rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-gold focus:outline-none"
         />
       </div>
 

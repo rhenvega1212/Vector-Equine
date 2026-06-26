@@ -111,26 +111,26 @@ export default async function TrainInsightsPage() {
       <section>
         <h2 className="text-lg font-semibold mb-4">Consistency</h2>
         <div className="grid gap-4 sm:grid-cols-3">
-          <Card className="border-cyan-400/20 bg-slate-800/30">
+          <Card className="dark border-gold/20 bg-navy">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Current streak</CardTitle>
-              <Flame className="h-4 w-4 text-cyan-400" />
+              <Flame className="h-4 w-4 text-gold" />
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">{currentStreak}</p>
               <p className="text-xs text-muted-foreground">consecutive days</p>
             </CardContent>
           </Card>
-          <Card className="border-cyan-400/20 bg-slate-800/30">
+          <Card className="dark border-gold/20 bg-navy">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Sessions (7d)</CardTitle>
-              <Calendar className="h-4 w-4 text-cyan-400" />
+              <Calendar className="h-4 w-4 text-gold" />
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">{weeklyCount}</p>
             </CardContent>
           </Card>
-          <Card className="border-cyan-400/20 bg-slate-800/30">
+          <Card className="dark border-gold/20 bg-navy">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Sessions (30d)</CardTitle>
             </CardHeader>
@@ -143,20 +143,20 @@ export default async function TrainInsightsPage() {
 
       <section>
         <h2 className="text-lg font-semibold mb-4">Overall Feel trend</h2>
-        <Card className="border-cyan-400/20">
+        <Card className="border-gold/20">
           <CardContent className="pt-6">
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
                 <p className="text-sm text-muted-foreground">Last 7 days</p>
-                <p className="text-2xl font-bold text-cyan-400">{avgFeel7 != null ? `${avgFeel7}/10` : "—"}</p>
+                <p className="text-2xl font-bold text-gold">{avgFeel7 != null ? `${avgFeel7}/10` : "—"}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Last 30 days</p>
-                <p className="text-2xl font-bold text-cyan-400">{avgFeel30 != null ? `${avgFeel30}/10` : "—"}</p>
+                <p className="text-2xl font-bold text-gold">{avgFeel30 != null ? `${avgFeel30}/10` : "—"}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Last 90 days</p>
-                <p className="text-2xl font-bold text-cyan-400">{avgFeel90 != null ? `${avgFeel90}/10` : "—"}</p>
+                <p className="text-2xl font-bold text-gold">{avgFeel90 != null ? `${avgFeel90}/10` : "—"}</p>
               </div>
             </div>
           </CardContent>
@@ -165,12 +165,12 @@ export default async function TrainInsightsPage() {
 
       <section>
         <h2 className="text-lg font-semibold mb-4">Category averages (performance scores)</h2>
-        <Card className="border-cyan-400/20">
+        <Card className="border-gold/20">
           <CardContent className="pt-6">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-cyan-400/20">
+                  <tr className="border-b border-gold/20">
                     <th className="text-left py-2 font-medium">Category</th>
                     <th className="text-right py-2 font-medium">7d</th>
                     <th className="text-right py-2 font-medium">30d</th>
@@ -179,11 +179,11 @@ export default async function TrainInsightsPage() {
                 </thead>
                 <tbody>
                   {SCORE_KEYS.map((key) => (
-                    <tr key={key} className="border-b border-cyan-400/10">
+                    <tr key={key} className="border-b border-gold/10">
                       <td className="py-2">{SCORE_LABELS[key]}</td>
-                      <td className="text-right text-cyan-400/90">{avg7[key] != null ? avg7[key] : "—"}</td>
-                      <td className="text-right text-cyan-400/90">{avg30[key] != null ? avg30[key] : "—"}</td>
-                      <td className="text-right text-cyan-400/90">{avg90[key] != null ? avg90[key] : "—"}</td>
+                      <td className="text-right text-gold/90">{avg7[key] != null ? avg7[key] : "—"}</td>
+                      <td className="text-right text-gold/90">{avg30[key] != null ? avg30[key] : "—"}</td>
+                      <td className="text-right text-gold/90">{avg90[key] != null ? avg90[key] : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -196,13 +196,13 @@ export default async function TrainInsightsPage() {
       {mostCommonExercises.length > 0 && (
         <section>
           <h2 className="text-lg font-semibold mb-4">Most common exercises</h2>
-          <Card className="border-cyan-400/20">
+          <Card className="border-gold/20">
             <CardContent className="pt-6">
               <ul className="flex flex-wrap gap-2">
                 {mostCommonExercises.map(([name, count]) => (
                   <li
                     key={name}
-                    className="rounded-md bg-cyan-400/10 border border-cyan-400/20 px-3 py-1.5 text-sm"
+                    className="rounded-md bg-gold/10 border border-gold/20 px-3 py-1.5 text-sm"
                   >
                     {name} <span className="text-muted-foreground">×{count}</span>
                   </li>

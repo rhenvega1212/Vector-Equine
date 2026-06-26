@@ -120,7 +120,7 @@ export function HorseForm({ mode, horseId, defaultValues }: HorseFormProps) {
         </Button>
       </Link>
 
-      <Card className="border-cyan-400/20">
+      <Card className="border-gold/20">
         <CardHeader>
           <CardTitle>{mode === "create" ? "Add horse" : "Edit horse"}</CardTitle>
           <p className="text-sm text-muted-foreground">Basic info — only name is required.</p>

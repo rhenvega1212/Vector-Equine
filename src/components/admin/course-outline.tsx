@@ -340,7 +340,7 @@ export function CourseOutline({
   return (
     <div className="flex flex-col h-full bg-slate-900 text-sm">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-3 border-b border-cyan-400/20">
+      <div className="flex items-center justify-between px-3 py-3 border-b border-gold/20">
         <h2 className="font-semibold text-white truncate">{challenge.title}</h2>
         <Button
           variant="ghost"
@@ -353,7 +353,7 @@ export function CourseOutline({
       </div>
 
       {/* Add Module */}
-      <div className="px-3 py-2 border-b border-cyan-400/20">
+      <div className="px-3 py-2 border-b border-gold/20">
         <Button
           variant="ghost"
           size="sm"
@@ -414,7 +414,7 @@ export function CourseOutline({
 
                           {editingModuleId === mod.id ? (
                             <input
-                              className="flex-1 min-w-0 bg-slate-800 border border-cyan-400/30 rounded px-1.5 py-0.5 text-xs text-white outline-none focus:border-cyan-400"
+                              className="flex-1 min-w-0 bg-slate-800 border border-gold/30 rounded px-1.5 py-0.5 text-xs text-white outline-none focus:border-gold"
                               value={editingTitle}
                               placeholder="Module name..."
                               onChange={(e) => setEditingTitle(e.target.value)}
@@ -504,7 +504,7 @@ export function CourseOutline({
                                           style={lStyle}
                                           className={`flex items-center gap-1.5 pl-7 pr-2 py-1.5 cursor-pointer hover:bg-slate-800/60 group ${
                                             isActive
-                                              ? "border-l-2 border-cyan-400 bg-cyan-400/5"
+                                              ? "border-l-2 border-gold bg-gold/5"
                                               : "border-l-2 border-transparent"
                                           }`}
                                           onClick={() =>
@@ -521,7 +521,7 @@ export function CourseOutline({
                                           </button>
                                           {editingLessonId === lesson.id ? (
                                             <input
-                                              className="flex-1 min-w-0 bg-slate-800 border border-cyan-400/30 rounded px-1.5 py-0.5 text-xs text-white outline-none focus:border-cyan-400"
+                                              className="flex-1 min-w-0 bg-slate-800 border border-gold/30 rounded px-1.5 py-0.5 text-xs text-white outline-none focus:border-gold"
                                               value={editingLessonTitle}
                                               placeholder="Lesson name..."
                                               onChange={(e) => setEditingLessonTitle(e.target.value)}
@@ -537,7 +537,7 @@ export function CourseOutline({
                                             <span
                                               className={`flex-1 min-w-0 truncate text-xs ${
                                                 isActive
-                                                  ? "text-cyan-400 font-medium"
+                                                  ? "text-gold font-medium"
                                                   : "text-slate-300"
                                               }`}
                                               onDoubleClick={(e) => {

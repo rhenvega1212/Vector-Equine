@@ -81,7 +81,7 @@ export default async function TrainSessionDetailPage({ params }: SessionPageProp
         </div>
       </div>
 
-      <Card className="border-cyan-400/20">
+      <Card className="border-gold/20">
         <CardHeader>
           <CardTitle className="text-xl">
             {session.session_title?.trim() || format(parseISO(session.session_date), "EEEE, MMMM d, yyyy")}
@@ -95,7 +95,7 @@ export default async function TrainSessionDetailPage({ params }: SessionPageProp
         <CardContent className="space-y-6">
           <div>
             <h3 className="text-sm font-medium text-muted-foreground mb-1">Overall feel</h3>
-            <p className="text-2xl font-bold text-cyan-400">{session.overall_feel}/10</p>
+            <p className="text-2xl font-bold text-gold">{session.overall_feel}/10</p>
           </div>
 
           {(hasQuickRatings || hasLegacyScores) && (
@@ -149,10 +149,10 @@ export default async function TrainSessionDetailPage({ params }: SessionPageProp
 
           <div className="flex flex-wrap gap-2">
             {session.competition_prep && (
-              <span className="rounded-md bg-cyan-400/20 px-2 py-1 text-xs text-cyan-400">Competition prep</span>
+              <span className="rounded-md bg-gold/20 px-2 py-1 text-xs text-gold">Competition prep</span>
             )}
             {session.focused_goal_session && (
-              <span className="rounded-md bg-cyan-400/20 px-2 py-1 text-xs text-cyan-400">Focused goal session</span>
+              <span className="rounded-md bg-gold/20 px-2 py-1 text-xs text-gold">Focused goal session</span>
             )}
           </div>
 
@@ -166,7 +166,7 @@ export default async function TrainSessionDetailPage({ params }: SessionPageProp
                   href={session.video_link_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-cyan-400 hover:text-cyan-300 underline"
+                  className="text-gold hover:text-gold-bright underline"
                 >
                   View video
                 </a>
@@ -175,7 +175,7 @@ export default async function TrainSessionDetailPage({ params }: SessionPageProp
                   href={videoUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-cyan-400 hover:text-cyan-300 underline"
+                  className="text-gold hover:text-gold-bright underline"
                 >
                   View uploaded video
                 </a>

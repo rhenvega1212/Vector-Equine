@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { flagGuardForApi } from "@/lib/flags/guards";
 import { createHorseProfileSchema } from "@/lib/validations/horse-profile";
 import { z } from "zod";
 
@@ -11,6 +12,9 @@ export async function GET() {
     if (!user) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
+
+    const flagBlock = await flagGuardForApi("training_diary");
+    if (flagBlock) return flagBlock;
 
     const { data: horses, error } = await supabase
       .from("horse_profiles")
@@ -36,6 +40,9 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
+
+    const flagBlock = await flagGuardForApi("training_diary");
+    if (flagBlock) return flagBlock;
 
     const body = await request.json();
     const parsed = createHorseProfileSchema.parse(body);

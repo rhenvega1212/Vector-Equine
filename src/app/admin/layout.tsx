@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   LayoutDashboard,
   Shield,
+  FlaskConical,
 } from "lucide-react";
 
 // Always re-check admin role so role changes take effect
@@ -39,6 +40,7 @@ export default async function AdminLayout({
   const navItems = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
     { href: "/admin/users", label: "Users", icon: Users },
+    { href: "/admin/flags", label: "Feature Flags", icon: FlaskConical },
     { href: "/admin/reports", label: "Reports", icon: Flag },
     { href: "/admin/challenges", label: "Challenges", icon: Trophy },
   ];
@@ -57,7 +59,7 @@ export default async function AdminLayout({
             </Link>
             <div className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
-              <h1 className="text-base sm:text-lg font-semibold magical-text">Admin Panel</h1>
+              <h1 className="text-base sm:text-lg font-semibold text-primary">Admin Panel</h1>
             </div>
           </div>
         </div>

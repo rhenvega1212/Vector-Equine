@@ -56,7 +56,7 @@ export function BlockWrapper({
       style={style}
       className={`group/block rounded-lg border bg-card transition-shadow ${
         isDragging
-          ? "z-50 shadow-lg ring-2 ring-cyan-500/30"
+          ? "z-50 shadow-lg ring-2 ring-gold/30"
           : "hover:shadow-sm"
       }`}
     >
@@ -71,7 +71,7 @@ export function BlockWrapper({
           <GripVertical className="h-4 w-4" />
         </button>
 
-        <Icon className="h-4 w-4 text-cyan-500" />
+        <Icon className="h-4 w-4 text-gold" />
         <span className="text-xs font-medium">{meta.label}</span>
 
         {block.is_required && (

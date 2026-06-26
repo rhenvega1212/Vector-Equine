@@ -7,7 +7,7 @@ import {
   type BotProfile,
 } from "./bot-config";
 import { CONTENT_POOL, type ContentTemplate } from "./content-pool";
-import { COMMENT_POOL } from "./comment-pool";
+import { COMMENT_POOL, type CommentTemplate } from "./comment-pool";
 import { MEDIA_POOL, type MediaItem } from "./media-pool";
 import type { PlannedPost } from "./scheduler";
 
@@ -197,57 +197,217 @@ async function insertPost(
 // across the day rather than dumped in a single batch.
 // =============================================================================
 
+/** Shuffle a copy of an array (Fisher–Yates) without mutating the original. */
+function shuffle<T>(arr: T[]): T[] {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/**
+ * Desired number of likes a given post should have. Weighted so most posts feel
+ * validated (4-6) while a chunk pop off (8-10) and a few stay quieter (2-3).
+ * Capped later by the number of eligible bots (≤ pool size).
+ */
+function targetLikeCount(): number {
+  const r = Math.random();
+  if (r < 0.18) return 8 + Math.floor(Math.random() * 3); // 8-10 popular
+  if (r < 0.62) return 4 + Math.floor(Math.random() * 3); // 4-6 typical
+  return 2 + Math.floor(Math.random() * 2); // 2-3 quieter
+}
+
+/**
+ * Desired number of bot comments on a post. Weighted toward a lively-but-real
+ * feel: most posts get 1-2, some get 3-4, a minority get none.
+ */
+function targetCommentCount(): number {
+  const r = Math.random();
+  if (r < 0.18) return 0; // some posts ride without comments
+  if (r < 0.7) return 1 + Math.floor(Math.random() * 2); // 1-2 common
+  return 3 + Math.floor(Math.random() * 2); // 3-4 lively
+}
+
+// Keyword → topic map so we can infer what a post is about even when its stored
+// tags are sparse (e.g. real-user posts). Used to pick comments that actually
+// respond to the content instead of generic one-liners.
+const TOPIC_KEYWORDS: Record<string, string[]> = {
+  training: [
+    "training", "lesson", "exercise", "transition", "warm-up", "warmup",
+    "groundwork", "pole", "practice", "schooling", "drill", "stride",
+  ],
+  mindset: [
+    "reminder", "patience", "confidence", "nervous", "fear", "proud",
+    "grateful", "journey", "motivat", "mindset", "breathe", "progress isn't",
+  ],
+  "horse-care": [
+    "vet", "feed", "supplement", "groom", "barn", "turnout", "hoof",
+    "farrier", "blanket", "bath", "health", "stall", "pasture", "roll",
+  ],
+  competition: [
+    "show", "competition", "compete", "ribbon", "class", "judge", "score",
+    "championship", "qualif", "test", "placing",
+  ],
+  dressage: ["dressage", "frame", "collection", "impulsion", "topline", "contact", "half-halt", "bend"],
+  jumping: ["jump", "fence", "oxer", "course", "round", "grid", "distance", "spook"],
+  eventing: ["eventing", "cross country", "cross-country", "xc", "three-day"],
+  western: ["western", "reining", "barrel", "spin", "sliding stop", "ranch", "lope"],
+  "trail-riding": ["trail", "hack", "scenery", "nature", "creek", "woods"],
+};
+
+/** Merge a post's stored tags with topics inferred from its text. */
+function inferPostTags(content: string, tags: string[]): string[] {
+  const set = new Set(tags ?? []);
+  const lower = (content ?? "").toLowerCase();
+  for (const [topic, keywords] of Object.entries(TOPIC_KEYWORDS)) {
+    if (keywords.some((k) => lower.includes(k))) set.add(topic);
+  }
+  return [...set];
+}
+
+/**
+ * Build an ordered list of comment templates that fit a given post: comments
+ * whose tags match the post come first (relevance), followed by universal ones
+ * for natural variety. Media-only comments are dropped on text posts.
+ */
+function relevantCommentCandidates(
+  postTags: string[],
+  hasMedia: boolean
+): CommentTemplate[] {
+  const allowed = COMMENT_POOL.filter((c) => hasMedia || !c.requiresMedia);
+  const matched = allowed.filter(
+    (c) => c.tags && c.tags.length > 0 && c.tags.some((t) => postTags.includes(t))
+  );
+  const universal = allowed.filter((c) => !c.tags || c.tags.length === 0);
+  return [...shuffle(matched), ...shuffle(universal)];
+}
+
 async function generateEngagement(
   admin: ReturnType<typeof createAdminClient>
 ): Promise<{ likes: number; comments: number }> {
-  const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+  const cutoff = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
   const { data: recentPosts } = await admin
     .from("posts")
-    .select("id, author_id")
+    .select("id, author_id, content, tags")
     .gte("created_at", cutoff)
     .order("created_at", { ascending: false })
-    .limit(20);
+    .limit(50);
 
   if (!recentPosts || recentPosts.length === 0) {
     return { likes: 0, comments: 0 };
   }
 
-  let likesCreated = 0;
-  let commentsCreated = 0;
+  const postIds = recentPosts.map((p: { id: string }) => p.id);
 
-  const likeCount = Math.floor(Math.random() * 3) + 1;
-  const shuffled = [...recentPosts].sort(() => Math.random() - 0.5);
+  // Which posts have a photo/video — drives whether visual comments are allowed.
+  const { data: mediaRows } = await admin
+    .from("post_media")
+    .select("post_id")
+    .in("post_id", postIds);
+  const postsWithMedia = new Set(
+    (mediaRows ?? []).map((m: { post_id: string }) => m.post_id)
+  );
 
-  for (let i = 0; i < Math.min(likeCount, shuffled.length); i++) {
-    const post = shuffled[i];
+  // Batch-load existing bot engagement so we only "top up" toward each target
+  // (idempotent-ish: repeated backfill runs converge instead of piling up).
+  const { data: existingLikes } = await admin
+    .from("post_likes")
+    .select("post_id, user_id")
+    .in("post_id", postIds)
+    .in("user_id", BOT_IDS);
+
+  const { data: existingComments } = await admin
+    .from("comments")
+    .select("post_id, author_id")
+    .in("post_id", postIds)
+    .in("author_id", BOT_IDS);
+
+  const likersByPost = new Map<string, Set<string>>();
+  for (const row of (existingLikes ?? []) as { post_id: string; user_id: string }[]) {
+    if (!likersByPost.has(row.post_id)) likersByPost.set(row.post_id, new Set());
+    likersByPost.get(row.post_id)!.add(row.user_id);
+  }
+
+  const commentersByPost = new Map<string, Set<string>>();
+  for (const row of (existingComments ?? []) as { post_id: string; author_id: string }[]) {
+    if (!commentersByPost.has(row.post_id)) commentersByPost.set(row.post_id, new Set());
+    commentersByPost.get(row.post_id)!.add(row.author_id);
+  }
+
+  const likeRows: { user_id: string; post_id: string }[] = [];
+  const commentRows: { post_id: string; author_id: string; content: string }[] = [];
+
+  for (const post of recentPosts as {
+    id: string;
+    author_id: string;
+    content: string | null;
+    tags: string[] | null;
+  }[]) {
     const eligible = BOT_PROFILES.filter((b) => b.id !== post.author_id);
     if (eligible.length === 0) continue;
 
-    const bot = pickRandom(eligible);
-    const { error } = await admin
-      .from("post_likes")
-      .upsert(
-        { user_id: bot.id, post_id: post.id },
-        { onConflict: "user_id,post_id" }
+    // ---- LIKES: top up to target with distinct bots that haven't liked yet ----
+    const alreadyLiked = likersByPost.get(post.id) ?? new Set<string>();
+    const likeTarget = Math.min(targetLikeCount(), eligible.length);
+    const likesNeeded = likeTarget - alreadyLiked.size;
+    if (likesNeeded > 0) {
+      const availableLikers = shuffle(
+        eligible.filter((b) => !alreadyLiked.has(b.id))
       );
-    if (!error) likesCreated++;
+      for (let i = 0; i < likesNeeded && i < availableLikers.length; i++) {
+        likeRows.push({ user_id: availableLikers[i].id, post_id: post.id });
+      }
+    }
+
+    // ---- COMMENTS: distinct bots, contextually relevant, top up to target ----
+    const alreadyCommented = commentersByPost.get(post.id) ?? new Set<string>();
+    const commentTarget = Math.min(targetCommentCount(), eligible.length);
+    const commentsNeeded = commentTarget - alreadyCommented.size;
+    if (commentsNeeded > 0) {
+      const availableCommenters = shuffle(
+        eligible.filter((b) => !alreadyCommented.has(b.id))
+      );
+      const postTags = inferPostTags(post.content ?? "", post.tags ?? []);
+      const hasMedia = postsWithMedia.has(post.id);
+      // Relevance-ordered, already de-duplicated list of templates for this post.
+      const candidates = relevantCommentCandidates(postTags, hasMedia);
+      const limit = Math.min(
+        commentsNeeded,
+        availableCommenters.length,
+        candidates.length
+      );
+      for (let i = 0; i < limit; i++) {
+        commentRows.push({
+          post_id: post.id,
+          author_id: availableCommenters[i].id,
+          content: candidates[i].content,
+        });
+      }
+    }
   }
 
-  // Only comment ~50% of the time to keep it sparse
-  if (Math.random() < 0.5) {
-    const commentPost = pickRandom(recentPosts);
-    const eligible = BOT_PROFILES.filter(
-      (b) => b.id !== commentPost.author_id
-    );
-    if (eligible.length > 0) {
-      const bot = pickRandom(eligible);
-      const comment = pickRandom(COMMENT_POOL);
-      const { error } = await admin.from("comments").insert({
-        post_id: commentPost.id,
-        author_id: bot.id,
-        content: comment.content,
-      });
-      if (!error) commentsCreated++;
+  let likesCreated = 0;
+  let commentsCreated = 0;
+
+  if (likeRows.length > 0) {
+    const { error } = await admin
+      .from("post_likes")
+      .upsert(likeRows, { onConflict: "user_id,post_id" });
+    if (error) {
+      console.error("Failed to insert bot likes:", error);
+    } else {
+      likesCreated = likeRows.length;
+    }
+  }
+
+  if (commentRows.length > 0) {
+    const { error } = await admin.from("comments").insert(commentRows);
+    if (error) {
+      console.error("Failed to insert bot comments:", error);
+    } else {
+      commentsCreated = commentRows.length;
     }
   }
 
@@ -268,7 +428,6 @@ export async function executeScheduledPosts(
   planDateStr: string
 ): Promise<{
   posts: { postId: string; botName: string; type: string }[];
-  engagement: { likes: number; comments: number };
 }> {
   const admin = createAdminClient();
   const recentContents = await fetchRecentBotContents(admin);
@@ -305,7 +464,21 @@ export async function executeScheduledPosts(
     }
   }
 
-  const engagement = await generateEngagement(admin);
+  return { posts: results };
+}
 
-  return { posts: results, engagement };
+// =============================================================================
+// ENGAGEMENT PASS
+//
+// Standalone entry point so the cron can top up likes/comments on recent posts
+// on every run — independent of whether any new posts were seeded that day.
+// This is what keeps real users' posts (and the bot feed) feeling validated.
+// =============================================================================
+
+export async function runEngagementPass(): Promise<{
+  likes: number;
+  comments: number;
+}> {
+  const admin = createAdminClient();
+  return generateEngagement(admin);
 }

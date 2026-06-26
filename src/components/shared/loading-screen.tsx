@@ -20,7 +20,7 @@ export function LoadingScreen() {
         </div>
         
         <div className="flex flex-col items-center gap-2">
-          <h2 className="text-2xl font-bold tracking-widest magical-text uppercase">
+          <h2 className="text-2xl font-bold tracking-widest text-primary uppercase">
             Vector Equine
           </h2>
           <div className="flex gap-1">

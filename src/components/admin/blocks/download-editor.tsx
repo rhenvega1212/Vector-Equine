@@ -51,14 +51,14 @@ export function DownloadBlockEditor({ block, onUpdate }: BlockEditorProps) {
       />
 
       {isUploading ? (
-        <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-cyan-400/30 bg-cyan-400/5 p-8">
-          <Loader2 className="h-5 w-5 animate-spin text-cyan-400" />
+        <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-gold/30 bg-gold/5 p-8">
+          <Loader2 className="h-5 w-5 animate-spin text-gold" />
           <span className="text-sm font-medium">Uploading file...</span>
         </div>
       ) : fileUrl && fileName ? (
         <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-400/10">
-            <FileText className="h-5 w-5 text-cyan-400" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gold/10">
+            <FileText className="h-5 w-5 text-gold" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{fileName}</p>
@@ -66,7 +66,7 @@ export function DownloadBlockEditor({ block, onUpdate }: BlockEditorProps) {
               href={fileUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-cyan-400 hover:underline"
+              className="text-xs text-gold hover:underline"
             >
               <Download className="mr-1 inline h-3 w-3" />
               Download
@@ -96,7 +96,7 @@ export function DownloadBlockEditor({ block, onUpdate }: BlockEditorProps) {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/30 p-8 text-muted-foreground transition-colors hover:border-cyan-400/40 hover:bg-cyan-400/5"
+          className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/30 p-8 text-muted-foreground transition-colors hover:border-gold/40 hover:bg-gold/5"
         >
           <FileUp className="h-8 w-8" />
           <span className="text-sm font-medium">Click to upload a file</span>

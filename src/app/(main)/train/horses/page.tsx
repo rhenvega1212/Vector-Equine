@@ -36,7 +36,7 @@ export default async function TrainHorsesPage() {
           <p className="text-muted-foreground">Manage your horse profiles and view ride history by horse.</p>
         </div>
         <Link href="/train/horses/new">
-          <Button className="bg-cyan-500 hover:bg-cyan-400 text-black w-full sm:w-auto">
+          <Button className="bg-gold text-navy font-semibold hover:bg-gold/90 w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             Add horse
           </Button>
@@ -44,11 +44,11 @@ export default async function TrainHorsesPage() {
       </div>
 
       {(!horses || horses.length === 0) ? (
-        <div className="rounded-lg border border-cyan-400/20 bg-slate-800/30 p-8 text-center">
+        <div className="rounded-lg border dark border-gold/20 bg-navy p-8 text-center">
           <p className="text-muted-foreground mb-2">No horses yet.</p>
           <p className="text-sm text-muted-foreground mb-4">Add a horse to log sessions and track progress.</p>
           <Link href="/train/horses/new">
-            <Button className="bg-cyan-500 hover:bg-cyan-400 text-black">Add your first horse</Button>
+            <Button className="bg-gold text-navy font-semibold hover:bg-gold/90">Add your first horse</Button>
           </Link>
         </div>
       ) : (

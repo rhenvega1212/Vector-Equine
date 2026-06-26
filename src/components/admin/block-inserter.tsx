@@ -70,7 +70,7 @@ export function BlockInserter({
           {alwaysVisible ? (
             <Button
               variant="outline"
-              className="relative z-10 gap-2 border-dashed border-cyan-500/40 text-cyan-500 hover:border-cyan-500 hover:bg-cyan-500/10 hover:text-cyan-400"
+              className="relative z-10 gap-2 border-dashed border-gold/40 text-gold hover:border-gold hover:bg-gold/10 hover:text-gold"
             >
               <Plus className="h-4 w-4" />
               Add Block
@@ -79,7 +79,7 @@ export function BlockInserter({
             <Button
               variant="outline"
               size="icon"
-              className="relative z-10 h-6 w-6 rounded-full border-dashed border-cyan-500/40 bg-background text-cyan-500 opacity-0 transition-opacity hover:border-cyan-500 hover:bg-cyan-500/10 hover:text-cyan-600 group-hover:opacity-100"
+              className="relative z-10 h-6 w-6 rounded-full border-dashed border-gold/40 bg-background text-gold opacity-0 transition-opacity hover:border-gold hover:bg-gold/10 hover:text-gold group-hover:opacity-100"
             >
               <Plus className="h-3.5 w-3.5" />
             </Button>
@@ -107,7 +107,7 @@ export function BlockInserter({
                         key={block.type}
                         disabled={inserting}
                         onClick={() => handleSelect(block.type)}
-                        className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-xs transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 disabled:opacity-50"
+                        className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-xs transition-colors hover:bg-gold/10 hover:text-gold disabled:opacity-50"
                       >
                         <Icon className="h-3.5 w-3.5 shrink-0" />
                         <span>{block.label}</span>

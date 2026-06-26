@@ -192,7 +192,6 @@ export async function runBotSeedBackfill(): Promise<{
         status: ok ? "seeded" : "partial",
         plannedPosts: plannedCount,
         createdPosts: out.posts.length,
-        engagement: out.engagement,
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);

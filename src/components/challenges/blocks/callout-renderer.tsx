@@ -7,7 +7,7 @@ const CONFIG: Record<
 > = {
   tip: { icon: Lightbulb, border: "border-green-500", bg: "bg-green-500/10" },
   warning: { icon: AlertTriangle, border: "border-amber-500", bg: "bg-amber-500/10" },
-  info: { icon: Info, border: "border-blue-500", bg: "bg-blue-500/10" },
+  info: { icon: Info, border: "border-gold", bg: "bg-gold/10" },
   key_point: { icon: Star, border: "border-purple-500", bg: "bg-purple-500/10" },
 };
 

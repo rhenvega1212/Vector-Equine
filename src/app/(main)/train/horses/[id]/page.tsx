@@ -61,7 +61,7 @@ export default async function HorseDetailPage({ params }: HorseDetailPageProps) 
         </Link>
         <div className="flex gap-2">
           <Link href={`/train/sessions/new?horse_id=${horse.id}`}>
-            <Button className="bg-cyan-500 hover:bg-cyan-400 text-black">
+            <Button className="bg-gold text-navy font-semibold hover:bg-gold/90">
               <Plus className="h-4 w-4 mr-2" />
               Log session
             </Button>
@@ -75,15 +75,15 @@ export default async function HorseDetailPage({ params }: HorseDetailPageProps) 
         </div>
       </div>
 
-      <Card className="border-cyan-400/20 overflow-hidden">
+      <Card className="border-gold/20 overflow-hidden">
         <div className="flex flex-col sm:flex-row gap-4 p-4 sm:p-6">
           {horse.profile_photo_url ? (
             <div className="relative h-28 w-28 shrink-0 rounded-lg overflow-hidden bg-muted">
               <Image src={horse.profile_photo_url} alt="" fill className="object-cover" sizes="112px" />
             </div>
           ) : (
-            <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg bg-cyan-400/20">
-              <HorseHeadIcon size={56} className="text-cyan-400" />
+            <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg bg-gold/20">
+              <HorseHeadIcon size={56} className="text-gold" />
             </div>
           )}
           <div className="min-w-0 flex-1">
@@ -101,7 +101,7 @@ export default async function HorseDetailPage({ params }: HorseDetailPageProps) 
       </Card>
 
       {(horse.notes || horse.goals || horse.personality_quirks || horse.injuries_limitations) && (
-        <Card className="border-cyan-400/20">
+        <Card className="border-gold/20">
           <CardHeader>
             <CardTitle className="text-base">Notes & goals</CardTitle>
           </CardHeader>
@@ -134,11 +134,11 @@ export default async function HorseDetailPage({ params }: HorseDetailPageProps) 
         </Card>
       )}
 
-      <Card className="border-cyan-400/20">
+      <Card className="border-gold/20">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-cyan-400" />
+              <Calendar className="h-5 w-5 text-gold" />
               Session history
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">Ride logs for this horse</p>
@@ -158,7 +158,7 @@ export default async function HorseDetailPage({ params }: HorseDetailPageProps) 
                 <li key={s.id}>
                   <Link
                     href={`/train/sessions/${s.id}`}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-cyan-400/10 bg-slate-800/30 p-3 hover:border-cyan-400/30 hover:bg-slate-800/50 transition-colors"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gold/10 bg-card p-3 hover:border-gold/30 hover:bg-muted transition-colors"
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-foreground">
@@ -171,7 +171,7 @@ export default async function HorseDetailPage({ params }: HorseDetailPageProps) 
                         </>
                       )}
                       <span className="text-muted-foreground">·</span>
-                      <span className="text-sm text-cyan-400/90">
+                      <span className="text-sm text-gold/90">
                         {SESSION_TYPE_LABELS[s.session_type] || s.session_type}
                       </span>
                       {s.duration_minutes != null && (
@@ -179,7 +179,7 @@ export default async function HorseDetailPage({ params }: HorseDetailPageProps) 
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-cyan-400 font-medium">{s.overall_feel}/10</span>
+                      <span className="text-gold font-medium">{s.overall_feel}/10</span>
                       {(s.video_link_url || s.video_upload_path) && (
                         <span className="text-xs text-muted-foreground">Video</span>
                       )}

@@ -99,6 +99,9 @@ export function ProfileTabs({
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [expandedChallenge, setExpandedChallenge] = useState<string | null>(null);
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+
+  const visiblePosts = posts.filter((p: any) => !deletedIds.has(p.id));
 
   const challengePostCounts = new Map<string, number>();
   for (const post of posts) {
@@ -135,7 +138,7 @@ export function ProfileTabs({
             <div className="mb-4 flex justify-center">
               <Button
                 onClick={() => setShowCreatePost(true)}
-                className="gap-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-black font-semibold shadow-lg shadow-cyan-500/25"
+                className="gap-2 bg-gold text-navy font-semibold hover:bg-gold/90"
               >
                 <Plus className="h-4 w-4" />
                 Create Post
@@ -143,7 +146,7 @@ export function ProfileTabs({
             </div>
           )}
 
-          {posts.length === 0 ? (
+          {visiblePosts.length === 0 ? (
             <div className="py-20 text-center">
               <div className="w-20 h-20 mx-auto rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-4">
                 <Grid3X3 className="h-10 w-10 text-primary/50" />
@@ -156,7 +159,7 @@ export function ProfileTabs({
           ) : (
             <>
               <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
-                {posts.map((post) => {
+                {visiblePosts.map((post) => {
                   const hasMedia = post.post_media && post.post_media.length > 0;
                   const firstMedia = hasMedia ? post.post_media[0] : null;
                   const isVideo = firstMedia?.media_type === "video";
@@ -281,7 +284,7 @@ export function ProfileTabs({
                                 className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg border border-border"
                               />
                             ) : (
-                              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-primary/20 to-blue-500/20 rounded-lg flex items-center justify-center border border-border">
+                              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-primary/20 to-gold/20 rounded-lg flex items-center justify-center border border-border">
                                 <Trophy className="h-8 w-8 text-primary/50" />
                               </div>
                             )}
@@ -355,7 +358,14 @@ export function ProfileTabs({
           </DialogHeader>
           {selectedPost && (
             <div className="p-4">
-              <PostCard post={selectedPost} currentUserId={currentUserId} />
+              <PostCard
+                post={selectedPost}
+                currentUserId={currentUserId}
+                onDeleted={(postId) => {
+                  setDeletedIds((prev) => new Set(prev).add(postId));
+                  setSelectedPost(null);
+                }}
+              />
             </div>
           )}
         </DialogContent>

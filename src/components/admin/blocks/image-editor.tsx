@@ -48,8 +48,8 @@ export function ImageBlockEditor({ block, onUpdate }: BlockEditorProps) {
       />
 
       {isUploading ? (
-        <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-cyan-400/30 bg-cyan-400/5 p-8">
-          <Loader2 className="h-5 w-5 animate-spin text-cyan-400" />
+        <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-gold/30 bg-gold/5 p-8">
+          <Loader2 className="h-5 w-5 animate-spin text-gold" />
           <span className="text-sm font-medium">Uploading image...</span>
         </div>
       ) : imageUrl ? (
@@ -77,7 +77,7 @@ export function ImageBlockEditor({ block, onUpdate }: BlockEditorProps) {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/30 p-8 text-muted-foreground transition-colors hover:border-cyan-400/40 hover:bg-cyan-400/5"
+          className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/30 p-8 text-muted-foreground transition-colors hover:border-gold/40 hover:bg-gold/5"
         >
           <ImagePlus className="h-8 w-8" />
           <span className="text-sm font-medium">Click to upload an image</span>

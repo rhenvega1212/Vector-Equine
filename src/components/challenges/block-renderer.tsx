@@ -97,7 +97,7 @@ export function BlockRenderer({
                   {isCompleted ? (
                     <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                   ) : (
-                    <Circle className="h-4 w-4 text-muted-foreground hover:text-cyan-400" />
+                    <Circle className="h-4 w-4 text-muted-foreground hover:text-gold" />
                   )}
                   <span className={isCompleted ? "text-emerald-400" : "text-muted-foreground"}>
                     Required

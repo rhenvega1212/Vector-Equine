@@ -129,7 +129,6 @@ export function ProfileHeader({
       <div className="flex items-start gap-4 sm:gap-6">
         {/* Avatar with glow ring */}
         <div className="relative">
-          <div className="absolute -inset-1 bg-gradient-to-r from-primary to-blue-500 rounded-full opacity-30 blur-sm" />
           <Avatar className="relative h-20 w-20 sm:h-24 sm:w-24 border-2 border-primary/40 ring-2 ring-primary/20 ring-offset-2 ring-offset-background">
             <AvatarImage src={profile.avatar_url || undefined} />
             <AvatarFallback className="text-xl sm:text-2xl bg-gradient-to-br from-muted to-muted/80">
@@ -147,7 +146,7 @@ export function ProfileHeader({
             </h1>
             {isAdmin && <AdminBadge />}
             {isTrainer && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-400/40">
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border">
                 Trainer
               </span>
             )}
@@ -225,7 +224,7 @@ export function ProfileHeader({
               disabled={isLoading}
               className={`flex-1 h-9 sm:h-11 text-sm ${
                 !isFollowing 
-                  ? "bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-black font-semibold shadow-lg shadow-cyan-500/25" 
+                  ? "bg-gold text-navy font-semibold hover:bg-gold/90" 
                   : "border-primary/30 hover:bg-primary/10"
               }`}
             >

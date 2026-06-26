@@ -30,7 +30,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { role } = body;
+    const { role, is_beta_tester } = body;
 
     if (role && !["rider", "trainer", "admin"].includes(role)) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
@@ -44,6 +44,13 @@ export async function PATCH(
         updateData.trainer_approved = false;
         updateData.trainer_approved_at = null;
       }
+    }
+    if (typeof is_beta_tester === "boolean") {
+      updateData.is_beta_tester = is_beta_tester;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
     }
 
     // Use service role so RLS doesn't block updating another user's profile

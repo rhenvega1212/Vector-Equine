@@ -154,9 +154,9 @@ export default function OnboardingPage() {
   }
 
   return (
-    <Card>
+    <Card className="border-gold/15 shadow-2xl shadow-black/30">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Complete your profile</CardTitle>
+        <CardTitle className="text-3xl font-serif">Complete your profile</CardTitle>
         <CardDescription>
           Tell us a bit about yourself to get started
         </CardDescription>
@@ -173,6 +173,7 @@ export default function OnboardingPage() {
             <Input
               id="username"
               placeholder="your_username"
+              className="bg-white/[0.04] border-border focus-visible:ring-gold/60"
               {...register("username")}
             />
             {errors.username && (
@@ -189,6 +190,7 @@ export default function OnboardingPage() {
             <Input
               id="display_name"
               placeholder="Your Name"
+              className="bg-white/[0.04] border-border focus-visible:ring-gold/60"
               {...register("display_name")}
             />
             {errors.display_name && (
@@ -202,6 +204,7 @@ export default function OnboardingPage() {
             <Input
               id="location"
               placeholder="City, State"
+              className="bg-white/[0.04] border-border focus-visible:ring-gold/60"
               {...register("location")}
             />
             {errors.location && (

@@ -160,7 +160,7 @@ export default async function LessonPage({ params, searchParams }: LessonPagePro
         </Link>
         <div className="flex items-center gap-4">
           {isAdminPreview && (
-            <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/40">Admin preview</Badge>
+            <Badge className="bg-gold/20 text-gold border-gold/40">Admin preview</Badge>
           )}
           <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
             <span>{completedLessonIds.length}/{allLessons.length}</span>
@@ -214,7 +214,7 @@ export default async function LessonPage({ params, searchParams }: LessonPagePro
       )}
 
       {bypassGating && gatingConfig.gatingType !== "none" && (
-        <div className="mt-6 p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-sm text-cyan-200">
+        <div className="mt-6 p-3 rounded-lg bg-gold/10 border border-gold/30 text-sm text-gold-bright">
           Preview: gates bypassed — you can navigate to any lesson.
         </div>
       )}

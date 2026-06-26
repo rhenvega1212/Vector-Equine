@@ -55,7 +55,7 @@ export function QuizBlockRenderer({ block, onComplete }: BlockRendererProps) {
                 const optWrong = submitted && selected && oIdx !== q.correctIndex;
 
                 let ring = "border-white/10";
-                if (!submitted && selected) ring = "border-cyan-400 bg-cyan-400/10";
+                if (!submitted && selected) ring = "border-gold bg-gold/10";
                 if (optCorrect) ring = "border-green-500 bg-green-500/10";
                 if (optWrong) ring = "border-red-500 bg-red-500/10";
 
@@ -73,7 +73,7 @@ export function QuizBlockRenderer({ block, onComplete }: BlockRendererProps) {
                       type="radio"
                       readOnly
                       checked={selected}
-                      className="h-4 w-4 border-slate-600 bg-slate-800 text-cyan-400 focus:ring-0"
+                      className="h-4 w-4 border-slate-600 bg-slate-800 text-gold focus:ring-0"
                     />
                     <span className="flex-1 text-slate-200">{opt}</span>
                     {optCorrect && <CheckCircle2 size={16} className="text-green-400" />}
@@ -96,7 +96,7 @@ export function QuizBlockRenderer({ block, onComplete }: BlockRendererProps) {
         <Button
           onClick={submit}
           disabled={answers.some((a) => a === null)}
-          className="bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40"
+          className="bg-gold text-white hover:bg-gold disabled:opacity-40"
         >
           Submit Answers
         </Button>

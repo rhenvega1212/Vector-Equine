@@ -20,15 +20,19 @@ export function TrainLayoutClient({
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-6">
-      <nav className="flex flex-wrap gap-2 border-b border-cyan-400/20 pb-4">
-        {trainNavItems.map((item) => (
-          <TrainNavLink key={item.href} href={item.href} icon={item.icon}>
-            {item.label}
-          </TrainNavLink>
-        ))}
-      </nav>
-      {children}
+    <div className="bg-navy min-h-screen -mx-3 sm:-mx-4 px-3 sm:px-4 py-6">
+      <div className="bg-background text-foreground rounded-xl border border-border shadow-sm p-4 sm:p-6">
+        <div className="space-y-6">
+          <nav className="flex flex-wrap gap-2 border-b border-border pb-4">
+            {trainNavItems.map((item) => (
+              <TrainNavLink key={item.href} href={item.href} icon={item.icon}>
+                {item.label}
+              </TrainNavLink>
+            ))}
+          </nav>
+          {children}
+        </div>
+      </div>
     </div>
   );
 }
@@ -54,7 +58,7 @@ function TrainNavLink({
       className={cn(
         "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
         isActive
-          ? "bg-cyan-400/20 text-cyan-400 border border-cyan-400/30"
+          ? "bg-gold text-navy border border-gold"
           : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
       )}
     >

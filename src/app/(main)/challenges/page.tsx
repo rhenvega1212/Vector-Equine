@@ -95,7 +95,7 @@ export default async function ChallengesPage({ searchParams }: ChallengesPagePro
                 </Button>
               </Link>
               <Link href="/admin/challenges/create">
-                <Button size="sm" className="sm:size-default bg-cyan-500 hover:bg-cyan-400 text-black">
+                <Button size="sm" className="sm:size-default bg-gold text-navy font-semibold hover:bg-gold/90">
                   <PenTool className="h-4 w-4 mr-1 sm:mr-2" />
                   Build
                 </Button>

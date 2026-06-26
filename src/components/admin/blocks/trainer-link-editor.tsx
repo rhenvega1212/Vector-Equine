@@ -78,7 +78,7 @@ export function TrainerLinkBlockEditor({ block, onUpdate }: BlockEditorProps) {
         variant="outline"
         size="sm"
         onClick={addTrainer}
-        className="border-white/20 text-slate-300 hover:border-cyan-400 hover:text-cyan-400"
+        className="border-white/20 text-slate-300 hover:border-gold hover:text-gold"
       >
         <Plus size={14} className="mr-1.5" />
         Add Trainer

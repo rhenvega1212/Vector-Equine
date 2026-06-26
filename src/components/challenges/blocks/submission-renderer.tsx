@@ -83,7 +83,7 @@ const STATUS_CONFIG: Record<
   },
   submitted: {
     label: "Submitted",
-    color: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
+    color: "bg-gold/20 text-gold border-gold/30",
     icon: CheckCircle2,
   },
   in_review: {
@@ -127,7 +127,7 @@ function acceptString(type: SubmissionSettings["submissionType"]): string {
 
 function fileIcon(type: string) {
   if (type.startsWith("video")) return <Video size={14} className="text-purple-400" />;
-  if (type.startsWith("image")) return <ImageIcon size={14} className="text-blue-400" />;
+  if (type.startsWith("image")) return <ImageIcon size={14} className="text-gold" />;
   return <FileText size={14} className="text-slate-400" />;
 }
 
@@ -376,7 +376,7 @@ export function SubmissionBlockRenderer({
               type="button"
               onClick={() => inputRef.current?.click()}
               disabled={uploading}
-              className="flex w-full flex-col items-center gap-2 rounded-lg border-2 border-dashed border-white/15 bg-white/[0.02] px-4 py-8 text-slate-400 transition-colors hover:border-cyan-400/40 hover:text-cyan-400 disabled:opacity-50"
+              className="flex w-full flex-col items-center gap-2 rounded-lg border-2 border-dashed border-white/15 bg-white/[0.02] px-4 py-8 text-slate-400 transition-colors hover:border-gold/40 hover:text-gold disabled:opacity-50"
             >
               {uploading ? (
                 <Loader2 size={24} className="animate-spin" />
@@ -429,7 +429,7 @@ export function SubmissionBlockRenderer({
           <Button
             onClick={handleSubmit}
             disabled={files.length === 0 || submitting}
-            className="bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40"
+            className="bg-gold text-white hover:bg-gold disabled:opacity-40"
           >
             {submitting && <Loader2 size={14} className="mr-2 animate-spin" />}
             {isEditing ? "Resubmit" : "Submit"}
@@ -442,7 +442,7 @@ export function SubmissionBlockRenderer({
         <Button
           variant="outline"
           onClick={startResubmission}
-          className="border-white/20 text-slate-300 hover:border-cyan-400 hover:text-cyan-400"
+          className="border-white/20 text-slate-300 hover:border-gold hover:text-gold"
         >
           Resubmit
         </Button>
@@ -531,7 +531,7 @@ export function SubmissionBlockRenderer({
         status !== "not_started" && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <User size={14} className="text-cyan-400" />
+              <User size={14} className="text-gold" />
               <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
                 Trainer Feedback
               </p>
@@ -543,10 +543,10 @@ export function SubmissionBlockRenderer({
               .map((tf) => (
                 <div
                   key={tf.id}
-                  className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-4"
+                  className="rounded-lg border border-gold/20 bg-gold/5 p-4"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-cyan-300">
+                    <span className="text-sm font-medium text-gold-bright">
                       Trainer Feedback
                     </span>
                     <span className="text-xs text-slate-500">
@@ -594,7 +594,7 @@ export function SubmissionBlockRenderer({
                     requestTrainerReview(opt.trainerId, opt.priceAmount)
                   }
                   disabled={trainerLoading === opt.trainerId}
-                  className="border-white/20 text-slate-300 hover:border-cyan-400 hover:text-cyan-400"
+                  className="border-white/20 text-slate-300 hover:border-gold hover:text-gold"
                 >
                   {trainerLoading === opt.trainerId ? (
                     <Loader2 size={14} className="mr-2 animate-spin" />

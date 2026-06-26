@@ -12,7 +12,7 @@ export function AdminBadge({ className = "", showIcon = false }: AdminBadgeProps
   return (
     <Badge 
       variant="outline" 
-      className={`text-[10px] px-1.5 py-0 h-4 border-cyan-400/40 bg-cyan-400/10 text-cyan-400 font-medium ${className}`}
+      className={`text-[10px] px-1.5 py-0 h-4 border-gold/40 bg-gold/10 text-gold font-medium ${className}`}
       style={{
         boxShadow: '0 0 8px rgba(34, 211, 238, 0.3)',
       }}
