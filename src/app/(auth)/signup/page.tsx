@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -21,10 +20,9 @@ import { createClient } from "@/lib/supabase/client";
 import { Loader2, CheckCircle } from "lucide-react";
 
 export default function SignUpPage() {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [checkEmail, setCheckEmail] = useState(false);
 
   const {
     register,
@@ -40,21 +38,65 @@ export default function SignUpPage() {
 
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/onboarding`,
-        },
-      });
+      const username = data.username.trim();
 
-      if (error) {
-        setError(error.message);
+      // Make sure the username is free before creating the auth account.
+      const { data: taken } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", username)
+        .maybeSingle();
+      if (taken) {
+        setError("That username is already taken. Try another.");
         return;
       }
 
-      // Show success message - user needs to verify email before proceeding
-      setSuccess(true);
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: data.email.trim(),
+        password: data.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/login`,
+          data: {
+            username,
+            display_name: data.display_name.trim(),
+          },
+        },
+      });
+
+      if (signUpError) {
+        setError(signUpError.message);
+        return;
+      }
+
+      // If email confirmation is still enabled in Supabase, no session is
+      // returned yet — fall back to the verify-by-email path.
+      if (!signUpData.session || !signUpData.user) {
+        setCheckEmail(true);
+        return;
+      }
+
+      // Confirmation off: we're logged in. Create the profile and go.
+      const { error: profileError } = await (supabase.from("profiles") as any).insert({
+        id: signUpData.user.id,
+        email: signUpData.user.email!,
+        username,
+        display_name: data.display_name.trim(),
+      });
+
+      if (profileError) {
+        // A unique-violation here means the username was taken in a race.
+        setError(
+          profileError.code === "23505"
+            ? "That username was just taken. Please pick another."
+            : profileError.message
+        );
+        return;
+      }
+
+      // Brief delay so the session cookie is committed before navigating.
+      await new Promise((r) => setTimeout(r, 100));
+      window.location.assign(`${window.location.origin}/feed`);
+      return;
     } catch {
       setError("An unexpected error occurred. Please try again.");
     } finally {
@@ -62,7 +104,7 @@ export default function SignUpPage() {
     }
   }
 
-  if (success) {
+  if (checkEmail) {
     return (
       <Card className="border-gold/15 shadow-2xl shadow-black/30">
         <CardHeader className="text-center">
@@ -71,19 +113,17 @@ export default function SignUpPage() {
           </div>
           <CardTitle className="text-3xl font-serif">Check your email!</CardTitle>
           <CardDescription className="space-y-2">
-            <p>
-              We&apos;ve sent a verification link to your email address.
-            </p>
+            <p>We&apos;ve sent a confirmation link to your email address.</p>
             <p className="text-xs text-muted-foreground">
-              Click the link in the email to verify your account and complete signup.
-              If you don&apos;t see it, check your spam folder.
+              Click it to activate your account, then sign in. If you don&apos;t
+              see it, check your spam folder.
             </p>
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="text-center">
             <Link href="/login" className="text-sm text-gold hover:underline">
-              Already verified? Sign in
+              Go to sign in
             </Link>
           </div>
         </CardContent>
@@ -94,7 +134,7 @@ export default function SignUpPage() {
   return (
     <Card className="border-gold/15 shadow-2xl shadow-black/30">
       <CardHeader className="text-center">
-        <CardTitle className="text-3xl font-serif">Create an account</CardTitle>
+        <CardTitle className="text-3xl font-serif">Create your account</CardTitle>
         <CardDescription>Join the Vector Equine community</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
@@ -104,6 +144,30 @@ export default function SignUpPage() {
               {error}
             </div>
           )}
+          <div className="space-y-2">
+            <Label htmlFor="display_name">Name</Label>
+            <Input
+              id="display_name"
+              placeholder="Your name"
+              className="bg-white/[0.04] border-border focus-visible:ring-gold/60"
+              {...register("display_name")}
+            />
+            {errors.display_name && (
+              <p className="text-sm text-destructive">{errors.display_name.message}</p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="username">Username</Label>
+            <Input
+              id="username"
+              placeholder="your_username"
+              className="bg-white/[0.04] border-border focus-visible:ring-gold/60"
+              {...register("username")}
+            />
+            {errors.username && (
+              <p className="text-sm text-destructive">{errors.username.message}</p>
+            )}
+          </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -127,9 +191,7 @@ export default function SignUpPage() {
               {...register("password")}
             />
             {errors.password && (
-              <p className="text-sm text-destructive">
-                {errors.password.message}
-              </p>
+              <p className="text-sm text-destructive">{errors.password.message}</p>
             )}
             <p className="text-xs text-muted-foreground">
               Must be at least 8 characters
