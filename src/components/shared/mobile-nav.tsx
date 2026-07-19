@@ -21,7 +21,7 @@ type NavItem = {
 const navItems: NavItem[] = [
   { href: "/feed", label: "Feed", icon: Home },
   { href: "/explore", label: "Explore", icon: Compass },
-  { href: "/train", label: "Train", icon: HorseHeadIcon, flag: "training_diary" },
+  { href: "/train", label: "Vector", icon: HorseHeadIcon, flag: "training_diary" },
   { href: "/challenges", label: "Challenges", icon: Trophy, adminOnly: true },
   { href: "/profile", label: "Profile", icon: User },
 ];

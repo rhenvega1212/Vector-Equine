@@ -3,67 +3,81 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, ClipboardList, BarChart3, Bot } from "lucide-react";
+import { CalendarDays, Plus } from "lucide-react";
 import { HorseHeadIcon } from "@/components/icons/horse-head";
-
-const trainNavItems = [
-  { href: "/train", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/train/horses", label: "Horses", icon: HorseHeadIcon },
-  { href: "/train/sessions", label: "Sessions", icon: ClipboardList },
-  { href: "/train/insights", label: "Insights", icon: BarChart3 },
-  { href: "/train/ai-trainer", label: "AI Trainer", icon: Bot },
-];
 
 export function TrainLayoutClient({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  const hideLoopNav =
+    pathname.startsWith("/train/ride/") ||
+    pathname.startsWith("/train/sessions/new") ||
+    pathname.startsWith("/train/horses/new") ||
+    /\/train\/(sessions|horses)\/[^/]+\/edit/.test(pathname);
+
   return (
-    <div className="bg-navy min-h-screen -mx-3 sm:-mx-4 px-3 sm:px-4 py-6">
+    <div className="bg-navy min-h-screen -mx-3 sm:-mx-4 px-3 sm:px-4 py-6 pb-28 md:pb-6">
       <div className="bg-background text-foreground rounded-xl border border-border shadow-sm p-4 sm:p-6">
-        <div className="space-y-6">
-          <nav className="flex flex-wrap gap-2 border-b border-border pb-4">
-            {trainNavItems.map((item) => (
-              <TrainNavLink key={item.href} href={item.href} icon={item.icon}>
-                {item.label}
-              </TrainNavLink>
-            ))}
-          </nav>
-          {children}
-        </div>
+        <div className="space-y-6">{children}</div>
       </div>
+
+      {!hideLoopNav && (
+        <nav
+          className="fixed bottom-16 md:bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none"
+          aria-label="Vector loop"
+        >
+          <div className="pointer-events-auto flex items-end gap-1 rounded-2xl border border-white/10 bg-navy/95 px-2 py-2 shadow-lg backdrop-blur">
+            <LoopLink
+              href="/train"
+              label="Today"
+              icon={CalendarDays}
+              active={pathname === "/train"}
+            />
+            <Link
+              href="/train/ride/plan"
+              className="mx-1 flex h-14 w-14 -translate-y-2 flex-col items-center justify-center rounded-full bg-gold text-navy shadow-md transition hover:bg-gold-bright"
+              aria-label="Start ride"
+            >
+              <Plus className="h-6 w-6" strokeWidth={2.5} />
+              <span className="text-[9px] font-semibold uppercase tracking-wider">Start</span>
+            </Link>
+            <LoopLink
+              href="/train/horse"
+              label="Horse"
+              icon={HorseHeadIcon}
+              active={pathname.startsWith("/train/horse") || pathname.startsWith("/train/horses")}
+            />
+          </div>
+        </nav>
+      )}
     </div>
   );
 }
 
-function TrainNavLink({
+function LoopLink({
   href,
+  label,
   icon: Icon,
-  children,
+  active,
 }: {
   href: string;
+  label: string;
   icon: React.ComponentType<{ className?: string }>;
-  children: React.ReactNode;
+  active: boolean;
 }) {
-  const pathname = usePathname();
-  const isActive =
-    href === "/train"
-      ? pathname === "/train" || pathname === "/train/dashboard"
-      : pathname.startsWith(href);
-
   return (
     <Link
-      href={href === "/train" ? "/train" : href}
+      href={href}
       className={cn(
-        "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-        isActive
-          ? "bg-gold text-navy border border-gold"
-          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+        "flex min-w-[4.5rem] flex-col items-center gap-0.5 rounded-xl px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] transition-colors",
+        active ? "text-gold" : "text-cream/60 hover:text-cream"
       )}
     >
-      <Icon className="h-4 w-4" />
-      {children}
+      <Icon className={cn("h-5 w-5", active && "text-gold")} />
+      {label}
     </Link>
   );
 }

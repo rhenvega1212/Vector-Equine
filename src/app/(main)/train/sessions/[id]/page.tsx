@@ -2,28 +2,30 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { SESSION_TYPE_LABELS, QUICK_RATING_LABELS } from "@/lib/validations/training-session";
+import { SESSION_TYPE_LABELS } from "@/lib/validations/training-session";
 import { format, parseISO } from "date-fns";
-import { ArrowLeft, Pencil, Trash2, Video } from "lucide-react";
+import { ArrowLeft, Pencil, Share2, Video } from "lucide-react";
 import { SessionDeleteButton } from "@/components/train/session-delete-button";
 
 interface SessionPageProps {
   params: Promise<{ id: string }>;
 }
 
-const QUICK_RATING_KEYS = [
-  "ride_quality", "horse_energy", "relaxation", "responsiveness", "connection",
-  "straightness", "balance", "suppleness", "rider_position", "rider_effectiveness",
-  "focus", "confidence", "progress_today", "soundness", "stamina", "behavior_attitude",
+const LEGACY_SCORES = [
+  "rhythm",
+  "relaxation",
+  "connection",
+  "impulsion",
+  "straightness",
+  "collection",
 ] as const;
 
-const LEGACY_SCORES = ["rhythm", "relaxation", "connection", "impulsion", "straightness", "collection"] as const;
-
-export default async function TrainSessionDetailPage({ params }: SessionPageProps) {
+export default async function DebriefPage({ params }: SessionPageProps) {
   const { id } = await params;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return null;
 
   const { data: session, error } = await supabase
@@ -44,7 +46,9 @@ export default async function TrainSessionDetailPage({ params }: SessionPageProp
       .eq("user_id", user.id)
       .single();
     horseDisplay = horse
-      ? (horse.barn_name?.trim() ? `${horse.name} (“${horse.barn_name}”)` : horse.name)
+      ? horse.barn_name?.trim()
+        ? `${horse.name} (“${horse.barn_name}”)`
+        : horse.name
       : "Unassigned";
   } else {
     horseDisplay = (session.horse && session.horse.trim()) || "Unassigned";
@@ -58,132 +62,138 @@ export default async function TrainSessionDetailPage({ params }: SessionPageProp
     videoUrl = signed?.signedUrl ?? null;
   }
 
-  const hasQuickRatings = QUICK_RATING_KEYS.some((k) => session[k] != null);
-  const hasLegacyScores = LEGACY_SCORES.some((k) => session[k] != null);
+  const decodedLine =
+    session.summary?.trim() ||
+    "Your ride, decoded — feel and timing notes land here after each session.";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <Link href="/train/sessions">
+        <Link href="/train">
           <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Sessions
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Today
           </Button>
         </Link>
         <div className="flex gap-2">
           <SessionDeleteButton sessionId={session.id} sessionDate={session.session_date} />
           <Link href={`/train/sessions/${session.id}/edit`}>
             <Button variant="outline" size="sm">
-              <Pencil className="h-4 w-4 mr-2" />
+              <Pencil className="mr-2 h-4 w-4" />
               Edit
             </Button>
           </Link>
         </div>
       </div>
 
-      <Card className="border-gold/20">
-        <CardHeader>
-          <CardTitle className="text-xl">
-            {session.session_title?.trim() || format(parseISO(session.session_date), "EEEE, MMMM d, yyyy")}
-          </CardTitle>
-          <p className="text-muted-foreground">
-            {format(parseISO(session.session_date), "MMM d, yyyy")} · {horseDisplay} · {SESSION_TYPE_LABELS[session.session_type] || session.session_type}
-            {session.duration_minutes != null && ` · ${session.duration_minutes} min`}
-            {session.location?.trim() && ` · ${session.location}`}
+      <header className="space-y-2">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold">Debrief</p>
+        <h1 className="font-serif text-3xl sm:text-4xl">
+          {session.session_title?.trim() ||
+            format(parseISO(session.session_date), "EEEE, MMMM d")}
+        </h1>
+        <p className="text-muted-foreground">
+          {format(parseISO(session.session_date), "MMM d, yyyy")} · {horseDisplay} ·{" "}
+          {SESSION_TYPE_LABELS[session.session_type] || session.session_type}
+          {session.session_source && session.session_source !== "manual"
+            ? ` · ${session.session_source}`
+            : ""}
+        </p>
+      </header>
+
+      <section className="rounded-xl border border-gold/25 bg-navy p-6 text-cream">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-cream/50">Execution score</p>
+        <p className="mt-2 font-serif text-5xl text-gold">{session.overall_feel}</p>
+        <p className="mt-3 font-serif text-lg italic text-gold-bright">{decodedLine}</p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gold">
+          Your ride, decoded
+        </h2>
+        {(session.video_link_url || videoUrl) && (
+          <div className="overflow-hidden rounded-xl border border-gold/20">
+            {session.video_link_url ? (
+              <a
+                href={session.video_link_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 bg-muted/40 p-4 text-gold hover:text-gold-bright"
+              >
+                <Video className="h-4 w-4" /> View ride video
+              </a>
+            ) : videoUrl ? (
+              <video src={videoUrl} controls className="w-full max-h-80 bg-black" />
+            ) : null}
+          </div>
+        )}
+        <p className="text-sm text-muted-foreground">
+          {session.exercises?.trim() ||
+            "Decoded moments appear here when sensor data exists; otherwise your coach summary fills this space."}
+        </p>
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border border-gold/20 p-4">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Session summary
+          </h3>
+          <p className="mt-2 whitespace-pre-wrap text-sm">
+            {session.summary?.trim() || session.notes?.trim() || "No summary yet."}
           </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div>
-            <h3 className="text-sm font-medium text-muted-foreground mb-1">Overall feel</h3>
-            <p className="text-2xl font-bold text-gold">{session.overall_feel}/10</p>
-          </div>
+        </div>
+        <div className="rounded-xl border border-gold/20 p-4">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Homework
+          </h3>
+          <p className="mt-2 whitespace-pre-wrap text-sm">
+            {session.homework?.trim() ||
+              "Homework from your coach will land here. Works alongside your trainer."}
+          </p>
+        </div>
+      </section>
 
-          {(hasQuickRatings || hasLegacyScores) && (
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-2">Ratings (1–5)</h3>
-              <div className="flex flex-wrap gap-3">
-                {QUICK_RATING_KEYS.map((key) => {
-                  const v = session[key];
-                  if (v == null) return null;
-                  return (
-                    <div key={key} className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">{QUICK_RATING_LABELS[key]}:</span>
-                      <span className="font-medium">{v}/5</span>
-                    </div>
-                  );
-                })}
-                {LEGACY_SCORES.map((key) => {
-                  const v = session[key];
-                  if (v == null) return null;
-                  return (
-                    <div key={key} className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">{key.charAt(0).toUpperCase() + key.slice(1)}:</span>
-                      <span className="font-medium">{v}/5</span>
-                    </div>
-                  );
-                })}
+      <section className="space-y-3">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gold">
+          Training scale
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {LEGACY_SCORES.map((key) => {
+            const v = session[key] as number | null;
+            const pct = v != null ? (v / 5) * 100 : 0;
+            return (
+              <div key={key}>
+                <div className="mb-1 flex justify-between text-sm">
+                  <span className="capitalize text-muted-foreground">{key}</span>
+                  <span className="font-medium">{v != null ? `${v}/5` : "—"}</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full bg-gold" style={{ width: `${pct}%` }} />
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })}
+        </div>
+      </section>
 
-          {session.discipline && (
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">Discipline</h3>
-              <p>{session.discipline}</p>
-            </div>
-          )}
+      <p className="text-sm text-muted-foreground">
+        Health: symmetry looking settled — no watch note. Flags only, never a diagnosis.
+      </p>
 
-          {session.exercises && (
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">Exercises</h3>
-              <p className="whitespace-pre-wrap">{session.exercises}</p>
-            </div>
-          )}
-
-          {session.notes && (
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">Journal</h3>
-              <p className="whitespace-pre-wrap">{session.notes}</p>
-            </div>
-          )}
-
-          <div className="flex flex-wrap gap-2">
-            {session.competition_prep && (
-              <span className="rounded-md bg-gold/20 px-2 py-1 text-xs text-gold">Competition prep</span>
-            )}
-            {session.focused_goal_session && (
-              <span className="rounded-md bg-gold/20 px-2 py-1 text-xs text-gold">Focused goal session</span>
-            )}
-          </div>
-
-          {(session.video_link_url || videoUrl) && (
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1 flex items-center gap-1">
-                <Video className="h-4 w-4" /> Video
-              </h3>
-              {session.video_link_url ? (
-                <a
-                  href={session.video_link_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gold hover:text-gold-bright underline"
-                >
-                  View video
-                </a>
-              ) : videoUrl ? (
-                <a
-                  href={videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gold hover:text-gold-bright underline"
-                >
-                  View uploaded video
-                </a>
-              ) : null}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap gap-3">
+        <Button variant="outline" className="border-gold/30" asChild>
+          <Link href={`/train/sessions/${session.id}?share=1`}>
+            <Share2 className="mr-2 h-4 w-4" />
+            Share
+          </Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link href="/train">Save to journal</Link>
+        </Button>
+        <Button className="bg-gold text-navy font-semibold hover:bg-gold-bright" asChild>
+          <Link href="/train/ride/plan">Ask Vector about this ride</Link>
+        </Button>
+      </div>
     </div>
   );
 }

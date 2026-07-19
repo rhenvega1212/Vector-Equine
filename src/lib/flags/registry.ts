@@ -14,15 +14,15 @@ import type { FlagStage } from "@/types/database";
 export const FEATURE_FLAGS = {
   training_diary: {
     description:
-      "Training diary, horses, sessions & insights (the Train workspace)",
+      "Vector workspace — Today, Horse room, Plan, Live, Debrief",
     defaultStage: "off" as FlagStage,
   },
   ai_video_analysis: {
-    description: "AI video analysis of training sessions",
+    description: "Video analysis of training sessions (Ask Vector)",
     defaultStage: "off" as FlagStage,
   },
   ai_highlight_reel: {
-    description: "AI-generated highlight reels",
+    description: "Generated highlight reels",
     defaultStage: "off" as FlagStage,
   },
 } as const;

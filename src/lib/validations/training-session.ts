@@ -51,6 +51,10 @@ const trainingSessionBaseSchema = z.object({
   focused_goal_session: z.boolean().optional(),
   video_link_url: z.string().url().optional().nullable().or(z.literal("")),
   video_upload_path: z.string().max(500).optional().nullable(),
+  session_source: z.enum(["manual", "comms", "sensor", "hybrid"]).optional(),
+  summary: z.string().max(10000).optional().nullable(),
+  homework: z.string().max(10000).optional().nullable(),
+  trainer_id: z.string().uuid().optional().nullable(),
 });
 
 export const createTrainingSessionSchema = trainingSessionBaseSchema.refine(

@@ -89,7 +89,7 @@ export function AiTrainerChat({ analysisId }: { analysisId: string }) {
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">
-              Ask a question about your ride. The AI will reference your analysis and key moments.
+              Ask a question about your ride. Vector will reference your analysis and key moments.
             </p>
           )}
           {messages.map((m) => (

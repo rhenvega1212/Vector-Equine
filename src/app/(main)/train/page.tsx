@@ -1,40 +1,43 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Flame, Calendar, TrendingUp, Target, Plus } from "lucide-react";
+import { Flame, Target } from "lucide-react";
 import { SESSION_TYPE_LABELS } from "@/lib/validations/training-session";
 import { format, parseISO } from "date-fns";
-import { HorseCard } from "@/components/train/horse-card";
 
-export default async function TrainDashboardPage() {
+export default async function VectorTodayPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const weekStart = new Date();
-  weekStart.setDate(weekStart.getDate() - 7);
-  const weekStartStr = weekStart.toISOString().split("T")[0];
-  const monthStart = new Date();
-  monthStart.setDate(monthStart.getDate() - 30);
-  const monthStartStr = monthStart.toISOString().split("T")[0];
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("id", user.id)
+    .single();
+
+  const firstName = (profile?.display_name || "Rider").split(" ")[0];
 
   const { data: horses } = await supabase
     .from("horse_profiles")
-    .select("id, name, barn_name, discipline, profile_photo_url")
+    .select("id, name, barn_name, discipline, training_level, profile_photo_url")
     .eq("user_id", user.id)
     .order("name");
 
+  const horseList = horses || [];
+  const activeHorse = horseList[0] ?? null;
+
   const { data: sessions } = await supabase
     .from("training_sessions")
-    .select("id, session_date, overall_feel, horse, horse_id, session_type")
+    .select(
+      "id, session_date, overall_feel, horse, horse_id, session_type, session_title, summary, rhythm, relaxation, connection, impulsion, straightness, collection"
+    )
     .eq("user_id", user.id)
     .order("session_date", { ascending: false });
 
   const list = sessions || [];
-  const sessionsThisWeek = list.filter((s) => s.session_date >= weekStartStr).length;
-  const sessionsThisMonth = list.filter((s) => s.session_date >= monthStartStr).length;
-
   const datesSet = new Set(list.map((s) => s.session_date));
   let currentStreak = 0;
   const checkDate = new Date();
@@ -47,182 +50,171 @@ export default async function TrainDashboardPage() {
     } else break;
   }
 
-  const last7 = list.filter((s) => s.session_date >= weekStartStr);
-  const last30 = list.filter((s) => s.session_date >= monthStartStr);
-  const avgFeel7 =
-    last7.length > 0
-      ? Math.round((last7.reduce((a, s) => a + s.overall_feel, 0) / last7.length) * 10) / 10
-      : null;
-  const avgFeel30 =
-    last30.length > 0
-      ? Math.round((last30.reduce((a, s) => a + s.overall_feel, 0) / last30.length) * 10) / 10
+  const recent = list.slice(0, 2);
+  const scored = list.filter((s) => s.connection != null || s.rhythm != null);
+  const aidConsistency =
+    scored.length > 0
+      ? Math.round(
+          (scored.reduce((acc, s) => {
+            const vals = [s.rhythm, s.relaxation, s.connection, s.impulsion, s.straightness, s.collection].filter(
+              (v): v is number => v != null
+            );
+            if (!vals.length) return acc;
+            return acc + vals.reduce((a, b) => a + b, 0) / vals.length;
+          }, 0) /
+            scored.length) *
+            20
+        )
       : null;
 
-  const { data: recentSessions } = await supabase
-    .from("training_sessions")
-    .select("id, session_date, session_title, session_type, duration_minutes, overall_feel, horse, horse_id, video_link_url, video_upload_path")
-    .eq("user_id", user.id)
-    .order("session_date", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(5);
+  const focusLine =
+    list[0]?.summary?.trim() ||
+    (activeHorse
+      ? `Work with ${activeHorse.name} on feel and timing — Vector will help you plan the ride.`
+      : "Create your horse to start building a ride plan.");
 
-  const horseMap = new Map((horses || []).map((h) => [h.id, h]));
-  function horseDisplay(s: { horse_id?: string | null; horse?: string | null }) {
-    if (s.horse_id) {
-      const hp = horseMap.get(s.horse_id);
-      return hp ? (hp.barn_name?.trim() ? `${hp.name} (“${hp.barn_name}”)` : hp.name) : "Unassigned";
-    }
-    return (s.horse && s.horse.trim()) || "Unassigned";
+  // Progressive disclosure: no horse yet
+  if (horseList.length === 0) {
+    return (
+      <div className="space-y-8">
+        <header className="space-y-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold">Vector</p>
+          <h1 className="font-serif text-3xl text-foreground sm:text-4xl">Hi, {firstName}</h1>
+          <p className="text-muted-foreground">Create your horse to open Today.</p>
+        </header>
+        <div className="rounded-xl border border-gold/20 bg-navy p-8 text-center">
+          <p className="mb-4 text-cream/80">Everything in Vector hangs off your horse.</p>
+          <Link href="/train/horses/new">
+            <Button className="bg-gold text-navy font-semibold hover:bg-gold/90">Create your horse</Button>
+          </Link>
+          <p className="mt-3 text-xs text-cream/50">Start ride unlocks once a horse is on your roster.</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Train</h1>
-          <p className="text-muted-foreground">Your performance command center</p>
+    <div className="space-y-8">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold">Vector</p>
+          <h1 className="font-serif text-3xl text-foreground sm:text-4xl">Hi, {firstName}</h1>
+          {activeHorse && (
+            <Link
+              href="/train/horse"
+              className="inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-sm text-gold"
+            >
+              <span className="font-medium text-foreground">{activeHorse.name}</span>
+              <span className="text-muted-foreground">·</span>
+              <span>{activeHorse.training_level || activeHorse.discipline || "Horse"}</span>
+              {horseList.length > 1 && (
+                <span className="text-xs text-muted-foreground">· switch</span>
+              )}
+            </Link>
+          )}
         </div>
-        <div className="flex gap-2">
-          <Link href="/train/sessions/new">
-            <Button className="bg-gold text-navy font-semibold hover:bg-gold/90">
-              Log session
+      </header>
+
+      <section className="rounded-xl border border-gold/25 bg-navy p-6 text-cream">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gold/80">Today&apos;s focus</p>
+        <p className="mt-3 font-serif text-xl italic text-gold-bright">{focusLine}</p>
+        <p className="mt-2 text-sm text-cream/60">
+          Works alongside your trainer — bring these to your next lesson too.
+        </p>
+        <div className="mt-6">
+          <Link href="/train/ride/plan">
+            <Button size="lg" className="bg-gold text-navy font-semibold hover:bg-gold-bright">
+              Start ride
             </Button>
           </Link>
         </div>
-      </div>
+      </section>
 
-      {horses && horses.length > 0 && (
-        <div className="space-y-2">
-          <h2 className="text-sm font-medium text-muted-foreground">Your horses</h2>
-          <div className="flex flex-wrap gap-2">
-            {horses.slice(0, 5).map((horse) => (
-              <HorseCard key={horse.id} horse={horse} compact showSessionCount={list.filter((s) => s.horse_id === horse.id).length} />
-            ))}
-            {horses.length > 5 && (
-              <Link href="/train/horses">
-                <Button variant="ghost" size="sm">View all</Button>
-              </Link>
-            )}
+      {list.length > 0 ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-gold/20 p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Aid consistency
+              </p>
+              <Target className="h-4 w-4 text-gold" />
+            </div>
+            <p className="mt-2 text-2xl font-semibold">{aidConsistency != null ? `${aidConsistency}%` : "—"}</p>
+            <p className="text-xs text-muted-foreground">From recent training-scale scores</p>
           </div>
+          <div className="rounded-xl border border-gold/20 p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Streak</p>
+              <Flame className="h-4 w-4 text-gold" />
+            </div>
+            <p className="mt-2 text-2xl font-semibold">{currentStreak}</p>
+            <p className="text-xs text-muted-foreground">days in a row</p>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-dashed border-gold/30 p-6 text-center">
+          <p className="text-muted-foreground">No rides yet — start one to unlock progress tiles.</p>
+          <Link href="/train/ride/plan" className="mt-3 inline-block text-sm text-gold hover:text-gold-bright">
+            Plan your first ride →
+          </Link>
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="dark border-gold/20 bg-navy">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Current streak
-            </CardTitle>
-            <Flame className="h-4 w-4 text-gold" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{currentStreak}</p>
-            <p className="text-xs text-muted-foreground">days in a row</p>
-          </CardContent>
-        </Card>
-        <Card className="dark border-gold/20 bg-navy">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              This week
-            </CardTitle>
-            <Calendar className="h-4 w-4 text-gold" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{sessionsThisWeek}</p>
-            <p className="text-xs text-muted-foreground">sessions</p>
-          </CardContent>
-        </Card>
-        <Card className="dark border-gold/20 bg-navy">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              This month
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{sessionsThisMonth}</p>
-            <p className="text-xs text-muted-foreground">sessions</p>
-          </CardContent>
-        </Card>
-        <Card className="dark border-gold/20 bg-navy">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Avg. Overall Feel
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-gold" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">
-              {avgFeel7 != null ? `${avgFeel7}/10` : "—"} <span className="text-sm font-normal text-muted-foreground">(7d)</span>
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {avgFeel30 != null ? `30d: ${avgFeel30}/10` : "No 30d data"}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      {activeHorse && list.length > 0 && (
+        <Link
+          href="/train/horse"
+          className="block rounded-xl border border-gold/15 bg-muted/30 px-4 py-3 text-sm text-muted-foreground hover:border-gold/30"
+        >
+          {activeHorse.name}&apos;s load this week — balanced. Tap for Health flags.
+        </Link>
+      )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2 border-gold/20">
-          <CardHeader>
-            <CardTitle>Recent Sessions</CardTitle>
-            <p className="text-sm text-muted-foreground">Last 5 sessions · tap to view details</p>
-          </CardHeader>
-          <CardContent>
-            {(!recentSessions || recentSessions.length === 0) ? (
-              <p className="text-muted-foreground py-8 text-center">
-                No sessions yet. Log your first session to see it here.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {recentSessions.map((s: { id: string; session_date: string; session_title?: string | null; session_type: string; duration_minutes?: number | null; overall_feel: number; horse?: string | null; horse_id?: string | null; video_link_url?: string | null; video_upload_path?: string | null }) => (
-                  <li key={s.id}>
-                    <Link
-                      href={`/train/sessions/${s.id}`}
-                      className="flex items-center justify-between rounded-lg border border-gold/10 bg-card p-3 hover:border-gold/30 hover:bg-muted transition-colors"
-                    >
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-foreground">
-                          {format(parseISO(s.session_date), "MMM d, yyyy")}
-                        </span>
-                        {s.session_title && <span className="text-muted-foreground">·</span>}
-                        {s.session_title && <span className="text-foreground truncate max-w-[120px]">{s.session_title}</span>}
-                        <span className="text-muted-foreground">·</span>
-                        <span>{horseDisplay(s)}</span>
-                        <span className="text-muted-foreground">·</span>
-                        <span className="text-sm text-gold/90">
-                          {SESSION_TYPE_LABELS[s.session_type] || s.session_type}
-                        </span>
-                        {s.duration_minutes != null && <span className="text-xs text-muted-foreground">{s.duration_minutes} min</span>}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {(s.video_link_url || s.video_upload_path) && <span className="text-xs text-muted-foreground">Video</span>}
-                        <span className="text-gold font-medium">{s.overall_feel}/10</span>
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {recentSessions && recentSessions.length > 0 && (
-              <Link href="/train/sessions" className="mt-4 inline-block text-sm text-gold hover:text-gold-bright">
-                View all sessions →
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="dark border-gold/20 bg-navy">
-          <CardHeader className="flex flex-row items-center gap-2">
-            <Target className="h-5 w-5 text-gold" />
-            <CardTitle>Suggested focus</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Keep logging sessions to unlock personalized suggestions from Insights and AI Trainer.
+      {list.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+            Noticed
+          </h2>
+          <Link
+            href="/train/ride/plan"
+            className="block rounded-xl border border-gold/20 p-4 hover:border-gold/40"
+          >
+            <p className="font-medium">
+              {aidConsistency != null && aidConsistency < 70
+                ? "Connection scores are soft lately — ask Vector for a feel-focused plan."
+                : "Your recent rides look steady — ask Vector to build on that."}
             </p>
-          </CardContent>
-        </Card>
-      </div>
+            <p className="mt-1 text-sm text-muted-foreground">Opens Plan</p>
+          </Link>
+        </section>
+      )}
+
+      {recent.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+            Recent ride
+          </h2>
+          <ul className="space-y-2">
+            {recent.map((s) => (
+              <li key={s.id}>
+                <Link
+                  href={`/train/sessions/${s.id}`}
+                  className="flex items-center justify-between rounded-lg border border-gold/10 p-3 hover:border-gold/30"
+                >
+                  <div>
+                    <p className="font-medium">
+                      {s.session_title?.trim() || format(parseISO(s.session_date), "MMM d")}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {SESSION_TYPE_LABELS[s.session_type] || s.session_type}
+                    </p>
+                  </div>
+                  <span className="font-semibold text-gold">{s.overall_feel}/10</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

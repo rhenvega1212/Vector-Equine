@@ -104,6 +104,10 @@ export async function POST(request: NextRequest) {
       focused_goal_session: parsed.focused_goal_session ?? false,
       video_link_url: parsed.video_link_url || null,
       video_upload_path: parsed.video_upload_path || null,
+      session_source: parsed.session_source ?? "manual",
+      summary: parsed.summary?.trim() || null,
+      homework: parsed.homework?.trim() || null,
+      trainer_id: parsed.trainer_id || null,
     };
 
     const { data: session, error } = await supabase
