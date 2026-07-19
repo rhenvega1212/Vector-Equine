@@ -9,10 +9,10 @@ export default function AuthLayout({
     <div className="dark min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-background to-[#0B1220] p-4">
       <div className="w-full max-w-md flex flex-col items-center">
         <Image
-          src="/logo-mark.png"
+          src="/logo.png"
           alt="Vector Equine"
-          width={120}
-          height={90}
+          width={200}
+          height={112}
           priority
           className="mb-8 h-16 w-auto"
         />
