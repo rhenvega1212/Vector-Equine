@@ -232,13 +232,17 @@ function SignUpForm() {
               Privacy Policy
             </Link>
           </p>
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button
+            type="submit"
+            className="w-full bg-gold text-navy font-semibold hover:bg-gold/90"
+            disabled={isLoading}
+          >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create Account
           </Button>
           <p className="text-sm text-muted-foreground text-center">
             Already have an account?{" "}
-            <Link href="/login" className="text-primary hover:underline">
+            <Link href="/login" className="text-gold hover:underline">
               Sign in
             </Link>
           </p>

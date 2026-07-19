@@ -154,7 +154,7 @@ export default function OnboardingPage() {
 
   if (isCheckingAuth) {
     return (
-      <Card>
+      <Card className="border-gold/15 shadow-2xl shadow-black/30">
         <CardContent className="py-10">
           <div className="flex justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -291,7 +291,11 @@ export default function OnboardingPage() {
           )}
         </CardContent>
         <CardFooter>
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button
+            type="submit"
+            className="w-full bg-gold text-navy font-semibold hover:bg-gold/90"
+            disabled={isLoading}
+          >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Complete Profile
           </Button>
