@@ -21,6 +21,10 @@ export type Database = {
           discipline: string | null;
           rider_level: string | null;
           role: "rider" | "trainer" | "admin";
+          role_rider: boolean;
+          role_trainer: boolean;
+          trainer_bio: string | null;
+          trainer_business: boolean;
           trainer_approved: boolean;
           trainer_approved_at: string | null;
           is_beta_tester: boolean;
@@ -42,6 +46,10 @@ export type Database = {
           discipline?: string | null;
           rider_level?: string | null;
           role?: "rider" | "trainer" | "admin";
+          role_rider?: boolean;
+          role_trainer?: boolean;
+          trainer_bio?: string | null;
+          trainer_business?: boolean;
           trainer_approved?: boolean;
           trainer_approved_at?: string | null;
           is_beta_tester?: boolean;
@@ -63,6 +71,10 @@ export type Database = {
           discipline?: string | null;
           rider_level?: string | null;
           role?: "rider" | "trainer" | "admin";
+          role_rider?: boolean;
+          role_trainer?: boolean;
+          trainer_bio?: string | null;
+          trainer_business?: boolean;
           trainer_approved?: boolean;
           trainer_approved_at?: string | null;
           is_beta_tester?: boolean;
@@ -72,6 +84,119 @@ export type Database = {
           suspension_reason?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+      coach_connections: {
+        Row: {
+          id: string;
+          rider_id: string;
+          trainer_id: string;
+          status: "pending" | "active" | "declined" | "removed";
+          initiated_by: "rider" | "trainer";
+          share_scope: "all" | "shared_only";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          rider_id: string;
+          trainer_id: string;
+          status?: "pending" | "active" | "declined" | "removed";
+          initiated_by: "rider" | "trainer";
+          share_scope?: "all" | "shared_only";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          rider_id?: string;
+          trainer_id?: string;
+          status?: "pending" | "active" | "declined" | "removed";
+          initiated_by?: "rider" | "trainer";
+          share_scope?: "all" | "shared_only";
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      connection_invites: {
+        Row: {
+          id: string;
+          inviter_id: string;
+          invite_role: "rider" | "trainer";
+          code: string;
+          email: string | null;
+          status: "open" | "accepted" | "expired";
+          expires_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          inviter_id: string;
+          invite_role: "rider" | "trainer";
+          code: string;
+          email?: string | null;
+          status?: "open" | "accepted" | "expired";
+          expires_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          inviter_id?: string;
+          invite_role?: "rider" | "trainer";
+          code?: string;
+          email?: string | null;
+          status?: "open" | "accepted" | "expired";
+          expires_at?: string | null;
+          created_at?: string;
+        };
+      };
+      session_shares: {
+        Row: {
+          id: string;
+          session_id: string;
+          trainer_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          session_id: string;
+          trainer_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          session_id?: string;
+          trainer_id?: string;
+          created_at?: string;
+        };
+      };
+      share_links: {
+        Row: {
+          id: string;
+          session_id: string;
+          token: string;
+          created_by: string;
+          revoked: boolean;
+          expires_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          session_id: string;
+          token: string;
+          created_by: string;
+          revoked?: boolean;
+          expires_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          session_id?: string;
+          token?: string;
+          created_by?: string;
+          revoked?: boolean;
+          expires_at?: string | null;
+          created_at?: string;
         };
       };
       suspension_messages: {
@@ -688,6 +813,10 @@ export type Database = {
           competition_prep: boolean;
           focused_goal_session: boolean;
           video_link_url: string | null;
+          session_source: "manual" | "comms" | "sensor" | "hybrid";
+          trainer_id: string | null;
+          summary: string | null;
+          homework: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -710,6 +839,10 @@ export type Database = {
           competition_prep?: boolean;
           focused_goal_session?: boolean;
           video_link_url?: string | null;
+          session_source?: "manual" | "comms" | "sensor" | "hybrid";
+          trainer_id?: string | null;
+          summary?: string | null;
+          homework?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -732,6 +865,10 @@ export type Database = {
           competition_prep?: boolean;
           focused_goal_session?: boolean;
           video_link_url?: string | null;
+          session_source?: "manual" | "comms" | "sensor" | "hybrid";
+          trainer_id?: string | null;
+          summary?: string | null;
+          homework?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1024,6 +1161,10 @@ export type Submission = Tables<"submissions">;
 export type SubmissionLike = Tables<"submission_likes">;
 export type SubmissionComment = Tables<"submission_comments">;
 export type TrainingSession = Tables<"training_sessions">;
+export type CoachConnection = Tables<"coach_connections">;
+export type ConnectionInvite = Tables<"connection_invites">;
+export type SessionShare = Tables<"session_shares">;
+export type ShareLink = Tables<"share_links">;
 export type AiVideoUpload = Tables<"ai_video_uploads">;
 export type AiAnalysis = Tables<"ai_analyses">;
 export type AiChatMessage = Tables<"ai_chat_messages">;
