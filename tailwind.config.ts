@@ -43,12 +43,22 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        navy: "#0E1729",
-        cream: "#FCF2E6",
-        ink: "#1A2133",
+        navy: {
+          DEFAULT: "#1a2133",
+          deep: "#141a29",
+        },
+        cream: {
+          DEFAULT: "#f0ebe3",
+          card: "#fbf8f2",
+        },
+        ink: "#1a2133",
         gold: {
-          DEFAULT: "#D1A955",
-          bright: "#F0C967",
+          DEFAULT: "#c2a268",
+          soft: "#cdb083",
+          dark: "#9a7b33",
+          // Legacy alias kept so existing `gold-bright` classes resolve to the
+          // brand "Gold Soft" (lighter emphasis on dark).
+          bright: "#cdb083",
         },
       },
       borderRadius: {

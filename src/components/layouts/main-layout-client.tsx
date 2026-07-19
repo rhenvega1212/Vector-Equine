@@ -66,7 +66,7 @@ export function MainLayoutClient({
       {isImpersonating && (
         <div
           className="fixed right-3 z-[60] flex items-center gap-3 rounded-xl border border-gold/30 bg-background/95 px-3 py-2 shadow-lg backdrop-blur-xl md:right-4"
-          style={{ bottom: "calc(72px + env(safe-area-inset-bottom) + 12px)" }}
+          style={{ bottom: "calc(96px + env(safe-area-inset-bottom) + 12px)" }}
         >
           <span className="text-xs sm:text-sm text-foreground">
             Viewing as <strong>{profile?.display_name}</strong>{" "}
@@ -92,10 +92,10 @@ export function MainLayoutClient({
       )}
       <MainNav profile={profile} />
       <main
-        className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:pb-6"
+        className="container mx-auto px-3 sm:px-4 py-4 sm:py-6"
         style={{
           paddingTop: "calc(3.5rem + env(safe-area-inset-top) + 0.75rem)",
-          paddingBottom: "calc(72px + env(safe-area-inset-bottom))",
+          paddingBottom: "calc(96px + env(safe-area-inset-bottom))",
         }}
       >
         {children}

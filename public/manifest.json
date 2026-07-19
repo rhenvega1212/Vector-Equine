@@ -4,8 +4,8 @@
   "description": "A platform for equestrians to connect, learn, and compete.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0E1729",
-  "theme_color": "#0E1729",
+  "background_color": "#1a2133",
+  "theme_color": "#141a29",
   "orientation": "portrait-primary",
   "categories": ["social", "sports", "lifestyle"],
   "icons": [

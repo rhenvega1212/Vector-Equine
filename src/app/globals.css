@@ -3,49 +3,53 @@
 @tailwind utilities;
 
 @layer base {
+  /* Brand tokens (VECTOR-EQUINE-BRAND.md):
+     navy #1a2133 = hsl(223 32% 15%) · navy-deep #141a29 = hsl(223 34% 12%)
+     cream #f0ebe3 = hsl(37 30% 92%) · card-light #fbf8f2 = hsl(40 44% 97%)
+     gold #c2a268 = hsl(39 42% 58%) · soft #cdb083 = hsl(37 43% 66%) · dark #9a7b33 = hsl(42 50% 40%) */
   :root {
-    --background: 33 79% 95%;
+    --background: 37 30% 92%;
     --foreground: 223 32% 15%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 41 57% 58%;
-    --primary-foreground: 220 49% 11%;
-    --secondary: 33 30% 88%;
+    --card: 40 44% 97%;
+    --card-foreground: 223 32% 15%;
+    --popover: 40 44% 97%;
+    --popover-foreground: 223 32% 15%;
+    --primary: 39 42% 58%;
+    --primary-foreground: 223 34% 12%;
+    --secondary: 37 28% 88%;
     --secondary-foreground: 223 32% 15%;
-    --muted: 33 24% 90%;
-    --muted-foreground: 223 12% 42%;
-    --accent: 41 45% 90%;
+    --muted: 37 24% 90%;
+    --muted-foreground: 223 16% 42%;
+    --accent: 39 42% 90%;
     --accent-foreground: 223 32% 15%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 33 22% 86%;
-    --input: 33 22% 86%;
-    --ring: 41 57% 58%;
+    --border: 38 24% 84%;
+    --input: 38 24% 84%;
+    --ring: 39 42% 58%;
     --radius: 0.75rem;
   }
 
   .dark {
-    --background: 220 49% 11%;
-    --foreground: 33 79% 95%;
-    --card: 220 42% 14%;
-    --card-foreground: 33 79% 95%;
-    --popover: 220 42% 14%;
-    --popover-foreground: 33 79% 95%;
-    --primary: 41 57% 58%;
-    --primary-foreground: 220 49% 11%;
-    --secondary: 220 35% 20%;
-    --secondary-foreground: 33 79% 95%;
-    --muted: 220 30% 22%;
-    --muted-foreground: 33 18% 72%;
-    --accent: 220 35% 22%;
-    --accent-foreground: 33 79% 95%;
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 220 28% 24%;
-    --input: 220 28% 24%;
-    --ring: 41 57% 58%;
+    --background: 223 32% 15%;
+    --foreground: 37 30% 92%;
+    --card: 223 30% 18%;
+    --card-foreground: 37 30% 92%;
+    --popover: 223 30% 18%;
+    --popover-foreground: 37 30% 92%;
+    --primary: 39 42% 58%;
+    --primary-foreground: 223 34% 12%;
+    --secondary: 223 26% 24%;
+    --secondary-foreground: 37 30% 92%;
+    --muted: 223 22% 24%;
+    --muted-foreground: 37 20% 72%;
+    --accent: 223 26% 24%;
+    --accent-foreground: 37 30% 92%;
+    --destructive: 0 62% 38%;
+    --destructive-foreground: 37 30% 96%;
+    --border: 223 22% 26%;
+    --input: 223 22% 26%;
+    --ring: 39 42% 58%;
     --radius: 0.75rem;
   }
 }
@@ -92,7 +96,7 @@
   }
 
   .dark .glass {
-    @apply bg-[#0E1729]/70 border-[#D1A955]/20;
+    @apply bg-[#1a2133]/70 border-[#c2a268]/20;
     box-shadow: 0 8px 32px 0 rgba(0,0,0,0.4);
   }
   
@@ -101,12 +105,12 @@
   }
 
   .magical-text {
-    @apply text-transparent bg-clip-text bg-gradient-to-b from-[#F0C967] to-[#D1A955] font-bold;
+    @apply text-transparent bg-clip-text bg-gradient-to-b from-[#cdb083] to-[#c2a268] font-bold;
     filter: none;
   }
 
   .dark .magical-text {
-    @apply bg-gradient-to-b from-[#F0C967] to-[#D1A955];
+    @apply bg-gradient-to-b from-[#cdb083] to-[#c2a268];
     filter: none;
   }
 
@@ -130,8 +134,8 @@
   }
 
   @keyframes glow-pulse {
-    0%, 100% { filter: drop-shadow(0 0 20px rgba(209, 169, 85, 0.4)); }
-    50% { filter: drop-shadow(0 0 40px rgba(209, 169, 85, 0.8)); }
+    0%, 100% { filter: drop-shadow(0 0 20px rgba(194, 162, 104, 0.4)); }
+    50% { filter: drop-shadow(0 0 40px rgba(194, 162, 104, 0.8)); }
   }
 
   .animate-twinkle {

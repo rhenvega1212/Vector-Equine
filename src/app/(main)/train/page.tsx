@@ -83,6 +83,11 @@ export default async function TrainDashboardPage() {
           <p className="text-muted-foreground">Your performance command center</p>
         </div>
         <div className="flex gap-2">
+          <Link href="/annotate">
+            <Button variant="outline" className="font-semibold">
+              Annotation engine
+            </Button>
+          </Link>
           <Link href="/train/sessions/new">
             <Button className="bg-gold text-navy font-semibold hover:bg-gold/90">
               Log session

@@ -67,12 +67,12 @@ export const viewport: Viewport = {
 
 const criticalStyles = `
   :root {
-    --background: 33 79% 95%;
+    --background: 37 30% 92%;
     --foreground: 223 32% 15%;
-    --muted: 33 24% 90%;
-    --muted-foreground: 223 12% 42%;
-    --primary: 41 57% 58%;
-    --border: 33 22% 86%;
+    --muted: 37 24% 90%;
+    --muted-foreground: 223 16% 42%;
+    --primary: 39 42% 58%;
+    --border: 38 24% 84%;
     --radius: 0.75rem;
   }
   html { -webkit-text-size-adjust: 100%; }
