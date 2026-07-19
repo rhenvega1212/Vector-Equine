@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vector — Product Section Prototype</title>
+<style>
+  :root{
+    --navy:#0E1729; --navy-2:#131C31; --navy-3:#1A2440;
+    --cream:#FCF2E6; --cream-dim:#B8B0A4;
+    --gold:#D1A955; --gold-bright:#F0C967;
+    --good:#7FB08A; --watch:#C98A5A;
+    --line:rgba(209,169,85,.18);
+    --serif:Georgia,"Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{background:#080D18;color:var(--cream);font-family:var(--sans);min-height:100%;}
+  body{display:flex;flex-direction:column;align-items:center;padding:26px 12px 48px;}
+
+  /* ---------- desktop chrome ---------- */
+  .chrome-top{display:flex;flex-direction:column;align-items:center;gap:14px;margin-bottom:20px;text-align:center;max-width:520px;}
+  .wordmark{display:flex;align-items:center;gap:10px;}
+  .wordmark .dia{color:var(--gold);font-size:14px;}
+  .wordmark h1{font-family:var(--serif);letter-spacing:.30em;font-size:22px;font-weight:400;color:var(--cream);padding-left:.30em;}
+  .eyebrow{font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:var(--cream-dim);}
+
+  .switcher{display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:4px;}
+  .seg{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--navy-2);}
+  .seg button{background:transparent;border:none;color:var(--cream-dim);font-family:var(--sans);
+    font-size:11px;letter-spacing:.20em;text-transform:uppercase;padding:12px 22px;cursor:pointer;min-height:44px;transition:all .15s ease;}
+  .seg button.active{background:var(--gold);color:var(--navy);font-weight:600;}
+  .seg button:not(.active):hover{color:var(--cream);background:var(--navy-3);}
+  .switch-desc{font-size:12.5px;color:var(--cream-dim);max-width:420px;line-height:1.5;}
+  .switch-desc b{color:var(--gold);font-weight:600;}
+
+  /* ---------- phone ---------- */
+  .phone{width:390px;height:844px;background:var(--navy);border-radius:44px;
+    border:1px solid rgba(209,169,85,.14);box-shadow:0 0 0 10px #0b0f1c,0 24px 60px rgba(0,0,0,.6);
+    position:relative;overflow:hidden;display:flex;flex-direction:column;}
+  .statusbar{height:44px;flex:0 0 44px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 26px;font-size:14px;font-weight:600;color:var(--cream);position:relative;z-index:30;}
+  .statusbar .time{font-family:var(--serif);letter-spacing:.02em;}
+  .statusbar .glyphs{display:flex;align-items:center;gap:6px;}
+  .statusbar svg{display:block;}
+
+  .viewport{flex:1;position:relative;overflow:hidden;}
+  .screen{position:absolute;inset:0;overflow-y:auto;padding:8px 20px 96px;opacity:0;
+    pointer-events:none;transition:opacity .15s ease;-webkit-overflow-scrolling:touch;}
+  .screen.active{opacity:1;pointer-events:auto;}
+  .screen::-webkit-scrollbar{width:0;}
+
+  .home-indicator{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+    width:134px;height:5px;border-radius:3px;background:rgba(252,242,230,.5);z-index:30;}
+
+  /* ---------- bottom nav ---------- */
+  .bottomnav{position:absolute;left:0;right:0;bottom:0;height:82px;background:rgba(14,23,41,.94);
+    backdrop-filter:blur(8px);border-top:1px solid var(--line);display:flex;align-items:flex-start;
+    justify-content:space-around;padding:12px 14px 0;z-index:25;}
+  .navitem{background:none;border:none;color:var(--cream-dim);display:flex;flex-direction:column;
+    align-items:center;gap:5px;cursor:pointer;font-family:var(--sans);min-width:56px;min-height:44px;
+    font-size:10px;letter-spacing:.16em;text-transform:uppercase;transition:color .15s;padding-top:2px;}
+  .navitem svg{stroke:var(--cream-dim);transition:stroke .15s;}
+  .navitem.active{color:var(--gold);}
+  .navitem.active svg{stroke:var(--gold);}
+  .navitem:hover{color:var(--cream);}
+  .navitem.center{position:relative;top:-14px;}
+  .navitem.center .ring{width:56px;height:56px;border-radius:50%;background:var(--gold);
+    display:flex;align-items:center;justify-content:center;color:var(--navy);
+    box-shadow:0 6px 16px rgba(0,0,0,.4);transition:background .15s;}
+  .navitem.center:hover .ring{background:var(--gold-bright);}
+  .navitem.center .ring svg{stroke:var(--navy);}
+  .navitem.center span{color:var(--gold);}
+
+  /* ---------- shared UI atoms ---------- */
+  .scr-eyebrow{font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:var(--gold);margin:14px 0 8px;}
+  .scr-title{font-family:var(--serif);font-size:27px;font-weight:400;line-height:1.15;color:var(--cream);}
+  .scr-sub{color:var(--cream-dim);font-size:13.5px;margin-top:6px;line-height:1.5;}
+  .goldital{font-family:var(--serif);font-style:italic;color:var(--gold);font-size:15.5px;line-height:1.4;}
+  .diamond{text-align:center;color:var(--gold);font-size:12px;margin:22px 0;opacity:.85;letter-spacing:.4em;}
+  .card{background:var(--navy-2);border:1px solid var(--line);border-radius:18px;padding:18px;margin-top:14px;}
+  .label{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cream-dim);}
+  .archnote{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--cream-dim);
+    opacity:.65;margin-top:16px;text-align:center;}
+
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:52px;
+    border-radius:14px;border:none;cursor:pointer;font-family:var(--sans);font-size:14px;font-weight:600;
+    letter-spacing:.02em;transition:all .15s;}
+  .btn-gold{background:var(--gold);color:var(--navy);}
+  .btn-gold:hover{background:var(--gold-bright);}
+  .btn-gold:active{transform:translateY(1px);}
+  .btn-ghost{background:transparent;color:var(--cream);border:1px solid var(--line);}
+  .btn-ghost:hover{background:var(--navy-3);}
+  .btn-ghost:active{transform:translateY(1px);}
+
+  .horsechip{display:flex;align-items:center;gap:12px;background:var(--navy-2);border:1px solid var(--line);
+    border-radius:14px;padding:12px 14px;cursor:pointer;transition:background .15s;min-height:44px;}
+  .horsechip:hover{background:var(--navy-3);}
+  .mono{width:40px;height:40px;flex:0 0 40px;border-radius:50%;border:1.5px solid var(--gold);
+    display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:19px;color:var(--gold);}
+  .mono.lg{width:60px;height:60px;flex:0 0 60px;font-size:28px;border-width:2px;}
+  .chev{margin-left:auto;color:var(--cream-dim);}
+
+  .tiles{display:flex;gap:12px;margin-top:14px;}
+  .tile{flex:1;background:var(--navy-2);border:1px solid var(--line);border-radius:16px;padding:14px;}
+  .tile .num{font-family:var(--serif);font-size:26px;color:var(--gold);}
+  .tile .cap{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--cream-dim);margin-top:4px;}
+
+  .row-link{display:flex;align-items:center;gap:12px;background:var(--navy-2);border:1px solid var(--line);
+    border-radius:14px;padding:14px;margin-top:12px;cursor:pointer;transition:background .15s;min-height:44px;}
+  .row-link:hover{background:var(--navy-3);}
+  .row-link .r-t{font-size:13.5px;color:var(--cream);}
+  .row-link .r-s{font-size:11.5px;color:var(--cream-dim);margin-top:3px;line-height:1.4;}
+
+  /* ---------- chat / Plan ---------- */
+  .bubble{max-width:82%;padding:14px 16px;border-radius:18px;font-size:14px;line-height:1.5;margin-top:14px;}
+  .b-rider{margin-left:auto;background:var(--navy-3);border:1px solid var(--line);border-bottom-right-radius:5px;color:var(--cream);}
+  .b-vector{margin-right:auto;background:var(--navy-2);border:1px solid var(--line);border-bottom-left-radius:5px;}
+  .b-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .b-head .av{color:var(--gold);font-size:12px;}
+  .b-head .nm{font-size:10.5px;letter-spacing:.20em;text-transform:uppercase;color:var(--gold);}
+  .mic-inline{color:var(--cream-dim);vertical-align:middle;}
+  .ex-list{list-style:none;counter-reset:ex;margin-top:6px;}
+  .ex-list li{counter-increment:ex;position:relative;padding:9px 0 9px 30px;border-bottom:1px solid var(--line);}
+  .ex-list li:last-child{border-bottom:none;}
+  .ex-list li::before{content:counter(ex);position:absolute;left:0;top:9px;width:20px;height:20px;
+    border-radius:50%;border:1px solid var(--gold);color:var(--gold);font-size:11px;
+    display:flex;align-items:center;justify-content:center;font-family:var(--serif);}
+  .ex-list .en{color:var(--cream);font-size:13.5px;}
+  .ex-list .ew{color:var(--cream-dim);font-size:12px;margin-top:2px;line-height:1.4;}
+  .arena-wrap{margin-top:14px;background:var(--navy);border:1px solid var(--line);border-radius:12px;padding:12px;}
+  .withtrainer{font-family:var(--serif);font-style:italic;color:var(--gold);font-size:13.5px;margin-top:14px;line-height:1.4;}
+  .micbar{display:flex;align-items:center;gap:12px;background:var(--navy-3);border:1px solid var(--line);
+    border-radius:999px;padding:12px 18px;margin-top:16px;color:var(--cream-dim);font-size:12.5px;}
+  .micbar .pulse-mic{width:34px;height:34px;border-radius:50%;background:var(--gold);color:var(--navy);
+    display:flex;align-items:center;justify-content:center;flex:0 0 34px;}
+  .sticky-actions{position:sticky;bottom:0;background:linear-gradient(to top,var(--navy) 68%,transparent);
+    padding:16px 0 8px;margin-top:18px;display:flex;flex-direction:column;gap:10px;}
+
+  /* ---------- Live Ride ---------- */
+  .live-strip{display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-bottom:12px;border-bottom:1px solid var(--line);}
+  .live-dot{display:flex;align-items:center;gap:8px;}
+  .live-dot .d{width:9px;height:9px;border-radius:50%;background:var(--gold-bright);animation:blink 1.4s infinite ease-in-out;}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:.25;}}
+  .live-dot .t{font-size:11px;letter-spacing:.24em;color:var(--gold-bright);}
+  .live-mid{font-family:var(--serif);font-size:16px;color:var(--cream);}
+  .live-timer{font-family:var(--serif);font-size:17px;color:var(--gold);letter-spacing:.04em;}
+  .live-sub{color:var(--cream-dim);font-size:12.5px;margin-top:8px;}
+
+  .cue{display:flex;align-items:center;gap:12px;background:var(--navy-2);border:1px solid var(--line);
+    border-radius:16px;padding:16px;margin-top:14px;min-height:70px;}
+  .cue .spk{color:var(--gold);flex:0 0 auto;}
+  .cue .ct{font-family:var(--serif);font-size:16.5px;line-height:1.35;transition:opacity .5s ease,color .5s ease;color:var(--cream);}
+  .cue.good{border-color:rgba(127,176,138,.5);}
+  .cue.good .ct{color:var(--good);}
+  .cue.good .spk{color:var(--good);}
+
+  .meters{display:flex;justify-content:space-between;gap:6px;margin-top:18px;}
+  .meter{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;}
+  .track{position:relative;width:100%;max-width:34px;height:150px;background:var(--navy-3);
+    border-radius:8px;overflow:hidden;border:1px solid var(--line);}
+  .band{position:absolute;left:0;right:0;background:rgba(209,169,85,.16);border-top:1px solid var(--gold);
+    border-bottom:1px solid var(--gold);z-index:1;}
+  .fill{position:absolute;left:0;right:0;bottom:0;background:var(--gold);z-index:2;transition:background .3s;}
+  .meter.inband .fill{background:var(--good);}
+  .mlabel{font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--cream-dim);text-align:center;line-height:1.2;}
+  .mcheck{height:14px;font-size:11px;color:var(--good);}
+  .tdot{width:6px;height:6px;border-radius:50%;background:var(--gold);opacity:.5;animation:tpulse 1.1s infinite;}
+  .meter.inband .tdot{background:var(--good);}
+  @keyframes tpulse{0%,100%{opacity:.25;transform:scale(.8);}50%{opacity:1;transform:scale(1.2);}}
+  .cap-live{text-align:center;font-size:11.5px;color:var(--cream-dim);margin-top:12px;letter-spacing:.02em;}
+
+  .response{margin-top:20px;background:var(--navy-2);border:1px solid var(--line);border-radius:16px;padding:16px;}
+  .response .rl{font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:12px;}
+  .htrack{position:relative;height:26px;background:var(--navy-3);border-radius:8px;overflow:hidden;border:1px solid var(--line);}
+  .hband{position:absolute;top:0;bottom:0;background:rgba(127,176,138,.18);border-left:1px solid var(--good);border-right:1px solid var(--good);}
+  .hfill{position:absolute;top:2px;bottom:2px;width:14px;border-radius:6px;background:var(--good);transition:left .2s linear;}
+  .htick{display:flex;align-items:center;gap:8px;margin-top:10px;color:var(--good);font-size:12.5px;}
+  .response .rline{color:var(--cream-dim);font-size:12.5px;margin-top:6px;line-height:1.4;}
+
+  .live-actions{display:flex;gap:10px;margin-top:20px;}
+
+  /* headset overlay */
+  .headset{position:absolute;inset:0;background:radial-gradient(ellipse at center,#0a1120 0%,#05080f 100%);
+    z-index:40;display:none;flex-direction:column;padding:0;}
+  .headset.on{display:flex;}
+  .hs-inner{flex:1;position:relative;}
+  .hs-cue{position:absolute;top:60px;left:0;right:0;text-align:center;font-family:var(--serif);
+    font-size:19px;color:var(--gold-bright);padding:0 40px;line-height:1.35;transition:opacity .5s;}
+  .hs-bars{position:absolute;bottom:80px;left:24px;display:flex;gap:14px;}
+  .hs-bar{width:26px;height:110px;background:rgba(26,36,64,.6);border:1px solid var(--line);
+    border-radius:7px;position:relative;overflow:hidden;}
+  .hs-bar .hb-band{position:absolute;left:0;right:0;background:rgba(209,169,85,.18);
+    border-top:1px solid var(--gold);border-bottom:1px solid var(--gold);}
+  .hs-bar .hb-fill{position:absolute;left:0;right:0;bottom:0;background:var(--gold);}
+  .hs-bar.good .hb-fill{background:var(--good);}
+  .hs-lab{position:absolute;bottom:56px;font-size:8px;letter-spacing:.1em;color:var(--cream-dim);width:26px;text-align:center;}
+  .hs-cap{position:absolute;bottom:34px;right:24px;font-size:10.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--cream-dim);opacity:.7;}
+  .hs-close{position:absolute;top:20px;right:20px;z-index:5;background:rgba(26,36,64,.7);
+    border:1px solid var(--line);color:var(--cream);border-radius:999px;padding:8px 16px;
+    font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;min-height:44px;}
+  .hs-close:hover{background:var(--navy-3);}
+
+  /* ---------- Debrief ---------- */
+  .score-hero{text-align:center;padding:18px 0 8px;}
+  .score-hero .big{font-family:var(--serif);font-size:64px;color:var(--gold-bright);line-height:1;}
+  .score-hero .exl{font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--cream-dim);margin-top:8px;}
+  .score-hero .rng{font-size:12.5px;color:var(--cream-dim);margin-top:6px;}
+  .video-block{position:relative;height:180px;border-radius:14px;margin-top:6px;overflow:hidden;
+    background:linear-gradient(160deg,#1a2440 0%,#0c1526 70%);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;}
+  .play-tri{width:0;height:0;border-left:22px solid var(--cream);border-top:14px solid transparent;
+    border-bottom:14px solid transparent;opacity:.9;margin-left:6px;}
+  .play-circ{width:60px;height:60px;border-radius:50%;border:1.5px solid rgba(252,242,230,.5);
+    display:flex;align-items:center;justify-content:center;}
+  .scrubber{position:relative;height:6px;background:var(--navy-3);border-radius:4px;margin-top:14px;}
+  .scrubber .prog{position:absolute;left:0;top:0;bottom:0;width:34%;background:var(--gold);border-radius:4px;}
+  .marker{position:absolute;top:50%;transform:translate(-50%,-50%);width:12px;height:12px;border-radius:50%;
+    border:2px solid var(--navy);cursor:pointer;}
+  .marker.g{background:var(--good);}
+  .marker.w{background:var(--watch);}
+  .moment{display:flex;gap:12px;background:var(--navy-2);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px;}
+  .moment .stamp{font-family:var(--serif);color:var(--gold);font-size:14px;flex:0 0 auto;}
+  .moment .mt{font-size:13px;line-height:1.45;color:var(--cream);}
+  .tag{display:inline-block;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+    padding:2px 8px;border-radius:999px;margin-bottom:6px;}
+  .tag.good{color:var(--good);border:1px solid rgba(127,176,138,.5);}
+  .tag.watch{color:var(--watch);border:1px solid rgba(201,138,90,.5);}
+  .scale-row{display:flex;align-items:center;gap:12px;margin-top:12px;}
+  .scale-row .sn{font-size:12px;color:var(--cream-dim);width:96px;letter-spacing:.04em;}
+  .scale-bar{flex:1;height:6px;background:var(--navy-3);border-radius:4px;overflow:hidden;}
+  .scale-bar .sf{height:100%;background:var(--gold);border-radius:4px;}
+  .scale-row .sv{font-family:var(--serif);color:var(--gold);font-size:14px;width:20px;text-align:right;}
+  .para{font-size:13.5px;line-height:1.6;color:var(--cream);margin-top:8px;}
+  .homework{display:flex;gap:10px;background:var(--navy-3);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:14px;}
+  .homework .hw-l{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);flex:0 0 auto;}
+  .homework .hw-t{font-size:13px;line-height:1.5;color:var(--cream);}
+  .health-line{display:flex;align-items:center;gap:8px;color:var(--good);font-size:13px;margin-top:14px;}
+
+  /* ---------- Health / Predict ---------- */
+  .segbar{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:12px;}
+  .segbar .sg{flex:1;text-align:center;padding:12px 4px;font-size:10.5px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--cream-dim);}
+  .segbar .sg.on{background:var(--gold);color:var(--navy);font-weight:600;}
+  .trend-cap{display:flex;justify-content:space-between;align-items:center;margin-top:12px;}
+  .trend-cap .tl{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--cream-dim);}
+  .trend-cap .tv{font-size:12.5px;color:var(--good);}
+  .vetnote{font-family:var(--serif);font-style:italic;color:var(--gold);font-size:13px;margin-top:12px;line-height:1.45;}
+
+  .fore-card{background:var(--navy-2);border:1px solid var(--line);border-radius:16px;padding:16px;margin-top:14px;}
+  .fore-card .fl{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);}
+  .fore-card .ft{font-family:var(--serif);font-size:19px;color:var(--cream);margin-top:8px;line-height:1.3;}
+  .fore-card .fs{font-size:12.5px;color:var(--cream-dim);margin-top:8px;line-height:1.5;}
+
+  /* profile / history */
+  .hist{margin-top:14px;}
+  .hist-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);}
+  .hist-row:last-child{border-bottom:none;}
+  .hist-row .hd{font-family:var(--serif);color:var(--gold);font-size:13px;width:62px;flex:0 0 62px;}
+  .hist-row .hm{font-size:13px;color:var(--cream);flex:1;}
+  .hist-row .hf{font-family:var(--serif);color:var(--cream-dim);font-size:13px;}
+
+  /* horse-first selector */
+  .hf-selector{display:flex;align-items:center;gap:12px;padding:14px 4px 12px;border-bottom:1px solid var(--line);}
+  .hf-selector .hs-name{font-family:var(--serif);font-size:22px;color:var(--cream);cursor:pointer;display:flex;align-items:center;gap:6px;}
+  .hf-selector .hs-name .cv{color:var(--gold);font-size:14px;}
+  .subnav{display:flex;gap:6px;margin-top:14px;background:var(--navy-2);border:1px solid var(--line);border-radius:12px;padding:4px;}
+  .subnav button{flex:1;background:transparent;border:none;color:var(--cream-dim);font-family:var(--sans);
+    font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;padding:11px 2px;border-radius:9px;cursor:pointer;min-height:44px;transition:all .15s;}
+  .subnav button.on{background:var(--gold);color:var(--navy);font-weight:600;}
+  .subnav button:not(.on):hover{color:var(--cream);}
+
+  .foot{margin-top:22px;font-size:12px;letter-spacing:.16em;color:var(--cream-dim);opacity:.55;text-transform:uppercase;}
+  .flow-back{background:none;border:none;color:var(--cream-dim);font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;cursor:pointer;padding:12px 0 0;min-height:44px;display:flex;align-items:center;gap:6px;}
+  .flow-back:hover{color:var(--cream);}
+</style>
+</head>
+<body>
+
+  <div class="chrome-top">
+    <div class="wordmark"><span class="dia">◇</span><h1>VECTOR</h1></div>
+    <div class="eyebrow">Product Section — Prototype</div>
+    <div class="switcher">
+      <div class="seg">
+        <button id="segLoop" class="active" onclick="setArch('loop')">The Loop</button>
+        <button id="segHorse" onclick="setArch('horse')">Horse-first</button>
+      </div>
+      <div class="switch-desc" id="switchDesc"></div>
+    </div>
+  </div>
+
+  <div class="phone">
+    <div class="statusbar">
+      <span class="time">9:41</span>
+      <span class="glyphs">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#FCF2E6"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></g></svg>
+        <svg width="17" height="13" viewBox="0 0 17 13"><path d="M8.5 3.2c2.3 0 4.4.9 6 2.4l1.5-1.6C14 2 11.4 1 8.5 1S3 2 1 4l1.5 1.6c1.6-1.5 3.7-2.4 6-2.4z" fill="#FCF2E6"/><path d="M8.5 6.4c1.4 0 2.7.5 3.7 1.5l1.5-1.6C12.3 5 10.5 4.2 8.5 4.2S4.7 5 3.3 6.3l1.5 1.6c1-1 2.3-1.5 3.7-1.5z" fill="#FCF2E6"/><circle cx="8.5" cy="10.5" r="1.8" fill="#FCF2E6"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13"><rect x="0.5" y="0.5" width="22" height="12" rx="3" fill="none" stroke="#FCF2E6" opacity="0.5"/><rect x="2" y="2" width="17" height="9" rx="1.5" fill="#FCF2E6"/><rect x="23.5" y="4" width="2" height="5" rx="1" fill="#FCF2E6" opacity="0.5"/></svg>
+      </span>
+    </div>
+
+    <div class="viewport" id="viewport"></div>
+
+    <div class="bottomnav" id="bottomnav"></div>
+    <div class="home-indicator"></div>
+
+    <!-- Headset overlay (lives above everything on live ride) -->
+    <div class="headset" id="headset">
+      <button class="hs-close" onclick="toggleHeadset(false)">Exit glasses</button>
+      <div class="hs-inner">
+        <div class="hs-cue" id="hsCue">Sit more on your right seatbone.</div>
+        <div class="hs-bars">
+          <div class="hs-bar" id="hsBar0"><div class="hb-band" id="hsBand0"></div><div class="hb-fill" id="hsFill0"></div></div>
+          <div class="hs-bar" id="hsBar1"><div class="hb-band" id="hsBand1"></div><div class="hb-fill" id="hsFill1"></div></div>
+        </div>
+        <div class="hs-lab" style="left:24px;">R SEAT</div>
+        <div class="hs-lab" style="left:64px;">R REIN</div>
+        <div class="hs-cap">What you see through the glasses</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">You ride. Vector assists.</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   STATE
+============================================================ */
+var arch = 'loop';         // 'loop' | 'horse'
+var currentScreen = '';    // id of active screen
+var hfSub = 'overview';    // horse-first sub tab
+
+/* live ride runtime handles (must be cleared on leave) */
+var rideRAF = null;
+var rideTimerInt = null;
+var cueInt = null;
+var responseInt = null;
+var rideSeconds = 0;
+
+/* ============================================================
+   DATA
+============================================================ */
+var EXERCISES = [
+  {n:"Collect on a 10 m circle", w:"Ask him to carry more behind before you add bend."},
+  {n:"Spiral accordion", w:"Grow and shrink the circle to load the inside hind."},
+  {n:"Quarter pirouettes on a square", w:"Four small turns — teach the sit one corner at a time."},
+  {n:"Triangle to X", w:"Straighten, collect, turn — rehearse the real thing in pieces."}
+];
+
+var CUES = [
+  {t:"Sit more on your right seatbone.", good:false},
+  {t:"Lengthen your left leg from the hip.", good:false},
+  {t:"Soften the right rein — let him turn.", good:false},
+  {t:"There — hold that. That's the sit.", good:true}
+];
+
+/* six aid meters. target is fraction of track height (0..1) for center of fill.
+   band is [low,high] fraction. rSeat kept below its band. */
+var METERS = [
+  {lab:"L SEAT", band:[.45,.68], target:.58},
+  {lab:"R SEAT", band:[.55,.78], target:.34},   // biased LOW, below band
+  {lab:"L LEG",  band:[.40,.63], target:.52},
+  {lab:"R LEG",  band:[.42,.65], target:.55},
+  {lab:"L REIN", band:[.35,.58], target:.47},
+  {lab:"R REIN", band:[.48,.70], target:.60}
+];
+
+var HISTORY = [
+  {d:"Jul 12", m:"Canter pirouettes", f:"6.5"},
+  {d:"Jul 09", m:"Collected trot work", f:"7.2"},
+  {d:"Jul 06", m:"Half-pass, both reins", f:"6.8"},
+  {d:"Jul 02", m:"Canter transitions", f:"7.0"}
+];
+
+var SCALE = [
+  {n:"Rhythm",v:7},{n:"Relaxation",v:6},{n:"Connection",v:6},
+  {n:"Impulsion",v:7},{n:"Straightness",v:6},{n:"Collection",v:6}
+];
+
+/* ============================================================
+   SVG SNIPPETS
+============================================================ */
+function micGlyph(){return '<svg class="mic-inline" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#B8B0A4" stroke-width="1.3"><rect x="4.5" y="1" width="5" height="8" rx="2.5"/><path d="M2.5 6.5a4.5 4.5 0 0 0 9 0M7 11v2"/></svg>';}
+function spkGlyph(c){c=c||'#D1A955';return '<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="'+c+'" stroke-width="1.3"><path d="M3 8v6h3l4 3V5L6 8H3z"/><path d="M13 8a3 3 0 0 1 0 6M15.5 6a6 6 0 0 1 0 10"/></svg>';}
+function chevGlyph(){return '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 4l4 4-4 4"/></svg>';}
+
+function arenaSVG(){
+  return '<svg width="100%" height="120" viewBox="0 0 260 120" preserveAspectRatio="xMidYMid meet">'+
+    '<rect x="6" y="6" width="248" height="108" rx="10" fill="none" stroke="#D1A955" stroke-opacity="0.5" stroke-width="1"/>'+
+    '<line x1="130" y1="6" x2="130" y2="114" stroke="#D1A955" stroke-opacity="0.18" stroke-width="1" stroke-dasharray="3 4"/>'+
+    '<line x1="6" y1="60" x2="254" y2="60" stroke="#D1A955" stroke-opacity="0.18" stroke-width="1" stroke-dasharray="3 4"/>'+
+    /* square */
+    '<rect x="150" y="34" width="52" height="52" fill="none" stroke="#D1A955" stroke-opacity="0.8" stroke-width="1.2"/>'+
+    /* quarter turn arrows at square corners */
+    '<path d="M150 42 A8 8 0 0 1 158 34" fill="none" stroke="#D1A955" stroke-width="1.2"/>'+
+    '<path d="M156 34 l3 -2 M158 34 l-2 3" stroke="#D1A955" stroke-width="1.2"/>'+
+    '<path d="M202 78 A8 8 0 0 1 194 86" fill="none" stroke="#D1A955" stroke-width="1.2"/>'+
+    '<path d="M196 86 l-3 2 M194 86 l2 -3" stroke="#D1A955" stroke-width="1.2"/>'+
+    /* X marker */
+    '<text x="72" y="65" fill="#B8B0A4" font-family="Georgia,serif" font-size="13">X</text>'+
+    '<line x1="60" y1="60" x2="84" y2="60" stroke="#D1A955" stroke-opacity="0.35" stroke-width="1"/>'+
+    '</svg>';
+}
+
+function recoveryTrendSVG(){
+  return '<svg width="100%" height="72" viewBox="0 0 260 72" preserveAspectRatio="none">'+
+    '<polyline points="6,58 46,54 86,50 126,42 166,40 206,30 250,22" fill="none" stroke="#7FB08A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'+
+    '<circle cx="250" cy="22" r="3" fill="#7FB08A"/></svg>';
+}
+function symmetryTrendSVG(){
+  return '<svg width="100%" height="72" viewBox="0 0 260 72" preserveAspectRatio="none">'+
+    '<polyline points="6,40 46,38 86,41 126,39 166,40 206,38 250,40" fill="none" stroke="#7FB08A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'+
+    '<circle cx="250" cy="40" r="3" fill="#7FB08A"/></svg>';
+}
+
+/* ============================================================
+   SCREEN BUILDERS (return HTML strings)
+============================================================ */
+
+/* --- TODAY (Loop home) --- */
+function scrToday(){
+  return '<div class="screen" id="scr-today">'+
+    '<div class="scr-eyebrow">Vector</div>'+
+    '<div class="scr-title">Welcome back, Rhen.</div>'+
+    '<div class="scr-sub">One thing at a time. Here’s today.</div>'+
+
+    '<div class="horsechip" style="margin-top:16px;" onclick="goTo(\'horseprofile\')">'+
+      '<div class="mono">D</div>'+
+      '<div><div style="font-size:14px;color:var(--cream);">Dean</div>'+
+      '<div class="label" style="margin-top:3px;">PSG · Hanoverian</div></div>'+
+      '<span class="chev">'+chevGlyph()+'</span></div>'+
+
+    '<div class="card" style="border-color:rgba(209,169,85,.35);">'+
+      '<div class="label" style="color:var(--gold);">Today’s focus</div>'+
+      '<div class="scr-title" style="font-size:23px;margin-top:8px;">Canter pirouettes</div>'+
+      '<div class="goldital" style="margin-top:8px;">He doesn’t sit — and he spins out.</div>'+
+      '<button class="btn btn-gold" style="margin-top:16px;" onclick="startRideFlow()">Start ride</button>'+
+    '</div>'+
+
+    '<div class="tiles">'+
+      '<div class="tile"><div class="num">82%</div><div class="cap">Aid consistency</div></div>'+
+      '<div class="tile"><div class="num">6</div><div class="cap">Day streak</div></div>'+
+    '</div>'+
+
+    '<div class="row-link" onclick="goTo(\'horse-health\')">'+
+      '<div class="mono" style="border-color:var(--good);color:var(--good);">✓</div>'+
+      '<div><div class="r-t">Dean’s load this week — balanced</div>'+
+      '<div class="r-s">Recovery trending up. Tap for the health room.</div></div>'+
+      '<span class="chev">'+chevGlyph()+'</span></div>'+
+
+    '<div class="row-link" onclick="goTo(\'plan\')">'+
+      '<div class="mono">◇</div>'+
+      '<div><div class="r-t">Vector noticed something</div>'+
+      '<div class="r-s">Your right seatbone released a beat late in 3 of your last 5 canter transitions.</div></div>'+
+      '<span class="chev">'+chevGlyph()+'</span></div>'+
+
+    '<div class="row-link" onclick="goTo(\'debrief\')">'+
+      '<div class="mono" style="border-color:var(--line);color:var(--gold);">6.5</div>'+
+      '<div><div class="r-t">Last ride · Half-pirouette, right</div>'+
+      '<div class="r-s">Jul 12 · 41 min — open the debrief.</div></div>'+
+      '<span class="chev">'+chevGlyph()+'</span></div>'+
+
+    '<div class="archnote">Viewing: The Loop — action-first home</div>'+
+  '</div>';
+}
+
+/* --- HORSE (Loop combined room) --- */
+function scrHorseCombined(){
+  return '<div class="screen" id="scr-horse">'+
+    '<div class="scr-eyebrow">The horse</div>'+
+    '<div class="scr-title">Dean, over time.</div>'+
+    '<div class="goldital" style="margin-top:8px;">Everything he’s telling us — in one place.</div>'+
+
+    profileBlock(false)+
+    '<div class="diamond">◇</div>'+
+    healthBlock(false)+
+    '<div class="diamond">◇</div>'+
+    predictBlock(false)+
+
+    '<div class="archnote">Viewing: The Loop — horse, health &amp; forecast in one room</div>'+
+  '</div>';
+}
+
+/* --- HORSE-FIRST home shell --- */
+function scrHorseFirst(){
+  return '<div class="screen" id="scr-hf">'+
+    '<div class="hf-selector">'+
+      '<div class="mono lg">D</div>'+
+      '<div><div class="hs-name">Dean <span class="cv">▾</span></div>'+
+      '<div class="label" style="margin-top:4px;">18 · Hanoverian gelding · PSG</div></div>'+
+    '</div>'+
+    '<div class="subnav" id="hfSubnav">'+
+      subBtn('overview','Overview')+subBtn('ride','Ride')+subBtn('health','Health')+subBtn('predict','Predict')+
+    '</div>'+
+    '<div id="hfBody"></div>'+
+    '<div class="archnote">Viewing: Horse-first — you’re inside Dean’s world</div>'+
+  '</div>';
+}
+function subBtn(id,lab){return '<button class="'+(hfSub===id?'on':'')+'" onclick="setHfSub(\''+id+'\')">'+lab+'</button>';}
+
+function hfOverviewBody(){
+  return profileBlock(true)+
+    '<div class="card" style="border-color:rgba(209,169,85,.35);">'+
+      '<div class="label" style="color:var(--gold);">Today’s focus</div>'+
+      '<div class="scr-title" style="font-size:21px;margin-top:8px;">Canter pirouettes</div>'+
+      '<div class="goldital" style="margin-top:8px;">He doesn’t sit — and he spins out.</div>'+
+      '<button class="btn btn-gold" style="margin-top:16px;" onclick="startRideFlow()">Start ride</button>'+
+    '</div>'+
+    historyBlock('Recent history');
+}
+function hfRideBody(){
+  return '<div class="card">'+
+      '<div class="label" style="color:var(--gold);">Ride</div>'+
+      '<div class="scr-title" style="font-size:20px;margin-top:8px;">Plan &amp; ride with Dean</div>'+
+      '<div class="scr-sub">Talk it through with Vector, then ride it live.</div>'+
+      '<button class="btn btn-ghost" style="margin-top:14px;" onclick="goTo(\'plan\')">Plan today’s ride</button>'+
+      '<button class="btn btn-gold" style="margin-top:10px;" onclick="startRideFlow()">Start ride</button>'+
+    '</div>'+
+    '<div class="withtrainer">Bring it to your next lesson too — Vector works alongside your trainer.</div>'+
+    historyBlock('Ride history');
+}
+
+/* ============================================================
+   REUSABLE CONTENT BLOCKS (used in both archs)
+============================================================ */
+function profileBlock(compact){
+  return '<div class="card">'+
+    '<div style="display:flex;align-items:center;gap:14px;">'+
+      '<div class="mono lg">D</div>'+
+      '<div><div class="scr-title" style="font-size:21px;">Dean</div>'+
+      '<div class="label" style="margin-top:5px;">18 · Hanoverian gelding · PSG</div></div>'+
+    '</div>'+
+    '<div class="scr-sub" style="margin-top:12px;">Bay. Schooling PSG this year — chasing clean canter pirouettes.</div>'+
+    (compact?'':historyBlock('Recent sessions'))+
+  '</div>';
+}
+function historyBlock(title){
+  var rows='';
+  for(var i=0;i<HISTORY.length;i++){var h=HISTORY[i];
+    rows+='<div class="hist-row"><div class="hd">'+h.d+'</div><div class="hm">'+h.m+'</div><div class="hf">'+h.f+'</div></div>';}
+  return '<div class="'+(title?'':'')+'" style="margin-top:14px;">'+
+    '<div class="label">'+title+'</div><div class="hist">'+rows+'</div></div>';
+}
+
+function healthBlock(header){
+  return (header?'<div class="scr-eyebrow">Health</div><div class="scr-title" style="font-size:23px;">Dean’s health room.</div><div class="goldital" style="margin-top:8px;">We watch so you can ride.</div>':'<div class="label" style="color:var(--gold);">Health</div>')+
+    '<div class="card">'+
+      '<div class="label">Training load · this week</div>'+
+      '<div class="segbar"><div class="sg">Recovery</div><div class="sg on">Balanced</div><div class="sg">Heavy</div></div>'+
+      '<div class="scr-sub" style="margin-top:12px;">Dean’s load this week — balanced. Recovery trending up.</div>'+
+    '</div>'+
+    '<div class="card">'+
+      '<div class="trend-cap"><span class="tl">Recovery</span><span class="tv">trending up ↗</span></div>'+
+      recoveryTrendSVG()+
+    '</div>'+
+    '<div class="card">'+
+      '<div class="trend-cap"><span class="tl">Symmetry</span><span class="tv">even &amp; steady ✓</span></div>'+
+      symmetryTrendSVG()+
+      '<div class="vetnote">If this ever drifts, we’ll flag it — worth a mention to your vet.</div>'+
+    '</div>';
+}
+
+function predictBlock(header){
+  return (header?'<div class="scr-eyebrow">Predict</div><div class="scr-title" style="font-size:23px;">What’s coming.</div><div class="goldital" style="margin-top:8px;">Ride toward it, not blind.</div>':'<div class="label" style="color:var(--gold);">What’s coming</div>')+
+    '<div class="fore-card"><div class="fl">Readiness</div>'+
+      '<div class="ft">Show-ready in ~3 weeks at this rate</div>'+
+      '<div class="fs">Your pirouette scores are climbing steadily. Keep the current rhythm and the PSG is in reach.</div></div>'+
+    '<div class="fore-card"><div class="fl">Forecast</div>'+
+      '<div class="ft">Next week may want a lighter day</div>'+
+      '<div class="fs">Load has crept up gently three sessions running. A softer school midweek keeps recovery on its upward line.</div></div>'+
+    '<div class="fore-card"><div class="fl">Pattern noticed</div>'+
+      '<div class="ft">Your right seatbone releases late early on</div>'+
+      '<div class="fs">It shows up most often in your first 10 minutes — warm it up first and the sit comes sooner.</div></div>';
+}
+
+/* --- Health full screen (deep, reached from Loop nudge / horse-first) --- */
+function scrHealth(){
+  return '<div class="screen" id="scr-horse-health">'+
+    flowBack()+
+    healthBlock(true)+
+    '<div class="archnote">Health is flagged, never diagnosed.</div>'+
+  '</div>';
+}
+function scrPredict(){
+  return '<div class="screen" id="scr-predict">'+
+    flowBack()+
+    predictBlock(true)+
+    '<div class="archnote">Forward-looking guidance — not medical advice.</div>'+
+  '</div>';
+}
+function scrHorseProfile(){
+  return '<div class="screen" id="scr-horseprofile">'+
+    flowBack()+
+    '<div class="scr-eyebrow">Horse</div>'+
+    '<div class="scr-title">Dean.</div>'+
+    '<div class="goldital" style="margin-top:8px;">Eighteen years of trying to be understood.</div>'+
+    profileBlock(false)+
+  '</div>';
+}
+
+/* --- PLAN (chat) --- */
+function scrPlan(){
+  var exli='';
+  for(var i=0;i<EXERCISES.length;i++){exli+='<li><span class="en">'+EXERCISES[i].n+'</span><div class="ew">'+EXERCISES[i].w+'</div></li>';}
+  return '<div class="screen" id="scr-plan">'+
+    flowBack()+
+    '<div class="scr-eyebrow">Plan</div>'+
+    '<div class="scr-title" style="font-size:22px;">Talk it through.</div>'+
+
+    '<div class="bubble b-rider">I’m with Dean. We’re chasing the PSG this year and the canter pirouettes are falling apart — he doesn’t sit and he spins out. Give me exercises to build it from the ground up, then score my half-pirouettes. '+micGlyph()+'</div>'+
+
+    '<div class="bubble b-vector">'+
+      '<div class="b-head"><span class="av">◇</span><span class="nm">Vector</span></div>'+
+      'Got it — Dean, PSG, pirouettes that spin out because he isn’t sitting. Let’s build the sit first, then test the turn:'+
+      '<ol class="ex-list">'+exli+'</ol>'+
+      '<div class="arena-wrap">'+arenaSVG()+'</div>'+
+      '<div class="withtrainer">Works alongside your trainer — bring these to your next lesson too.</div>'+
+    '</div>'+
+
+    '<div class="goldital" style="margin-top:16px;">Small pieces. Then the whole turn.</div>'+
+
+    '<div class="micbar"><span class="pulse-mic">'+micGlyph().replace('#B8B0A4','#0E1729')+'</span>Hold to talk to Vector</div>'+
+
+    '<div class="sticky-actions">'+
+      '<button class="btn btn-ghost" onclick="goTo(archHome())">Set as today’s plan</button>'+
+      '<button class="btn btn-gold" onclick="goTo(\'liveride\')">Start ride</button>'+
+    '</div>'+
+  '</div>';
+}
+
+/* --- LIVE RIDE --- */
+function scrLive(){
+  var mtrs='';
+  for(var i=0;i<METERS.length;i++){
+    mtrs+='<div class="meter" id="mtr'+i+'">'+
+      '<div class="track"><div class="band" id="band'+i+'"></div><div class="fill" id="fill'+i+'" style="height:20%;"></div></div>'+
+      '<div class="mcheck" id="chk'+i+'"></div>'+
+      '<div class="tdot"></div>'+
+      '<div class="mlabel">'+METERS[i].lab+'</div>'+
+    '</div>';
+  }
+  return '<div class="screen" id="scr-liveride">'+
+    '<div class="live-strip">'+
+      '<div class="live-dot"><span class="d"></span><span class="t">LIVE</span></div>'+
+      '<div class="live-mid">Collected canter</div>'+
+      '<div class="live-timer" id="liveTimer">00:00</div>'+
+    '</div>'+
+    '<div class="live-sub">Dean · Half-pirouette right</div>'+
+
+    '<div class="cue" id="cueBox"><span class="spk" id="cueSpk">'+spkGlyph()+'</span><span class="ct" id="cueText">Sit more on your right seatbone.</span></div>'+
+
+    '<div class="meters">'+mtrs+'</div>'+
+    '<div class="cap-live">Pressure · timing · release — read live.</div>'+
+
+    '<div class="response">'+
+      '<div class="rl">Dean’s response</div>'+
+      '<div class="htrack"><div class="hband" id="hband"></div><div class="hfill" id="hfill" style="left:30%;"></div></div>'+
+      '<div class="htick">'+chkGlyph()+'<span>Sitting</span></div>'+
+      '<div class="rline">He’s answering the outside rein.</div>'+
+    '</div>'+
+
+    '<div class="goldital" style="margin-top:18px;text-align:center;">This is the conversation — in real time.</div>'+
+
+    '<div class="live-actions">'+
+      '<button class="btn btn-ghost" onclick="toggleHeadset(true)">Headset view</button>'+
+      '<button class="btn btn-gold" onclick="goTo(\'debrief\')">End ride</button>'+
+    '</div>'+
+  '</div>';
+}
+function chkGlyph(){return '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#7FB08A" stroke-width="1.6"><path d="M3 8.5l3 3 7-8"/></svg>';}
+
+/* --- DEBRIEF --- */
+function scrDebrief(){
+  var moments=[
+    {c:'w',stamp:'0:04',tag:'Watch',t:'Right seatbone released 0.4s late on entry — that’s the drift out.'},
+    {c:'g',stamp:'0:11',tag:'Good',t:'Left leg held steady through the turn — that’s the sit.'},
+    {c:'w',stamp:'0:19',tag:'Watch',t:'Right rein got heavy — he lost the jump for a stride.'}
+  ];
+  var mHTML='';
+  for(var i=0;i<moments.length;i++){var m=moments[i];
+    mHTML+='<div class="moment"><div class="stamp">'+m.stamp+'</div><div><span class="tag '+(m.c==='g'?'good':'watch')+'">'+m.tag+'</span><div class="mt">'+m.t+'</div></div></div>';}
+  var sc='';
+  for(var j=0;j<SCALE.length;j++){var s=SCALE[j];
+    sc+='<div class="scale-row"><span class="sn">'+s.n+'</span><span class="scale-bar"><span class="sf" style="width:'+(s.v*10)+'%;"></span></span><span class="sv">'+s.v+'</span></div>';}
+  return '<div class="screen" id="scr-debrief">'+
+    flowBack()+
+    '<div class="scr-eyebrow">Debrief</div>'+
+    '<div class="scr-title">Half-pirouette, right.</div>'+
+    '<div class="scr-sub">Dean · today · 41 min ride</div>'+
+
+    '<div class="score-hero"><div class="big">6.5</div><div class="exl">Execution</div>'+
+      '<div class="rng">suggested range 6.0–7.0</div>'+
+      '<div class="goldital" style="margin-top:12px;">Closer than it felt.</div></div>'+
+
+    '<div class="diamond">◇</div>'+
+    '<div class="label" style="color:var(--gold);">Your ride, decoded</div>'+
+    '<div class="video-block"><div class="play-circ"><div class="play-tri"></div></div></div>'+
+    '<div class="scrubber"><div class="prog"></div>'+
+      '<div class="marker w" style="left:8%;"></div>'+
+      '<div class="marker g" style="left:26%;"></div>'+
+      '<div class="marker w" style="left:47%;"></div>'+
+      '<div class="marker g" style="left:74%;"></div>'+
+    '</div>'+
+    mHTML+
+
+    '<div class="diamond">◇</div>'+
+    '<div class="label" style="color:var(--gold);">Training scale</div>'+
+    '<div class="card">'+sc+'<div class="scr-sub" style="margin-top:12px;">Suggested from your ride — adjust anytime.</div></div>'+
+
+    '<div class="card"><div class="label">Session summary</div>'+
+      '<div class="para">The sit is coming. Your left leg was your anchor today — steady and quiet through every turn. The pattern to chase is the right seatbone: it let go a fraction early on entries, and that’s where Dean drifted out. When you held it, he sat and answered.</div></div>'+
+
+    '<div class="homework"><span class="hw-l">Homework</span><span class="hw-t">Ride quarter pirouettes on a square, focusing only on keeping the right seatbone until the turn finishes. Three each rein.</span></div>'+
+
+    '<div class="health-line">'+chkGlyph()+'<span>Trunk symmetry looked even today.</span></div>'+
+
+    '<div style="margin-top:20px;display:flex;flex-direction:column;gap:10px;">'+
+      '<button class="btn btn-ghost" onclick="goTo(archHome())">Save to journal</button>'+
+      '<button class="btn btn-gold" onclick="goTo(\'plan\')">Ask Vector about this ride</button>'+
+    '</div>'+
+  '</div>';
+}
+
+function flowBack(){return '<button class="flow-back" onclick="goTo(archHome())">‹ Back</button>';}
+
+/* ============================================================
+   NAV BARS
+============================================================ */
+function iconToday(){return '<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#B8B0A4" stroke-width="1.4"><rect x="3" y="4" width="16" height="15" rx="2"/><path d="M3 8h16M7 2v3M15 2v3"/></svg>';}
+function iconHorse(){return '<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#B8B0A4" stroke-width="1.4"><path d="M5 18c0-4 2-7 5-8l1-4 3 2 3-1-1 3c1 1 1 3 0 5-1 2-1 3-1 4"/><path d="M8 10l-3-1"/></svg>';}
+function iconStart(){return '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0E1729" stroke-width="1.8"><path d="M8 5l11 7-11 7z" fill="#0E1729"/></svg>';}
+function iconProfile(){return '<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#B8B0A4" stroke-width="1.4"><circle cx="11" cy="7" r="4"/><path d="M4 19c0-4 3-6 7-6s7 2 7 6"/></svg>';}
+
+function renderNav(){
+  var nav=document.getElementById('bottomnav');
+  if(arch==='loop'){
+    nav.innerHTML=
+      navItem('today','Today',iconToday(), currentScreen==='scr-today')+
+      '<button class="navitem center" onclick="startRideFlow()"><span class="ring">'+iconStart()+'</span><span>Ride</span></button>'+
+      navItem('horse','Horse',iconHorse(), currentScreen==='scr-horse');
+  } else {
+    nav.innerHTML=
+      navItem('hf-horses','Horses',iconHorse(), false)+
+      navItem('hf','Dean',iconStartMono(), currentScreen==='scr-hf')+
+      navItem('hf-profile','Profile',iconProfile(), false);
+  }
+}
+function iconStartMono(){return '<svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="8" stroke="#B8B0A4" stroke-width="1.4"/><text x="11" y="15" text-anchor="middle" font-family="Georgia,serif" font-size="11" fill="#B8B0A4">D</text></svg>';}
+
+function navItem(target,label,icon,active){
+  var t=target;
+  // map generic loop targets
+  var onclick;
+  if(t==='today') onclick="goTo('today')";
+  else if(t==='horse') onclick="goTo('horse')";
+  else if(t==='hf') onclick="goTo('hf')";
+  else if(t==='hf-horses') onclick="goTo('hf')";      // both lead into horse world
+  else if(t==='hf-profile') onclick="goTo('horseprofile')";
+  else onclick="goTo('today')";
+  return '<button class="navitem'+(active?' active':'')+'" onclick="'+onclick+'">'+icon+'<span>'+label+'</span></button>';
+}
+
+/* ============================================================
+   NAVIGATION
+============================================================ */
+/* logical name -> real screen id */
+function resolveScreen(name){
+  var map={
+    today:'scr-today', horse:'scr-horse', hf:'scr-hf',
+    plan:'scr-plan', liveride:'scr-liveride', debrief:'scr-debrief',
+    'horse-health':'scr-horse-health', predict:'scr-predict', horseprofile:'scr-horseprofile'
+  };
+  return map[name]||name;
+}
+function archHome(){return arch==='loop'?'today':'hf';}
+
+function goTo(name){
+  var id=resolveScreen(name);
+  // leaving live ride -> stop everything
+  if(currentScreen==='scr-liveride' && id!=='scr-liveride'){ stopLive(); toggleHeadset(false); }
+  var screens=document.querySelectorAll('.screen');
+  for(var i=0;i<screens.length;i++) screens[i].classList.remove('active');
+  var el=document.getElementById(id);
+  if(el){ el.classList.add('active'); el.scrollTop=0; currentScreen=id; }
+  // keep horse-first sub-nav coherent when returning to the horse home
+  if(id==='scr-hf' && (hfSub==='health'||hfSub==='predict')){ setHfSub('overview'); }
+  renderNav();
+  if(id==='scr-liveride') startLive();
+}
+
+/* ============================================================
+   ARCHITECTURE SWITCH
+============================================================ */
+var ARCH_DESC={
+  loop:'<b>The Loop</b> — action-first. Two rooms plus a Start Ride button; the ride is a flow, not a tab.',
+  horse:'<b>Horse-first</b> — object-first. You’re always inside a horse; Ride, Health &amp; Predict are peer sub-tabs of Dean.'
+};
+function setArch(a){
+  if(a===arch){/* still refresh */}
+  arch=a;
+  document.getElementById('segLoop').classList.toggle('active',a==='loop');
+  document.getElementById('segHorse').classList.toggle('active',a==='horse');
+  document.getElementById('switchDesc').innerHTML=ARCH_DESC[a];
+  // stop any live loop if switching
+  if(currentScreen==='scr-liveride'){ stopLive(); toggleHeadset(false); }
+  goTo(archHome());
+}
+
+function setHfSub(sub){
+  hfSub=sub;
+  // all four render inside the hf body so the sub-nav stays put (true peer tabs)
+  var body=document.getElementById('hfBody');
+  var subnav=document.getElementById('hfSubnav');
+  if(subnav) subnav.innerHTML=subBtn('overview','Overview')+subBtn('ride','Ride')+subBtn('health','Health')+subBtn('predict','Predict');
+  if(body){
+    if(sub==='ride') body.innerHTML=hfRideBody();
+    else if(sub==='health') body.innerHTML=healthBlock(false);
+    else if(sub==='predict') body.innerHTML=predictBlock(false);
+    else body.innerHTML=hfOverviewBody();
+    body.scrollTop=0;
+  }
+}
+
+function startRideFlow(){ goTo('plan'); }
+
+/* ============================================================
+   LIVE RIDE ANIMATION
+============================================================ */
+var meterState=[]; // current fill fraction per meter
+
+function startLive(){
+  stopLive(); // safety
+  rideSeconds=0;
+  // init meter positions + bands
+  meterState=[];
+  for(var i=0;i<METERS.length;i++){
+    meterState[i]=0.2;
+    var band=METERS[i].band;
+    var bandEl=document.getElementById('band'+i);
+    if(bandEl){
+      bandEl.style.bottom=(band[0]*100)+'%';
+      bandEl.style.height=((band[1]-band[0])*100)+'%';
+    }
+  }
+  // response band
+  var hb=document.getElementById('hband');
+  if(hb){ hb.style.left='60%'; hb.style.width='30%'; }
+
+  // timer
+  rideTimerInt=setInterval(function(){
+    rideSeconds++;
+    var m=Math.floor(rideSeconds/60), s=rideSeconds%60;
+    var el=document.getElementById('liveTimer');
+    if(el) el.textContent=(m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+  },1000);
+
+  // cue cycle
+  var cueIdx=0;
+  setCue(cueIdx);
+  cueInt=setInterval(function(){
+    cueIdx=(cueIdx+1)%CUES.length;
+    setCue(cueIdx);
+  },3500);
+
+  // response drift
+  var respPos=30;
+  responseInt=setInterval(function(){
+    // drift toward ~72 (into the 60-90 band = sitting)
+    respPos += (72-respPos)*0.25 + (Math.random()-0.5)*6;
+    if(respPos<20)respPos=20; if(respPos>92)respPos=92;
+    var f=document.getElementById('hfill');
+    if(f) f.style.left=respPos+'%';
+  },700);
+
+  // meter random walk via rAF
+  var lastT=0;
+  function frame(t){
+    if(!lastT)lastT=t;
+    var dt=(t-lastT); lastT=t;
+    if(dt>0){
+      for(var i=0;i<METERS.length;i++){
+        var target=METERS[i].target;
+        // move toward target with small jitter
+        meterState[i]+=(target-meterState[i])*0.02 + (Math.random()-0.5)*0.012;
+        if(meterState[i]<0.03)meterState[i]=0.03;
+        if(meterState[i]>0.97)meterState[i]=0.97;
+        var fillEl=document.getElementById('fill'+i);
+        var mtrEl=document.getElementById('mtr'+i);
+        var chkEl=document.getElementById('chk'+i);
+        if(fillEl) fillEl.style.height=(meterState[i]*100)+'%';
+        var b=METERS[i].band;
+        var inband = meterState[i]>=b[0] && meterState[i]<=b[1];
+        if(mtrEl) mtrEl.classList.toggle('inband',inband);
+        if(chkEl) chkEl.textContent=inband?'✓':'';
+      }
+    }
+    rideRAF=requestAnimationFrame(frame);
+  }
+  rideRAF=requestAnimationFrame(frame);
+}
+
+function setCue(idx){
+  var c=CUES[idx];
+  var box=document.getElementById('cueBox');
+  var txt=document.getElementById('cueText');
+  var spk=document.getElementById('cueSpk');
+  if(!box||!txt) return;
+  txt.style.opacity=0;
+  setTimeout(function(){
+    txt.textContent=c.t;
+    box.classList.toggle('good',c.good);
+    if(spk) spk.innerHTML=spkGlyph(c.good?'#7FB08A':'#D1A955');
+    txt.style.opacity=1;
+  },260);
+  // headset cue mirror
+  var hsc=document.getElementById('hsCue');
+  if(hsc){ hsc.style.opacity=0; setTimeout(function(){hsc.textContent=c.t;hsc.style.opacity=1;},260); }
+}
+
+function stopLive(){
+  if(rideRAF){ cancelAnimationFrame(rideRAF); rideRAF=null; }
+  if(rideTimerInt){ clearInterval(rideTimerInt); rideTimerInt=null; }
+  if(cueInt){ clearInterval(cueInt); cueInt=null; }
+  if(responseInt){ clearInterval(responseInt); responseInt=null; }
+}
+
+/* ============================================================
+   HEADSET OVERLAY
+============================================================ */
+function toggleHeadset(on){
+  var hs=document.getElementById('headset');
+  if(!hs) return;
+  if(on && currentScreen!=='scr-liveride') return;
+  hs.classList.toggle('on',!!on);
+  if(on){
+    // set the two floating bars: R SEAT (index1, low) + R REIN (index5)
+    setHsBar(0,METERS[1]); // R SEAT
+    setHsBar(1,METERS[5]); // R REIN
+  }
+}
+function setHsBar(slot,meter){
+  var band=meter.band;
+  var bandEl=document.getElementById('hsBand'+slot);
+  var fillEl=document.getElementById('hsFill'+slot);
+  var barEl=document.getElementById('hsBar'+slot);
+  if(bandEl){ bandEl.style.bottom=(band[0]*100)+'%'; bandEl.style.height=((band[1]-band[0])*100)+'%'; }
+  if(fillEl){ fillEl.style.height=(meter.target*100)+'%'; }
+  if(barEl){
+    var inband=meter.target>=band[0]&&meter.target<=band[1];
+    barEl.classList.toggle('good',inband);
+  }
+}
+
+/* ============================================================
+   BOOT
+============================================================ */
+function buildScreens(){
+  var vp=document.getElementById('viewport');
+  vp.innerHTML =
+    scrToday()+
+    scrHorseCombined()+
+    scrHorseFirst()+
+    scrPlan()+
+    scrLive()+
+    scrDebrief()+
+    scrHealth()+
+    scrPredict()+
+    scrHorseProfile();
+}
+
+window.addEventListener('DOMContentLoaded',function(){
+  buildScreens();
+  document.getElementById('switchDesc').innerHTML=ARCH_DESC.loop;
+  setHfSub('overview'); // pre-populate hf body
+  goTo('today');
+});
+</script>
+</body>
+</html>
