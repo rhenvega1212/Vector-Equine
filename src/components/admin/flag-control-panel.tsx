@@ -25,10 +25,10 @@ const STAGES: { value: FlagStage; label: string; hint: string }[] = [
 
 const STAGE_BADGE: Record<FlagStage, string> = {
   off: "bg-muted text-muted-foreground",
-  internal: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
-  closed_beta: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-  open_beta: "bg-purple-500/15 text-purple-600 dark:text-purple-400",
-  ga: "bg-green-500/15 text-green-600 dark:text-green-400",
+  internal: "bg-gold/15 text-gold",
+  closed_beta: "bg-gold/25 text-gold-bright",
+  open_beta: "bg-cream/10 text-cream",
+  ga: "bg-gold text-navy",
 };
 
 function stageLabel(stage: FlagStage) {

@@ -61,8 +61,9 @@ export default async function TrainSessionsPage({ searchParams }: SessionsPagePr
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Sessions</h1>
-          <p className="text-muted-foreground">View and manage your training sessions</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold">History</p>
+          <h1 className="mt-1 font-serif text-3xl">Sessions</h1>
+          <p className="text-cream/60">View and manage your training sessions</p>
         </div>
         <Link href="/train/sessions/new">
           <Button className="bg-gold text-navy font-semibold hover:bg-gold/90 w-full sm:w-auto">
@@ -79,7 +80,7 @@ export default async function TrainSessionsPage({ searchParams }: SessionsPagePr
         horseProfiles={horseProfiles || []}
       />
 
-      <Card className="border-gold/20">
+      <Card className="border-gold/20 bg-white/5">
         <CardContent className="p-0">
           {(!sessions || sessions.length === 0) ? (
             <div className="py-12 text-center text-muted-foreground">

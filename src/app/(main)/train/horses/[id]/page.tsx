@@ -87,7 +87,7 @@ export default async function HorseDetailPage({ params }: HorseDetailPageProps) 
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <h1 className="text-2xl font-bold">{displayName}</h1>
+            <h1 className="font-serif text-3xl">{displayName}</h1>
             {horse.show_name && (
               <p className="text-muted-foreground">Show name: {horse.show_name}</p>
             )}

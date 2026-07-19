@@ -40,7 +40,7 @@ export default async function AiTrainerChatPage({
         </Link>
       </Button>
       <div>
-        <h1 className="text-2xl font-bold">Ask Vector about this ride</h1>
+        <h1 className="font-serif text-3xl">Ask Vector about this ride</h1>
         <p className="text-muted-foreground">{video.horse ? `Horse: ${video.horse}` : "Discuss your analysis"}</p>
       </div>
       <AiTrainerChat analysisId={analysis.id} />

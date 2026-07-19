@@ -127,7 +127,7 @@ export function ProfileHeader({
 
       {/* Profile info section */}
       <div className="flex items-start gap-4 sm:gap-6">
-        {/* Avatar with glow ring */}
+        {/* Avatar */}
         <div className="relative">
           <Avatar className="relative h-20 w-20 sm:h-24 sm:w-24 border-2 border-primary/40 ring-2 ring-primary/20 ring-offset-2 ring-offset-background">
             <AvatarImage src={profile.avatar_url || undefined} />

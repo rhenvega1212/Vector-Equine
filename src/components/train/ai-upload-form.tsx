@@ -76,7 +76,7 @@ export function AiUploadForm() {
       const { video_id } = await res.json();
       setStatus("complete");
       toast({ title: "Analysis complete", description: "Your ride has been analyzed." });
-      router.push(`/train/ai-trainer/${video_id}`);
+      router.push(`/train/ride/plan/${video_id}`);
     } catch (err) {
       setStatus("error");
       setErrorMessage(err instanceof Error ? err.message : "Something went wrong");
@@ -87,7 +87,7 @@ export function AiUploadForm() {
   }
 
   return (
-    <Card className="border-gold/20 bg-slate-800/30">
+    <Card className="border-gold/20 bg-white/5">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Video className="h-5 w-5 text-gold" />

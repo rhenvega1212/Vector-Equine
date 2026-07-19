@@ -24,7 +24,7 @@ export function HorseCard({ horse, showSessionCount, compact }: HorseCardProps) 
 
   return (
     <Link href={`/train/horses/${horse.id}`}>
-      <Card className="border-gold/20 bg-slate-800/30 overflow-hidden transition-colors hover:border-gold/40 hover:bg-slate-800/50">
+      <Card className="border-gold/20 bg-white/5 overflow-hidden transition-colors hover:border-gold/40 hover:bg-white/10">
         <CardContent className={compact ? "p-4" : "p-0"}>
           {compact ? (
             <div className="flex items-center gap-3">

@@ -19,17 +19,15 @@ export function TrainLayoutClient({
     /\/train\/(sessions|horses)\/[^/]+\/edit/.test(pathname);
 
   return (
-    <div className="bg-navy min-h-screen -mx-3 sm:-mx-4 px-3 sm:px-4 py-6 pb-28 md:pb-6">
-      <div className="bg-background text-foreground rounded-xl border border-border shadow-sm p-4 sm:p-6">
-        <div className="space-y-6">{children}</div>
-      </div>
+    <div className="dark bg-navy text-cream min-h-screen -mx-3 sm:-mx-4 px-3 sm:px-4 py-6 pb-28 md:pb-6">
+      <div className="space-y-6">{children}</div>
 
       {!hideLoopNav && (
         <nav
           className="fixed bottom-16 md:bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none"
           aria-label="Vector loop"
         >
-          <div className="pointer-events-auto flex items-end gap-1 rounded-2xl border border-white/10 bg-navy/95 px-2 py-2 shadow-lg backdrop-blur">
+          <div className="pointer-events-auto flex items-end gap-1 rounded-2xl border border-gold/20 bg-navy px-2 py-2">
             <LoopLink
               href="/train"
               label="Today"
@@ -38,7 +36,7 @@ export function TrainLayoutClient({
             />
             <Link
               href="/train/ride/plan"
-              className="mx-1 flex h-14 w-14 -translate-y-2 flex-col items-center justify-center rounded-full bg-gold text-navy shadow-md transition hover:bg-gold-bright"
+              className="mx-1 flex h-14 w-14 -translate-y-2 flex-col items-center justify-center rounded-full bg-gold text-navy transition hover:bg-gold-bright"
               aria-label="Start ride"
             >
               <Plus className="h-6 w-6" strokeWidth={2.5} />

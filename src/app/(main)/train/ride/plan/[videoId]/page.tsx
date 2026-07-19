@@ -95,7 +95,7 @@ export default async function AiTrainerResultPage({
       </div>
 
       {result.summary && (
-        <Card className="dark border-gold/20 bg-navy">
+        <Card className="border-gold/20 bg-white/5">
           <CardHeader>
             <CardTitle className="text-lg">Summary</CardTitle>
           </CardHeader>

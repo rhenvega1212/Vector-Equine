@@ -32,8 +32,9 @@ export default async function TrainHorsesPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Horses</h1>
-          <p className="text-muted-foreground">Manage your horse profiles and view ride history by horse.</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold">Roster</p>
+          <h1 className="mt-1 font-serif text-3xl">Horses</h1>
+          <p className="text-cream/60">Manage your horse profiles and view ride history by horse.</p>
         </div>
         <Link href="/train/horses/new">
           <Button className="bg-gold text-navy font-semibold hover:bg-gold/90 w-full sm:w-auto">
@@ -44,9 +45,9 @@ export default async function TrainHorsesPage() {
       </div>
 
       {(!horses || horses.length === 0) ? (
-        <div className="rounded-lg border dark border-gold/20 bg-navy p-8 text-center">
-          <p className="text-muted-foreground mb-2">No horses yet.</p>
-          <p className="text-sm text-muted-foreground mb-4">Add a horse to log sessions and track progress.</p>
+        <div className="rounded-lg border border-gold/20 bg-white/5 p-8 text-center">
+          <p className="text-cream/70 mb-2">No horses yet.</p>
+          <p className="text-sm text-cream/50 mb-4">Add a horse to log sessions and track progress.</p>
           <Link href="/train/horses/new">
             <Button className="bg-gold text-navy font-semibold hover:bg-gold/90">Add your first horse</Button>
           </Link>
