@@ -17,19 +17,19 @@ import { createClient } from "@/lib/supabase/client";
 import type { Profile } from "@/types/database";
 import { cn } from "@/lib/utils";
 import {
-  Home,
+  Users,
   Trophy,
   User,
   Settings,
   LogOut,
   Shield,
-  Compass,
 } from "lucide-react";
 import { HorseHeadIcon } from "@/components/icons/horse-head";
 import { Badge } from "@/components/ui/badge";
 import { useFeatureFlags } from "@/lib/flags/context";
 import type { FeatureFlagKey } from "@/lib/flags/registry";
 import type { ComponentType } from "react";
+import { SOCIAL_CONFIG } from "@/lib/social/config";
 
 interface MainNavProps {
   profile: Profile;
@@ -42,12 +42,12 @@ type NavItem = {
   comingSoon?: boolean;
   adminOnly?: boolean;
   flag?: FeatureFlagKey;
+  community?: boolean;
 };
 
 const navItems: NavItem[] = [
-  { href: "/feed", label: "Feed", icon: Home },
-  { href: "/explore", label: "Explore", icon: Compass },
   { href: "/train", label: "Vector", icon: HorseHeadIcon, flag: "training_diary" },
+  { href: "/feed", label: "Community", icon: Users, community: true },
   { href: "/challenges", label: "Challenges", icon: Trophy, comingSoon: true, adminOnly: true },
 ];
 
@@ -76,7 +76,7 @@ export function MainNav({ profile }: MainNavProps) {
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       <div className="container mx-auto flex h-14 sm:h-16 items-center px-3 sm:px-4">
-        <Link href="/feed" className="mr-4 sm:mr-6 flex items-center">
+        <Link href="/train" className="mr-4 sm:mr-6 flex items-center">
           <Image src="/logo-mark.png" alt="Vector Equine" width={48} height={36}
                  priority className="h-8 w-auto" />
         </Link>
@@ -88,7 +88,9 @@ export function MainNav({ profile }: MainNavProps) {
             const requiresAdmin = !!item.adminOnly;
             const flagBlocked = !!item.flag && !flags[item.flag];
             const adminBlocked = requiresAdmin && profile.role !== "admin";
-            const showAsDisabled = adminBlocked || flagBlocked;
+            const communityBlocked =
+              !!item.community && SOCIAL_CONFIG.SOCIAL_MODE === "off";
+            const showAsDisabled = adminBlocked || flagBlocked || communityBlocked;
 
             if (showAsDisabled) {
               return (

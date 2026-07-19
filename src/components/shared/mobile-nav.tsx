@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Home, Trophy, User, Compass } from "lucide-react";
+import { Users, Trophy, User } from "lucide-react";
 import { HorseHeadIcon } from "@/components/icons/horse-head";
 import type { Profile } from "@/types/database";
 import { useFeatureFlags } from "@/lib/flags/context";
 import type { FeatureFlagKey } from "@/lib/flags/registry";
 import type { ComponentType } from "react";
+import { SOCIAL_CONFIG } from "@/lib/social/config";
 
 type NavItem = {
   href: string;
@@ -16,12 +17,12 @@ type NavItem = {
   icon: ComponentType<{ className?: string }>;
   adminOnly?: boolean;
   flag?: FeatureFlagKey;
+  community?: boolean;
 };
 
 const navItems: NavItem[] = [
-  { href: "/feed", label: "Feed", icon: Home },
-  { href: "/explore", label: "Explore", icon: Compass },
   { href: "/train", label: "Vector", icon: HorseHeadIcon, flag: "training_diary" },
+  { href: "/feed", label: "Community", icon: Users, community: true },
   { href: "/challenges", label: "Challenges", icon: Trophy, adminOnly: true },
   { href: "/profile", label: "Profile", icon: User },
 ];
@@ -47,7 +48,9 @@ export function MobileNav({ profile }: MobileNavProps) {
           const Icon = item.icon;
           const flagBlocked = !!item.flag && !flags[item.flag];
           const adminBlocked = !!item.adminOnly && profile.role !== "admin";
-          const showAsDisabled = flagBlocked || adminBlocked;
+          const communityBlocked =
+            !!item.community && SOCIAL_CONFIG.SOCIAL_MODE === "off";
+          const showAsDisabled = flagBlocked || adminBlocked || communityBlocked;
           const isActive = !showAsDisabled && pathname.startsWith(item.href);
 
           if (showAsDisabled) {

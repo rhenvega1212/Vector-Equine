@@ -172,7 +172,7 @@ export function FeedList({ type, userId }: FeedListProps) {
         <Card>
           <CardContent className="py-10 text-center">
             <p className="text-muted-foreground">
-              No posts yet. Follow some riders or be the first to share!
+              No posts yet. Follow your barn or share your first ride — Community stays light on purpose.
             </p>
           </CardContent>
         </Card>
@@ -223,8 +223,8 @@ export function FeedList({ type, userId }: FeedListProps) {
         <CardContent className="py-10 text-center">
           <p className="text-muted-foreground">
             {type === "following"
-              ? "No posts from people you follow yet. Follow some riders to see their posts here!"
-              : "No posts yet. Be the first to share!"}
+              ? "Nothing from your connections yet. Follow your barn or share your first ride."
+              : "No posts yet. Share your first ride — or follow your barn."}
           </p>
         </CardContent>
       </Card>

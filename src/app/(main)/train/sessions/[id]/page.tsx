@@ -4,8 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { SESSION_TYPE_LABELS } from "@/lib/validations/training-session";
 import { format, parseISO } from "date-fns";
-import { ArrowLeft, Pencil, Share2, Video } from "lucide-react";
+import { ArrowLeft, Pencil, Video } from "lucide-react";
 import { SessionDeleteButton } from "@/components/train/session-delete-button";
+import { DebriefShareActions } from "@/components/train/debrief-share-actions";
 
 interface SessionPageProps {
   params: Promise<{ id: string }>;
@@ -37,7 +38,15 @@ export default async function DebriefPage({ params }: SessionPageProps) {
 
   if (error || !session) notFound();
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("id", user.id)
+    .single();
+  const riderFirstName = (profile?.display_name || "Rider").split(" ")[0];
+
   let horseDisplay: string;
+  let horseShort = "Horse";
   if (session.horse_id) {
     const { data: horse } = await supabase
       .from("horse_profiles")
@@ -50,8 +59,10 @@ export default async function DebriefPage({ params }: SessionPageProps) {
         ? `${horse.name} (“${horse.barn_name}”)`
         : horse.name
       : "Unassigned";
+    horseShort = horse?.name || "Horse";
   } else {
     horseDisplay = (session.horse && session.horse.trim()) || "Unassigned";
+    horseShort = horseDisplay;
   }
 
   let videoUrl: string | null = null;
@@ -181,12 +192,12 @@ export default async function DebriefPage({ params }: SessionPageProps) {
       </p>
 
       <div className="flex flex-wrap gap-3">
-        <Button variant="outline" className="border-gold/30" asChild>
-          <Link href={`/train/sessions/${session.id}?share=1`}>
-            <Share2 className="mr-2 h-4 w-4" />
-            Share
-          </Link>
-        </Button>
+        <DebriefShareActions
+          score={session.overall_feel}
+          decodedLine={decodedLine}
+          horseName={horseShort}
+          riderFirstName={riderFirstName}
+        />
         <Button variant="outline" asChild>
           <Link href="/train">Save to journal</Link>
         </Button>
