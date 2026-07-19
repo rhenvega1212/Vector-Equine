@@ -216,3 +216,22 @@ CREATE POLICY "Trainers update coaching fields on shared sessions"
         AND c.status = 'active'
     )
   );
+
+-- Protect trainer_business from client self-escalation (billing sets via service role)
+CREATE OR REPLACE FUNCTION prevent_privilege_self_escalation()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
+    NEW.role := OLD.role;
+    NEW.is_beta_tester := OLD.is_beta_tester;
+    NEW.trainer_approved := OLD.trainer_approved;
+    NEW.trainer_approved_at := OLD.trainer_approved_at;
+    NEW.trainer_business := OLD.trainer_business;
+    NEW.is_suspended := OLD.is_suspended;
+    NEW.suspended_at := OLD.suspended_at;
+    NEW.suspended_by := OLD.suspended_by;
+    NEW.suspension_reason := OLD.suspension_reason;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
