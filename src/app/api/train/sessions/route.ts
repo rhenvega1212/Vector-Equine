@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { flagGuardForApi } from "@/lib/flags/guards";
 import { createTrainingSessionSchema } from "@/lib/validations/training-session";
+import { assertCanCaptureSession } from "@/lib/vector/billing";
 import { z } from "zod";
 
 export async function GET(request: NextRequest) {
@@ -64,6 +65,11 @@ export async function POST(request: NextRequest) {
 
     const flagBlock = await flagGuardForApi("training_diary");
     if (flagBlock) return flagBlock;
+
+    const gate = await assertCanCaptureSession(user.id);
+    if (!gate.ok) {
+      return NextResponse.json({ error: gate.reason, reason: gate.reason }, { status: 402 });
+    }
 
     const body = await request.json();
     const parsed = createTrainingSessionSchema.parse(body);

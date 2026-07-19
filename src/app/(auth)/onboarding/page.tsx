@@ -25,6 +25,7 @@ import {
 import { onboardingSchema, type OnboardingInput } from "@/lib/validations/auth";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const DISCIPLINES = [
   { value: "dressage", label: "Dressage" },
@@ -55,31 +56,39 @@ export default function OnboardingPage() {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<OnboardingInput>({
     resolver: zodResolver(onboardingSchema),
+    defaultValues: {
+      role_rider: true,
+      role_trainer: false,
+    },
   });
+
+  const roleRider = watch("role_rider");
+  const roleTrainer = watch("role_trainer");
 
   useEffect(() => {
     async function checkAuth() {
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (!user) {
         router.push("/login");
         return;
       }
 
-      // Check if profile already exists
-      const { data: profile } = await supabase
+      const { data: profile } = (await supabase
         .from("profiles")
         .select("username")
         .eq("id", user.id)
-        .maybeSingle() as { data: { username: string } | null };
+        .maybeSingle()) as { data: { username: string } | null };
 
       if (profile && profile.username) {
-        // Already completed onboarding
-        router.push("/feed");
+        router.push("/train");
         return;
       }
 
@@ -95,14 +104,15 @@ export default function OnboardingPage() {
 
     try {
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (!user) {
         setError("Please sign in to continue");
         return;
       }
 
-      // Check if username is available
       const { data: existingUser } = await supabase
         .from("profiles")
         .select("id")
@@ -114,25 +124,26 @@ export default function OnboardingPage() {
         return;
       }
 
-      // Create or update profile
-      const { error: profileError } = await (supabase
-        .from("profiles") as any)
-        .upsert({
-          id: user.id,
-          email: user.email!,
-          username: data.username,
-          display_name: data.display_name,
-          location: data.location || null,
-          discipline: data.discipline || null,
-          rider_level: data.rider_level || null,
-        });
+      const coachOnly = data.role_trainer && !data.role_rider;
+
+      const { error: profileError } = await (supabase.from("profiles") as any).upsert({
+        id: user.id,
+        email: user.email!,
+        username: data.username,
+        display_name: data.display_name,
+        location: data.location || null,
+        discipline: coachOnly ? null : data.discipline || null,
+        rider_level: coachOnly ? null : data.rider_level || null,
+        role_rider: data.role_rider,
+        role_trainer: data.role_trainer,
+      });
 
       if (profileError) {
         setError(profileError.message);
         return;
       }
 
-      router.push("/feed");
+      router.push("/train");
       router.refresh();
     } catch {
       setError("An unexpected error occurred. Please try again.");
@@ -157,9 +168,7 @@ export default function OnboardingPage() {
     <Card className="border-gold/15 shadow-2xl shadow-black/30">
       <CardHeader className="text-center">
         <CardTitle className="text-3xl font-serif">Complete your profile</CardTitle>
-        <CardDescription>
-          Tell us a bit about yourself to get started
-        </CardDescription>
+        <CardDescription>Tell us a bit about yourself to get started</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
         <CardContent className="space-y-4">
@@ -168,6 +177,44 @@ export default function OnboardingPage() {
               {error}
             </div>
           )}
+
+          <div className="space-y-2">
+            <Label>How will you use Vector? *</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setValue("role_rider", !roleRider, { shouldValidate: true })}
+                className={cn(
+                  "rounded-lg border p-4 text-left transition-colors",
+                  roleRider
+                    ? "border-gold bg-gold/15 text-foreground"
+                    : "border-border bg-white/[0.02] text-muted-foreground hover:border-gold/40"
+                )}
+              >
+                <p className="font-serif text-lg text-gold">I ride</p>
+                <p className="mt-1 text-xs">Capture sessions and share with a coach</p>
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setValue("role_trainer", !roleTrainer, { shouldValidate: true })
+                }
+                className={cn(
+                  "rounded-lg border p-4 text-left transition-colors",
+                  roleTrainer
+                    ? "border-gold bg-gold/15 text-foreground"
+                    : "border-border bg-white/[0.02] text-muted-foreground hover:border-gold/40"
+                )}
+              >
+                <p className="font-serif text-lg text-gold">I coach</p>
+                <p className="mt-1 text-xs">Connect with riders — free coach seat</p>
+              </button>
+            </div>
+            {errors.role_rider && (
+              <p className="text-sm text-destructive">{errors.role_rider.message}</p>
+            )}
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="username">Username *</Label>
             <Input
@@ -177,9 +224,7 @@ export default function OnboardingPage() {
               {...register("username")}
             />
             {errors.username && (
-              <p className="text-sm text-destructive">
-                {errors.username.message}
-              </p>
+              <p className="text-sm text-destructive">{errors.username.message}</p>
             )}
             <p className="text-xs text-muted-foreground">
               Letters, numbers, and underscores only
@@ -194,9 +239,7 @@ export default function OnboardingPage() {
               {...register("display_name")}
             />
             {errors.display_name && (
-              <p className="text-sm text-destructive">
-                {errors.display_name.message}
-              </p>
+              <p className="text-sm text-destructive">{errors.display_name.message}</p>
             )}
           </div>
           <div className="space-y-2">
@@ -208,41 +251,44 @@ export default function OnboardingPage() {
               {...register("location")}
             />
             {errors.location && (
-              <p className="text-sm text-destructive">
-                {errors.location.message}
-              </p>
+              <p className="text-sm text-destructive">{errors.location.message}</p>
             )}
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="discipline">Discipline (optional)</Label>
-            <Select onValueChange={(value) => setValue("discipline", value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select your discipline" />
-              </SelectTrigger>
-              <SelectContent>
-                {DISCIPLINES.map((discipline) => (
-                  <SelectItem key={discipline.value} value={discipline.value}>
-                    {discipline.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="rider_level">Rider Level (optional)</Label>
-            <Select onValueChange={(value) => setValue("rider_level", value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select your level" />
-              </SelectTrigger>
-              <SelectContent>
-                {RIDER_LEVELS.map((level) => (
-                  <SelectItem key={level.value} value={level.value}>
-                    {level.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+
+          {roleRider && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="discipline">Discipline (optional)</Label>
+                <Select onValueChange={(value) => setValue("discipline", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your discipline" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DISCIPLINES.map((discipline) => (
+                      <SelectItem key={discipline.value} value={discipline.value}>
+                        {discipline.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="rider_level">Rider Level (optional)</Label>
+                <Select onValueChange={(value) => setValue("rider_level", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {RIDER_LEVELS.map((level) => (
+                      <SelectItem key={level.value} value={level.value}>
+                        {level.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
         </CardContent>
         <CardFooter>
           <Button type="submit" className="w-full" disabled={isLoading}>

@@ -11,6 +11,10 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Public routes: shared debriefs + connection invites (logged-out accept flow)
+  const publicPaths = ["/shared", "/invite", "/login", "/signup"];
+  const isPublicPath = publicPaths.some((path) => pathname.startsWith(path));
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -20,7 +24,7 @@ export async function updateSession(request: NextRequest) {
   if (!supabaseUrl || !supabaseAnonKey) {
     // No env: still redirect protected paths to login
     const protectedPaths = ["/feed", "/explore", "/challenges", "/profile", "/settings", "/admin", "/trainer", "/train"];
-    if (protectedPaths.some((p) => pathname.startsWith(p))) {
+    if (!isPublicPath && protectedPaths.some((p) => pathname.startsWith(p))) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       return NextResponse.redirect(url);
@@ -57,9 +61,9 @@ export async function updateSession(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     const protectedPaths = ["/feed", "/explore", "/challenges", "/profile", "/settings", "/admin", "/trainer", "/train"];
-    const isProtectedPath = protectedPaths.some((path) =>
-      pathname.startsWith(path)
-    );
+    const isProtectedPath =
+      !isPublicPath &&
+      protectedPaths.some((path) => pathname.startsWith(path));
 
     if (isProtectedPath && !user) {
       const url = request.nextUrl.clone();
@@ -68,20 +72,33 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
+    // Signed-in users leaving auth screens land on /train (not /invite or /shared)
     const authPaths = ["/login", "/signup"];
     const isAuthPath = authPaths.some((path) =>
       pathname.startsWith(path)
     );
 
     if (isAuthPath && user) {
+      const redirectTo = request.nextUrl.searchParams.get("redirectTo");
+      const safeRedirect =
+        redirectTo &&
+        redirectTo.startsWith("/") &&
+        !redirectTo.startsWith("//") &&
+        (redirectTo.startsWith("/invite") || redirectTo.startsWith("/shared"))
+          ? redirectTo
+          : "/train";
       const url = request.nextUrl.clone();
-      url.pathname = "/train";
+      url.pathname = safeRedirect.split("?")[0] || "/train";
+      url.search = "";
       return NextResponse.redirect(url);
     }
   } catch {
     // On error, redirect root and protected paths to login so user always sees login when opening app
     const protectedPaths = ["/feed", "/explore", "/challenges", "/profile", "/settings", "/admin", "/trainer", "/train"];
-    if (pathname === "/" || protectedPaths.some((p) => pathname.startsWith(p))) {
+    if (
+      pathname === "/" ||
+      (!isPublicPath && protectedPaths.some((p) => pathname.startsWith(p)))
+    ) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       return NextResponse.redirect(url);

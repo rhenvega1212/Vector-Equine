@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,24 @@ import { createClient } from "@/lib/supabase/client";
 import { Loader2, CheckCircle } from "lucide-react";
 
 export default function SignUpPage() {
+  return (
+    <Suspense
+      fallback={
+        <Card className="border-gold/15 shadow-2xl shadow-black/30">
+          <CardContent className="py-10 flex justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </CardContent>
+        </Card>
+      }
+    >
+      <SignUpForm />
+    </Suspense>
+  );
+}
+
+function SignUpForm() {
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirectTo") || "/train";
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
@@ -95,7 +114,11 @@ export default function SignUpPage() {
 
       // Brief delay so the session cookie is committed before navigating.
       await new Promise((r) => setTimeout(r, 100));
-      window.location.assign(`${window.location.origin}/feed`);
+      const target =
+        redirectTo.startsWith("/") && !redirectTo.startsWith("//")
+          ? redirectTo
+          : "/train";
+      window.location.assign(`${window.location.origin}${target}`);
       return;
     } catch {
       setError("An unexpected error occurred. Please try again.");

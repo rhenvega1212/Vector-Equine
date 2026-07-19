@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { VECTOR_CONFIG } from "@/lib/vector/config";
+import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Headset } from "lucide-react";
 
 export default function LiveRidePage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [elapsed, setElapsed] = useState(0);
   const [running, setRunning] = useState(true);
   const [headset, setHeadset] = useState(false);
@@ -45,8 +47,20 @@ export default function LiveRidePage() {
           duration_minutes: Math.max(1, Math.round(elapsed / 60) || 1),
         }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 402) {
+        toast({
+          title: "Rider subscription required",
+          description:
+            data.reason ||
+            data.error ||
+            "An active rider subscription is required to capture sessions.",
+          variant: "destructive",
+        });
+        setRunning(true);
+        return;
+      }
       if (res.ok) {
-        const data = await res.json();
         const id = data?.id || data?.session?.id || data?.data?.id;
         if (id) {
           router.push(`/train/sessions/${id}`);

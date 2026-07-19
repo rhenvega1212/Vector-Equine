@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ProfileHeader } from "@/components/shared/profile-header";
 import { ProfileTabs } from "@/components/shared/profile-tabs";
+import { CoachingPanel } from "@/components/profile/coaching-panel";
 
 interface ProfilePageProps {
   params: Promise<{ username: string }>;
@@ -134,6 +135,18 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
         currentUserId={user?.id}
         unreadNotifications={unreadNotifications}
       />
+      {isOwnProfile && (profile.role_rider || profile.role_trainer) && (
+        <CoachingPanel
+          profile={{
+            id: profile.id,
+            username: profile.username,
+            display_name: profile.display_name,
+            role_rider: profile.role_rider ?? true,
+            role_trainer: profile.role_trainer ?? false,
+            trainer_business: profile.trainer_business ?? false,
+          }}
+        />
+      )}
       <ProfileTabs
         posts={posts || []}
         enrollments={filteredEnrollments}

@@ -47,7 +47,7 @@ function LoginSkeleton() {
 
 function LoginForm() {
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirectTo") || "/feed";
+  const redirectTo = searchParams.get("redirectTo") || "/train";
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 

@@ -25,23 +25,30 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
-export const onboardingSchema = z.object({
-  username: z
-    .string()
-    .min(3, "Username must be at least 3 characters")
-    .max(30, "Username must be less than 30 characters")
-    .regex(
-      /^[a-zA-Z0-9_]+$/,
-      "Username can only contain letters, numbers, and underscores"
-    ),
-  display_name: z
-    .string()
-    .min(2, "Display name must be at least 2 characters")
-    .max(50, "Display name must be less than 50 characters"),
-  location: z.string().max(100, "Location must be less than 100 characters").optional(),
-  discipline: z.string().optional(),
-  rider_level: z.string().optional(),
-});
+export const onboardingSchema = z
+  .object({
+    username: z
+      .string()
+      .min(3, "Username must be at least 3 characters")
+      .max(30, "Username must be less than 30 characters")
+      .regex(
+        /^[a-zA-Z0-9_]+$/,
+        "Username can only contain letters, numbers, and underscores"
+      ),
+    display_name: z
+      .string()
+      .min(2, "Display name must be at least 2 characters")
+      .max(50, "Display name must be less than 50 characters"),
+    location: z.string().max(100, "Location must be less than 100 characters").optional(),
+    discipline: z.string().optional(),
+    rider_level: z.string().optional(),
+    role_rider: z.boolean().default(true),
+    role_trainer: z.boolean().default(false),
+  })
+  .refine((data) => data.role_rider || data.role_trainer, {
+    message: "Select at least one: I ride or I coach",
+    path: ["role_rider"],
+  });
 
 export type SignUpInput = z.infer<typeof signUpSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
