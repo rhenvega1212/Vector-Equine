@@ -18,7 +18,6 @@ import type { Profile } from "@/types/database";
 import { cn } from "@/lib/utils";
 import {
   Users,
-  Trophy,
   User,
   Settings,
   LogOut,
@@ -48,7 +47,6 @@ type NavItem = {
 const navItems: NavItem[] = [
   { href: "/train", label: "Vector", icon: HorseHeadIcon, flag: "training_diary" },
   { href: "/feed", label: "Community", icon: Users, community: true },
-  { href: "/challenges", label: "Challenges", icon: Trophy, comingSoon: true, adminOnly: true },
 ];
 
 export function MainNav({ profile }: MainNavProps) {

@@ -59,8 +59,8 @@ export default async function AiTrainerResultPage({
           <CardContent className="pt-6">
             <p className="text-muted-foreground">
               {analysis?.status === "processing" || analysis?.status === "pending"
-                ? "Analysis in progress. Check back shortly."
-                : "Analysis not available."}
+                ? "Review in progress. Check back shortly."
+                : "Review not available yet."}
             </p>
           </CardContent>
         </Card>

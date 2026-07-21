@@ -27,7 +27,6 @@ import {
   Flag,
   Trash2,
   UserPlus,
-  Trophy,
   Pencil,
 } from "lucide-react";
 import { FeedVideoPlayer } from "./feed-video-player";
@@ -40,8 +39,6 @@ interface PostCardProps {
     tags: string[];
     created_at: string;
     author_id?: string;
-    challenge_id?: string | null;
-    block_id?: string | null;
     profiles: {
       id: string;
       username: string;
@@ -57,16 +54,10 @@ interface PostCardProps {
     }[];
     post_likes: { user_id: string }[];
     comments: { id: string }[];
-    challenges?: {
-      id: string;
-      title: string;
-      cover_image_url?: string | null;
-    } | null;
   };
   currentUserId?: string;
   isSuggested?: boolean;
   onFollowSuccess?: () => void;
-  hideChallengeBadge?: boolean;
   /** Notified after a like toggles so parents (e.g. grids) can stay in sync. */
   onLikeChange?: (postId: string, liked: boolean, likesCount: number) => void;
   /** Notified after a post is deleted so parents can close modals / drop tiles. */
@@ -78,7 +69,6 @@ export function PostCard({
   currentUserId,
   isSuggested = false,
   onFollowSuccess,
-  hideChallengeBadge = false,
   onLikeChange,
   onDeleted,
 }: PostCardProps) {
@@ -267,16 +257,6 @@ export function PostCard({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-
-          {!hideChallengeBadge && post.challenge_id && post.challenges && (
-            <Link
-              href={`/challenges/${post.challenges.id}`}
-              className="mt-2 flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors"
-            >
-              <Trophy className="h-3 w-3" />
-              <span>in {post.challenges.title}</span>
-            </Link>
-          )}
 
           <p className="mt-3 sm:mt-4 text-sm sm:text-base whitespace-pre-wrap break-words">{post.content}</p>
 

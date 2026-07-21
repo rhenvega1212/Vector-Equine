@@ -22,6 +22,13 @@ export const createHorseProfileSchema = z.object({
   personality_quirks: z.string().max(1000).optional().nullable(),
   injuries_limitations: z.string().max(1000).optional().nullable(),
   goals: z.string().max(2000).optional().nullable(),
+  months_together: z.number().int().min(0).max(600).optional().nullable(),
+  sessions_per_week: z.number().int().min(1).max(14).optional().nullable(),
+  current_focus: z.string().max(200).optional().nullable(),
+  sticking_points: z.string().max(1000).optional().nullable(),
+  health_flags: z.array(z.string()).optional().nullable(),
+  health_flag_notes: z.string().max(1000).optional().nullable(),
+  baseline_completed_at: z.string().optional().nullable(),
 });
 
 export const updateHorseProfileSchema = createHorseProfileSchema.partial();

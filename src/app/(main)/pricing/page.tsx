@@ -74,10 +74,10 @@ export default function PricingPage() {
               </h4>
               <ul className="space-y-3">
                 {[
-                  "Access to community challenges",
+                  "Community feed and connections",
                   "Basic progress tracking",
                   "Social feed and events",
-                  "3 AI coaching queries/month",
+                  "3 coaching queries/month",
                 ].map((feature, i) => (
                   <li key={i} className="flex items-center gap-3 text-white/80">
                     <CheckCircle className="h-4 w-4 text-green-400 flex-shrink-0" />
@@ -131,8 +131,8 @@ export default function PricingPage() {
                     ${(product.price_amount / 100).toFixed(2)}
                   </span>
                   <Button size="sm" variant="outline" asChild>
-                    <Link href={`/challenges/${(product as any).challenge?.id}`}>
-                      View Course
+                    <Link href="/pricing">
+                      View details
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Link>
                   </Button>

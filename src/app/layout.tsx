@@ -16,7 +16,7 @@ const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://vector-equine.vercel.
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   title: "Vector Equine - Connect, Learn, Compete",
-  description: "A platform for equestrians to connect, learn, and compete. Join challenges and grow your riding journey.",
+  description: "A platform for equestrians to train, connect, and grow with Vector.",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     locale: "en_US",
     siteName: "Vector Equine",
     title: "Vector Equine - Connect, Learn, Compete",
-    description: "A platform for equestrians to connect, learn, and compete. Join challenges and grow your riding journey.",
+    description: "A platform for equestrians to train, connect, and grow with Vector.",
     images: [
       {
         url: "/og-image.png",
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
     description: "A platform for equestrians to connect, learn, and compete.",
     images: ["/og-image.png"],
   },
-  keywords: ["equestrian", "horse riding", "dressage", "jumping", "horse community", "riding challenges"],
+  keywords: ["equestrian", "horse riding", "dressage", "jumping", "horse community", "Vector"],
 };
 
 export const viewport: Viewport = {

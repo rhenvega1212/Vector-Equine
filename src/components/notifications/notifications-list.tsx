@@ -9,7 +9,7 @@ import { Heart, MessageCircle, UserPlus, Reply, Check, CheckCheck, Bell } from "
 
 interface Notification {
   id: string;
-  type: "follow" | "like" | "comment" | "reply" | "event_rsvp" | "challenge_enrollment";
+  type: "follow" | "like" | "comment" | "reply" | "event_rsvp";
   message?: string;
   is_read: boolean;
   created_at: string;
@@ -28,10 +28,6 @@ interface Notification {
     content: string;
   };
   event?: {
-    id: string;
-    title: string;
-  };
-  challenge?: {
     id: string;
     title: string;
   };
@@ -110,8 +106,6 @@ export function NotificationsList({ notifications, userId }: NotificationsListPr
         return <><span className="font-semibold text-foreground">{actorName}</span> replied to your comment</>;
       case "event_rsvp":
         return <><span className="font-semibold text-foreground">{actorName}</span> is going to your event</>;
-      case "challenge_enrollment":
-        return <><span className="font-semibold text-foreground">{actorName}</span> joined your challenge</>;
       default:
         return notification.message || "New notification";
     }
@@ -127,8 +121,6 @@ export function NotificationsList({ notifications, userId }: NotificationsListPr
         return notification.post ? `/feed?post=${notification.post.id}` : "#";
       case "event_rsvp":
         return notification.event ? "/train" : "#";
-      case "challenge_enrollment":
-        return notification.challenge ? `/challenges/${notification.challenge.id}` : "#";
       default:
         return "#";
     }

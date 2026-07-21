@@ -1,10 +1,9 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useFormState, useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,9 +15,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
+import { loginAction, type LoginState } from "./actions";
 
 export default function LoginPage() {
   return (
@@ -45,57 +44,46 @@ function LoginSkeleton() {
   );
 }
 
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button
+      type="submit"
+      className="w-full bg-gold text-navy font-semibold hover:bg-gold/90"
+      disabled={pending}
+    >
+      {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+      Sign In
+    </Button>
+  );
+}
+
 function LoginForm() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") || "/train";
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginInput>({
-    resolver: zodResolver(loginSchema),
+  const [state, formAction] = useFormState(loginAction, {
+    error: null,
   });
 
-  async function onSubmit(data: LoginInput) {
-    setIsLoading(true);
-    setError(null);
+  // Drop stale/invalid refresh tokens so a new sign-in can set a clean session.
+  useEffect(() => {
+    const supabase = createClient();
+    void supabase.auth.getSession().then(({ error }) => {
+      if (error) void supabase.auth.signOut({ scope: "local" });
+    });
+  }, []);
 
-    try {
-      const supabase = createClient();
-      const { data: authData, error } = await supabase.auth.signInWithPassword({
-        email: data.email.trim(),
-        password: data.password,
-      });
-
-      if (error) {
-        setError(error.message);
-        return;
-      }
-
-      if (!authData?.session) {
-        setError("Sign-in succeeded but no session was created. Please try again.");
-        return;
-      }
-
-      // Build full URL so redirect works from any base path
-      const targetUrl = redirectTo.startsWith("/")
-        ? `${window.location.origin}${redirectTo}`
-        : redirectTo;
-
-      // Brief delay so session cookies are committed before the next request
-      await new Promise((r) => setTimeout(r, 100));
-      window.location.assign(targetUrl);
-      return;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "An unexpected error occurred. Please try again.";
-      setError(message);
-    } finally {
-      setIsLoading(false);
+  // If someone landed with credentials in the query string (broken GET submit), strip them.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("password") || url.searchParams.has("email")) {
+      url.searchParams.delete("password");
+      url.searchParams.delete("email");
+      const clean = `${url.pathname}${url.searchParams.toString() ? `?${url.searchParams}` : ""}`;
+      window.history.replaceState({}, "", clean);
     }
-  }
+  }, []);
 
   return (
     <Card className="border-gold/15 shadow-2xl shadow-black/30">
@@ -104,58 +92,42 @@ function LoginForm() {
         <CardDescription>Sign in to your Vector Equine account</CardDescription>
         <p className="mt-1 text-sm italic text-gold">Every rider knows the moment.</p>
       </CardHeader>
-      <form
-        onSubmit={handleSubmit(onSubmit, (validationErrors) => {
-          const first = Object.values(validationErrors)[0];
-          setError(first?.message ?? "Please check your email and password.");
-        })}
-        noValidate
-      >
+      <form action={formAction}>
+        <input type="hidden" name="redirectTo" value={redirectTo} />
         <CardContent className="space-y-4">
-          {error && (
-            <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
-              {error}
+          {state.error && (
+            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              {state.error}
             </div>
           )}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
+              name="email"
               type="email"
+              autoComplete="email"
+              required
               placeholder="you@example.com"
               className="bg-white/[0.04] border-border focus-visible:ring-gold/60"
-              {...register("email")}
             />
-            {errors.email && (
-              <p className="text-sm text-destructive">{errors.email.message}</p>
-            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input
               id="password"
+              name="password"
               type="password"
+              autoComplete="current-password"
+              required
               placeholder="••••••••"
               className="bg-white/[0.04] border-border focus-visible:ring-gold/60"
-              {...register("password")}
             />
-            {errors.password && (
-              <p className="text-sm text-destructive">
-                {errors.password.message}
-              </p>
-            )}
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
-          <Button
-            type="submit"
-            className="w-full bg-gold text-navy font-semibold hover:bg-gold/90"
-            disabled={isLoading}
-          >
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sign In
-          </Button>
-          <p className="text-sm text-muted-foreground text-center">
+          <SubmitButton />
+          <p className="text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
             <Link href="/signup" className="text-gold hover:underline">
               Sign up

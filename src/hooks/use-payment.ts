@@ -75,17 +75,14 @@ export function useCourseCheckout() {
   return useMutation({
     mutationFn: async ({
       productId,
-      challengeId,
     }: {
       productId: string;
-      challengeId?: string;
     }) => {
       const response = await fetch("/api/payments/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productId,
-          challengeId,
           type: "course",
         }),
       });

@@ -11,19 +11,25 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Public routes: shared debriefs + connection invites (logged-out accept flow)
-  const publicPaths = ["/shared", "/invite", "/login", "/signup"];
+  // Public routes: shared debriefs + connection invites + guest capture join
+  const publicPaths = ["/shared", "/invite", "/join", "/login", "/signup"];
   const isPublicPath = publicPaths.some((path) => pathname.startsWith(path));
 
-  let supabaseResponse = NextResponse.next({
-    request,
-  });
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", pathname);
+
+  const nextWithPath = () =>
+    NextResponse.next({
+      request: { headers: requestHeaders },
+    });
+
+  let supabaseResponse = nextWithPath();
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseAnonKey) {
     // No env: still redirect protected paths to login
-    const protectedPaths = ["/feed", "/explore", "/challenges", "/profile", "/settings", "/admin", "/trainer", "/train"];
+    const protectedPaths = ["/feed", "/explore", "/profile", "/settings", "/admin", "/trainer", "/train"];
     if (!isPublicPath && protectedPaths.some((p) => pathname.startsWith(p))) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
@@ -45,9 +51,7 @@ export async function updateSession(request: NextRequest) {
             cookiesToSet.forEach(({ name, value }) =>
               request.cookies.set(name, value)
             );
-            supabaseResponse = NextResponse.next({
-              request,
-            });
+            supabaseResponse = nextWithPath();
             cookiesToSet.forEach(({ name, value, options }) =>
               supabaseResponse.cookies.set(name, value, options)
             );
@@ -58,9 +62,27 @@ export async function updateSession(request: NextRequest) {
 
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser();
 
-    const protectedPaths = ["/feed", "/explore", "/challenges", "/profile", "/settings", "/admin", "/trainer", "/train"];
+    // Stale/invalid refresh cookies break the login loop — clear them.
+    if (userError?.code === "refresh_token_not_found" || /Refresh Token Not Found/i.test(userError?.message || "")) {
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      if (!isPublicPath && pathname !== "/login") {
+        url.pathname = "/login";
+        url.search = "";
+        const res = NextResponse.redirect(url);
+        request.cookies.getAll().forEach((c) => {
+          if (c.name.includes("auth") || c.name.startsWith("sb-")) {
+            res.cookies.set(c.name, "", { maxAge: 0, path: "/" });
+          }
+        });
+        return res;
+      }
+    }
+
+    const protectedPaths = ["/feed", "/explore", "/profile", "/settings", "/admin", "/trainer", "/train"];
     const isProtectedPath =
       !isPublicPath &&
       protectedPaths.some((path) => pathname.startsWith(path));
@@ -92,9 +114,38 @@ export async function updateSession(request: NextRequest) {
       url.search = "";
       return NextResponse.redirect(url);
     }
+
+    // Hard gate: riders without Vector setup stay on /train/setup until complete.
+    if (user && pathname.startsWith("/train")) {
+      const { data: setupProfile } = await supabase
+        .from("profiles")
+        .select("role_rider, role_trainer, vector_setup_completed_at")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const needsSetup =
+        !!setupProfile &&
+        setupProfile.role_rider === true &&
+        setupProfile.vector_setup_completed_at == null;
+      const onSetup = pathname.startsWith("/train/setup");
+
+      if (needsSetup && !onSetup) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/train/setup";
+        url.search = "";
+        return NextResponse.redirect(url);
+      }
+
+      if (setupProfile && !needsSetup && onSetup) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/train";
+        url.search = "";
+        return NextResponse.redirect(url);
+      }
+    }
   } catch {
     // On error, redirect root and protected paths to login so user always sees login when opening app
-    const protectedPaths = ["/feed", "/explore", "/challenges", "/profile", "/settings", "/admin", "/trainer", "/train"];
+    const protectedPaths = ["/feed", "/explore", "/profile", "/settings", "/admin", "/trainer", "/train"];
     if (
       pathname === "/" ||
       (!isPublicPath && protectedPaths.some((p) => pathname.startsWith(p)))

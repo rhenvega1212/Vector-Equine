@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Users, Trophy, User } from "lucide-react";
+import { Users, User } from "lucide-react";
 import { HorseHeadIcon } from "@/components/icons/horse-head";
 import type { Profile } from "@/types/database";
 import { useFeatureFlags } from "@/lib/flags/context";
@@ -23,7 +23,6 @@ type NavItem = {
 const navItems: NavItem[] = [
   { href: "/train", label: "Vector", icon: HorseHeadIcon, flag: "training_diary" },
   { href: "/feed", label: "Community", icon: Users, community: true },
-  { href: "/challenges", label: "Challenges", icon: Trophy, adminOnly: true },
   { href: "/profile", label: "Profile", icon: User },
 ];
 

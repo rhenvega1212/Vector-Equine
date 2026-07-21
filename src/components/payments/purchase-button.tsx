@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 
 interface PurchaseButtonProps {
   productId: string;
-  challengeId?: string;
   price: number;
   currency?: string;
   className?: string;
@@ -21,7 +20,6 @@ interface PurchaseButtonProps {
 
 export function PurchaseButton({
   productId,
-  challengeId,
   price,
   currency = "usd",
   className,
@@ -36,7 +34,7 @@ export function PurchaseButton({
   const handlePurchase = async () => {
     setError(null);
     try {
-      await checkout.mutateAsync({ productId, challengeId });
+      await checkout.mutateAsync({ productId });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Purchase failed");
     }
@@ -70,7 +68,6 @@ export function PurchaseButton({
 
 interface CoursePurchaseCardProps {
   productId: string;
-  challengeId: string;
   title: string;
   description?: string;
   price: number;
@@ -79,13 +76,12 @@ interface CoursePurchaseCardProps {
 
 export function CoursePurchaseCard({
   productId,
-  challengeId,
   title,
   description,
   price,
   currency = "usd",
 }: CoursePurchaseCardProps) {
-  const { data: access, isLoading } = useCourseAccess(challengeId);
+  const { data: access, isLoading } = useCourseAccess(productId);
 
   if (isLoading) {
     return (
@@ -117,7 +113,6 @@ export function CoursePurchaseCard({
       <div className="mt-4">
         <PurchaseButton
           productId={productId}
-          challengeId={challengeId}
           price={price}
           currency={currency}
           className="w-full"

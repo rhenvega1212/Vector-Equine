@@ -88,7 +88,6 @@ export interface StripeCustomer {
 
 export interface CreateCheckoutSessionRequest {
   productId?: string;
-  challengeId?: string;
   tierId?: string;
   type: "course" | "subscription";
 }

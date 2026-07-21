@@ -78,11 +78,7 @@ export async function POST(request: NextRequest) {
       user_id: user.id,
       session_date: parsed.session_date,
       horse: (parsed.horse && parsed.horse.trim()) || null,
-      horse_id: parsed.horse_id || null,
-      session_title: parsed.session_title?.trim() || null,
       session_type: parsed.session_type,
-      duration_minutes: parsed.duration_minutes ?? null,
-      location: parsed.location?.trim() || null,
       overall_feel: parsed.overall_feel,
       discipline: parsed.discipline || null,
       exercises: parsed.exercises || null,
@@ -93,34 +89,103 @@ export async function POST(request: NextRequest) {
       impulsion: parsed.impulsion ?? null,
       straightness: parsed.straightness ?? null,
       collection: parsed.collection ?? null,
-      ride_quality: parsed.ride_quality ?? null,
-      horse_energy: parsed.horse_energy ?? null,
-      responsiveness: parsed.responsiveness ?? null,
-      balance: parsed.balance ?? null,
-      suppleness: parsed.suppleness ?? null,
-      rider_position: parsed.rider_position ?? null,
-      rider_effectiveness: parsed.rider_effectiveness ?? null,
-      focus: parsed.focus ?? null,
-      confidence: parsed.confidence ?? null,
-      progress_today: parsed.progress_today ?? null,
-      soundness: parsed.soundness ?? null,
-      stamina: parsed.stamina ?? null,
-      behavior_attitude: parsed.behavior_attitude ?? null,
       competition_prep: parsed.competition_prep ?? false,
       focused_goal_session: parsed.focused_goal_session ?? false,
       video_link_url: parsed.video_link_url || null,
-      video_upload_path: parsed.video_upload_path || null,
       session_source: parsed.session_source ?? "manual",
       summary: parsed.summary?.trim() || null,
       homework: parsed.homework?.trim() || null,
-      trainer_id: parsed.trainer_id || null,
     };
 
-    const { data: session, error } = await supabase
-      .from("training_sessions")
-      .insert(payload)
-      .select()
-      .single();
+    // Optional columns — only include when present so legacy schemas still accept inserts.
+    if (parsed.horse_id) payload.horse_id = parsed.horse_id;
+    if (parsed.session_title?.trim()) payload.session_title = parsed.session_title.trim();
+    if (parsed.duration_minutes != null) payload.duration_minutes = parsed.duration_minutes;
+    if (parsed.location?.trim()) payload.location = parsed.location.trim();
+    if (parsed.video_upload_path) payload.video_upload_path = parsed.video_upload_path;
+    if (parsed.trainer_id) payload.trainer_id = parsed.trainer_id;
+    for (const key of [
+      "ride_quality",
+      "horse_energy",
+      "responsiveness",
+      "balance",
+      "suppleness",
+      "rider_position",
+      "rider_effectiveness",
+      "focus",
+      "confidence",
+      "progress_today",
+      "soundness",
+      "stamina",
+      "behavior_attitude",
+    ] as const) {
+      const v = parsed[key];
+      if (v != null) payload[key] = v;
+    }
+
+    // Legacy session_type CHECK may not allow dressage/flat_ride yet.
+    const legacyTypeMap: Record<string, string> = {
+      dressage: "lesson",
+      flat_ride: "ride",
+      jump_school: "lesson",
+      trail_ride: "hack",
+      lunge: "groundwork",
+      show: "other",
+      rehab: "conditioning",
+    };
+
+    const insertOnce = (body: Record<string, unknown>) =>
+      supabase.from("training_sessions").insert(body).select().single();
+
+    let { data: session, error } = await insertOnce(payload);
+
+    // Strip unknown columns (PGRST204) and retry once.
+    if (error?.code === "PGRST204" || /Could not find the .* column/i.test(error?.message || "")) {
+      const missing = error?.message?.match(/'([^']+)' column/)?.[1];
+      if (missing && missing in payload) {
+        delete payload[missing];
+        ({ data: session, error } = await insertOnce(payload));
+      }
+    }
+
+    // Map expanded session_type → legacy if CHECK fails.
+    if (error && /session_type/i.test(error.message) && legacyTypeMap[String(payload.session_type)]) {
+      payload.session_type = legacyTypeMap[String(payload.session_type)];
+      // Prefer title in notes when session_title was stripped
+      if (parsed.session_title?.trim() && !payload.session_title) {
+        payload.notes = [parsed.session_title.trim(), parsed.notes].filter(Boolean).join(" — ");
+      }
+      ({ data: session, error } = await insertOnce(payload));
+    }
+
+    // If still failing on optional columns, drop them all and retry base insert.
+    if (error?.code === "PGRST204" || /Could not find the .* column/i.test(error?.message || "")) {
+      const baseOnly = { ...payload };
+      for (const k of [
+        "horse_id",
+        "session_title",
+        "duration_minutes",
+        "location",
+        "video_upload_path",
+        "ride_quality",
+        "horse_energy",
+        "responsiveness",
+        "balance",
+        "suppleness",
+        "rider_position",
+        "rider_effectiveness",
+        "focus",
+        "confidence",
+        "progress_today",
+        "soundness",
+        "stamina",
+        "behavior_attitude",
+        "trainer_id",
+      ]) {
+        delete baseOnly[k];
+      }
+      ({ data: session, error } = await insertOnce(baseOnly));
+    }
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });

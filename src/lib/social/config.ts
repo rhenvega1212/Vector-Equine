@@ -5,7 +5,7 @@
 export const SOCIAL_CONFIG = {
   /** off = hide community entry; light = connection-scoped; full = global feed later */
   SOCIAL_MODE: "light" as "off" | "light" | "full",
-  /** Gate challenges, explore depth, heavy community features */
+  /** Gate explore depth and heavy community features */
   COMMUNITY_ENABLED: false,
   /** Outward share card / Web Share on Debrief */
   SHARE_OUTWARD_ENABLED: true,

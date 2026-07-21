@@ -127,6 +127,8 @@ export async function POST(request: NextRequest) {
             cancel_at_period_end: subscription.cancel_at_period_end,
           })
           .eq("stripe_subscription_id", subscription.id);
+
+        await syncTrainerBusinessFlagForStripeSub(supabase, subscription.id);
         break;
       }
 
@@ -137,6 +139,12 @@ export async function POST(request: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription;
         console.log("Subscription deleted:", subscription.id);
 
+        const { data: row } = await supabase
+          .from("user_subscriptions")
+          .select("user_id")
+          .eq("stripe_subscription_id", subscription.id)
+          .maybeSingle();
+
         await supabase
           .from("user_subscriptions")
           .update({
@@ -144,6 +152,10 @@ export async function POST(request: NextRequest) {
             canceled_at: new Date().toISOString(),
           })
           .eq("stripe_subscription_id", subscription.id);
+
+        if (row?.user_id) {
+          await syncTrainerBusinessFlagForUser(supabase, row.user_id);
+        }
         break;
       }
 
@@ -239,37 +251,18 @@ async function handleCoursePurchase(
   session: Stripe.Checkout.Session,
   metadata: Record<string, string>
 ) {
-  const { product_id, challenge_id, user_id } = metadata;
+  const { product_id, user_id } = metadata;
 
   // Create purchase record
   await supabase.from("purchases").insert({
     user_id,
     product_id,
-    challenge_id: challenge_id || null,
     stripe_payment_intent_id: session.payment_intent as string,
     stripe_checkout_session_id: session.id,
     amount: session.amount_total || 0,
     currency: session.currency || "usd",
     status: "completed",
   });
-
-  // Auto-enroll user in the challenge if applicable
-  if (challenge_id) {
-    // Check if already enrolled
-    const { data: existing } = await supabase
-      .from("challenge_enrollments")
-      .select("id")
-      .eq("user_id", user_id)
-      .eq("challenge_id", challenge_id)
-      .single();
-
-    if (!existing) {
-      await supabase.from("challenge_enrollments").insert({
-        user_id,
-        challenge_id,
-      });
-    }
-  }
 }
 
 async function handleSubscriptionCreated(
@@ -283,12 +276,45 @@ async function handleSubscriptionCreated(
   // Get subscription details from Stripe
   const sub = (await getStripe().subscriptions.retrieve(subscriptionId)) as unknown as SubscriptionWithPeriod;
 
-  // Cancel any existing active subscriptions
-  await supabase
-    .from("user_subscriptions")
-    .update({ status: "canceled", canceled_at: new Date().toISOString() })
-    .eq("user_id", user_id)
-    .eq("status", "active");
+  const { data: newTier } = await supabase
+    .from("subscription_tiers")
+    .select("id, name")
+    .eq("id", tier_id)
+    .maybeSingle();
+
+  const isTrainerBusiness = newTier?.name === "trainer_business";
+
+  // Rider and Trainer Business are independent — only cancel same-family actives
+  if (isTrainerBusiness) {
+    const { data: businessTiers } = await supabase
+      .from("subscription_tiers")
+      .select("id")
+      .eq("name", "trainer_business");
+    const businessIds = (businessTiers || []).map((t: { id: string }) => t.id);
+    if (businessIds.length > 0) {
+      await supabase
+        .from("user_subscriptions")
+        .update({ status: "canceled", canceled_at: new Date().toISOString() })
+        .eq("user_id", user_id)
+        .eq("status", "active")
+        .in("tier_id", businessIds);
+    }
+  } else {
+    const { data: businessTier } = await supabase
+      .from("subscription_tiers")
+      .select("id")
+      .eq("name", "trainer_business")
+      .maybeSingle();
+    let query = supabase
+      .from("user_subscriptions")
+      .update({ status: "canceled", canceled_at: new Date().toISOString() })
+      .eq("user_id", user_id)
+      .eq("status", "active");
+    if (businessTier?.id) {
+      query = query.neq("tier_id", businessTier.id);
+    }
+    await query;
+  }
 
   // Create new subscription record
   await supabase.from("user_subscriptions").insert({
@@ -300,6 +326,52 @@ async function handleSubscriptionCreated(
     current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
     current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
   });
+
+  await syncTrainerBusinessFlagForUser(supabase, user_id);
+}
+
+/** Set profiles.trainer_business from active/trialing Trainer Business subs. */
+async function syncTrainerBusinessFlagForUser(supabase: any, userId: string) {
+  const { data: businessTiers } = await supabase
+    .from("subscription_tiers")
+    .select("id")
+    .eq("name", "trainer_business");
+  const ids = (businessTiers || []).map((t: { id: string }) => t.id);
+  if (ids.length === 0) {
+    await supabase
+      .from("profiles")
+      .update({ trainer_business: false })
+      .eq("id", userId);
+    return;
+  }
+
+  const { data: active } = await supabase
+    .from("user_subscriptions")
+    .select("id")
+    .eq("user_id", userId)
+    .in("tier_id", ids)
+    .in("status", ["active", "trialing"])
+    .limit(1)
+    .maybeSingle();
+
+  await supabase
+    .from("profiles")
+    .update({ trainer_business: !!active })
+    .eq("id", userId);
+}
+
+async function syncTrainerBusinessFlagForStripeSub(
+  supabase: any,
+  stripeSubscriptionId: string
+) {
+  const { data: row } = await supabase
+    .from("user_subscriptions")
+    .select("user_id")
+    .eq("stripe_subscription_id", stripeSubscriptionId)
+    .maybeSingle();
+  if (row?.user_id) {
+    await syncTrainerBusinessFlagForUser(supabase, row.user_id);
+  }
 }
 
 function mapStripeStatus(status: Stripe.Subscription.Status): string {

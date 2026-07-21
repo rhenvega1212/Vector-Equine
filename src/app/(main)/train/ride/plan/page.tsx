@@ -1,118 +1,159 @@
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { AiUploadForm } from "@/components/train/ai-upload-form";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Video, MessageSquare } from "lucide-react";
-import { format } from "date-fns";
+import { Suspense } from "react";
+import { AiUploadForm } from "@/components/train/ai-upload-form";
 
-export default async function PlanPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+const EXERCISES = [
+  {
+    name: "Collect on a 10 m circle",
+    why: "Get the canter carrying before you ask it to turn.",
+  },
+  {
+    name: "Spiral accordion",
+    why: "In and out to teach him to bring the hind leg under.",
+  },
+  {
+    name: "Quarter pirouettes on a square",
+    why: "One quarter per corner; reward the sit, rebuild the canter.",
+  },
+  {
+    name: "Triangle to X",
+    why: "Then ask for the half-pirouette and Vector will score it.",
+  },
+];
 
-  const { data: videos } = await supabase
-    .from("ai_video_uploads")
-    .select(
-      `
-      id,
-      horse,
-      notes,
-      created_at,
-      ai_analyses ( id, status )
-    `
-    )
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(20);
-
-  const list = videos ?? [];
-  const analysisByVideo = (v: (typeof list)[0]) => {
-    const a = (v as { ai_analyses?: { id: string; status: string }[] | null }).ai_analyses;
-    return Array.isArray(a) ? a[0] : a;
-  };
+function PlanPageInner() {
+  const searchParams = useSearchParams();
+  const horseId = searchParams.get("horseId");
+  const liveHref = horseId
+    ? `/train/ride/live?horseId=${horseId}`
+    : "/train/ride/live";
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold">Plan</p>
-        <h1 className="mt-1 font-serif text-3xl">Ask Vector</h1>
-        <p className="mt-2 text-muted-foreground">
-          Tell Vector your goal for this ride — or upload a video to talk through a past one.
+    <div className="relative space-y-6 pb-28">
+      <header>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold">
+          Plan
         </p>
-        <p className="mt-2 text-sm italic text-gold/90">
-          Works alongside your trainer — bring these to your next lesson too.
-        </p>
+        <h1 className="mt-1 font-serif text-3xl text-cream">Today&apos;s ride.</h1>
+        <p className="mt-1 text-sm text-cream/50">Ask Vector for a plan — then ride it.</p>
+      </header>
+
+      <div className="flex justify-end">
+        <div className="max-w-[85%] rounded-2xl rounded-br-md border border-gold/10 bg-[#1A2440] px-4 py-3 text-sm text-cream/90">
+          <p>
+            We&apos;re chasing stronger canter pirouettes — he doesn&apos;t sit and he spins out.
+            Give me exercises to build it from the ground up.
+          </p>
+          <p className="mt-2 text-right text-[10px] text-cream/40">🎤 spoken</p>
+        </div>
       </div>
 
-      <div className="rounded-xl border border-gold/25 bg-navy p-6 text-cream">
-        <p className="font-serif text-lg italic text-gold-bright">
-          What do you want to work on today?
+      <div className="flex gap-3">
+        <span className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold/40 text-gold">
+          ◇
+        </span>
+        <div className="flex-1 space-y-4 rounded-2xl rounded-tl-md border border-gold/15 bg-[#131C31] p-4">
+          <p className="font-serif text-cream">
+            Got it — sit and carry, not spin. Build it in three steps.
+          </p>
+
+          <ol className="space-y-3">
+            {EXERCISES.map((ex, i) => (
+              <li
+                key={ex.name}
+                className="rounded-lg border border-gold/10 bg-[#1A2440]/40 px-3 py-3"
+              >
+                <p className="text-sm font-medium text-cream">
+                  <span className="text-gold">{i + 1}.</span> {ex.name}
+                </p>
+                <p className="mt-1 text-xs text-cream/50">{ex.why}</p>
+              </li>
+            ))}
+          </ol>
+
+          <div className="rounded-lg border border-gold/15 bg-navy p-4">
+            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-cream/50">
+              Quarter pirouettes on a square
+            </p>
+            <svg viewBox="0 0 200 120" className="mx-auto h-36 w-full max-w-xs text-gold/50">
+              <rect
+                x="20"
+                y="10"
+                width="160"
+                height="100"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1"
+              />
+              <rect
+                x="55"
+                y="30"
+                width="90"
+                height="60"
+                fill="none"
+                stroke="#D1A955"
+                strokeWidth="1.5"
+              />
+              <path d="M55 40 Q50 30 60 30" fill="none" stroke="#F0C967" strokeWidth="1.5" />
+              <path d="M145 30 Q155 30 150 40" fill="none" stroke="#F0C967" strokeWidth="1.5" />
+              <path d="M145 80 Q150 90 140 90" fill="none" stroke="#F0C967" strokeWidth="1.5" />
+              <path d="M55 90 Q45 90 50 80" fill="none" stroke="#F0C967" strokeWidth="1.5" />
+              <circle cx="55" cy="30" r="2" fill="#D1A955" />
+              <circle cx="145" cy="30" r="2" fill="#D1A955" />
+              <circle cx="145" cy="90" r="2" fill="#D1A955" />
+              <circle cx="55" cy="90" r="2" fill="#D1A955" />
+            </svg>
+          </div>
+
+          <p className="text-xs text-cream/50">
+            Works alongside your trainer — bring these to your next lesson too.
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-gold/15 bg-[#131C31] p-4 space-y-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gold">
+          Ask about a past ride
         </p>
-        <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-cream/80">
-          <li>Walk warm-up with soft contact</li>
-          <li>Transitions within the trot — keep the seat quiet</li>
-          <li>One lateral exercise, then cool down</li>
-        </ol>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Link href="/train/ride/live">
-            <Button className="bg-gold text-navy font-semibold hover:bg-gold-bright">Start ride</Button>
-          </Link>
-          <Link href="/train/sessions/new">
-            <Button variant="outline" className="border-gold/30 text-cream hover:bg-white/5">
-              Log without live
+        <p className="text-sm text-cream/50">
+          Upload a video and ask Vector about what happened — works alongside your trainer.
+        </p>
+        <AiUploadForm />
+      </div>
+
+      <div className="fixed bottom-20 left-0 right-0 z-30 mx-auto flex max-w-lg flex-col gap-2 px-4 md:bottom-8">
+        <div className="rounded-full border border-gold/20 bg-[#131C31] px-4 py-3 text-center text-sm text-cream/40">
+          Hold to talk to Vector · 🎤
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" className="flex-1 border-gold/40 text-gold hover:bg-gold/10">
+            Set as today&apos;s plan
+          </Button>
+          <Link href={liveHref} className="flex-1">
+            <Button className="w-full bg-gold text-navy font-semibold hover:bg-gold-bright">
+              Start ride
             </Button>
           </Link>
         </div>
       </div>
-
-      <AiUploadForm />
-
-      {list.length > 0 && (
-        <Card className="border-gold/20">
-          <CardHeader>
-            <CardTitle>Recent uploads</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {list.map((v) => {
-                const analysis = analysisByVideo(v);
-                return (
-                  <li
-                    key={v.id}
-                    className="flex items-center justify-between gap-4 rounded-lg border border-gold/10 p-3"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <Video className="h-5 w-5 shrink-0 text-gold/80" />
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{v.horse || "Untitled"}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {format(new Date(v.created_at), "MMM d, yyyy")}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Button variant="outline" size="sm" asChild className="border-gold/20">
-                        <Link href={`/train/ride/plan/${v.id}`}>Results</Link>
-                      </Button>
-                      {analysis?.id && (
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link href={`/train/ride/plan/${v.id}/chat`}>
-                            <MessageSquare className="h-4 w-4 mr-1" />
-                            Ask Vector
-                          </Link>
-                        </Button>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
     </div>
+  );
+}
+
+export default function PlanPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-4 p-4">
+          <p className="text-sm text-cream/50">Loading plan…</p>
+        </div>
+      }
+    >
+      <PlanPageInner />
+    </Suspense>
   );
 }

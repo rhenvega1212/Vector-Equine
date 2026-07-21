@@ -17,7 +17,6 @@ Disallow: /onboarding
 Allow: /privacy
 Allow: /terms
 Allow: /events
-Allow: /challenges
 
 # Sitemap location
 Sitemap: https://vectorequine.com/sitemap.xml

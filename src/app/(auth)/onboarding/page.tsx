@@ -136,6 +136,10 @@ export default function OnboardingPage() {
         rider_level: coachOnly ? null : data.rider_level || null,
         role_rider: data.role_rider,
         role_trainer: data.role_trainer,
+        // Coach-only skips the horse wizard; riders hit the /train/setup hard gate.
+        ...(coachOnly
+          ? { vector_setup_completed_at: new Date().toISOString() }
+          : {}),
       });
 
       if (profileError) {

@@ -18,15 +18,14 @@ export interface AccessCheckResult {
 }
 
 /**
- * Check if a user has access to a specific course/challenge
+ * Check if a user has access to a specific course product
  */
 export async function checkCourseAccess(
   userId: string,
-  courseId: string
+  productId: string
 ): Promise<AccessCheckResult> {
   const supabase = await createClient();
 
-  // Check if admin
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
@@ -37,27 +36,24 @@ export async function checkCourseAccess(
     return { hasAccess: true };
   }
 
-  // Check if course requires payment
   const { data: product } = await supabase
     .from("products")
     .select("id, price_amount, is_active")
-    .eq("challenge_id", courseId)
+    .eq("id", productId)
     .eq("type", "course")
-    .single();
+    .maybeSingle();
 
-  // If no product or free course
   if (!product || product.price_amount === 0) {
     return { hasAccess: true };
   }
 
-  // Check if user has purchased
   const { data: purchase } = await supabase
     .from("purchases")
     .select("id")
     .eq("user_id", userId)
-    .eq("challenge_id", courseId)
+    .eq("product_id", productId)
     .eq("status", "completed")
-    .single();
+    .maybeSingle();
 
   if (purchase) {
     return { hasAccess: true };

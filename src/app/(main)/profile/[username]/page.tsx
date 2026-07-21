@@ -78,30 +78,12 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
       post_media (*),
       profiles!posts_author_id_fkey (id, username, display_name, avatar_url, role),
       post_likes (user_id),
-      comments (id),
-      challenges (id, title, cover_image_url)
+      comments (id)
     `)
     .eq("author_id", profile.id)
     .eq("is_hidden", false)
     .order("created_at", { ascending: false })
     .limit(50) as { data: any[] | null };
-
-  // Get user's challenge enrollments (only published challenges for non-admins)
-  const { data: enrollments } = await supabase
-    .from("challenge_enrollments")
-    .select(`
-      *,
-      challenges (id, title, cover_image_url, difficulty, status)
-    `)
-    .eq("user_id", profile.id)
-    .limit(20) as { data: any[] | null };
-
-  // Filter out draft challenges if not the user's own profile or not an admin
-  const filteredEnrollments = enrollments?.filter((e: any) => 
-    e.challenges?.status === "published" || 
-    (user && user.id === profile.id) ||
-    profile.role === "admin"
-  ) || [];
 
   // Get user's event RSVPs
   const { data: rsvps } = await supabase
@@ -149,7 +131,6 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
       )}
       <ProfileTabs
         posts={posts || []}
-        enrollments={filteredEnrollments}
         rsvps={filteredRsvps}
         currentUserId={user?.id}
         isOwnProfile={isOwnProfile}

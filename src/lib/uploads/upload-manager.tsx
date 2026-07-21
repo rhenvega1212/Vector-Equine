@@ -23,8 +23,6 @@ interface PostPayload {
   content: string;
   tags: string[];
   media: MediaUploadItem[];
-  challengeId?: string;
-  blockId?: string;
   isFeedVisible?: boolean;
 }
 
@@ -180,8 +178,6 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
             media: uploadedMedia,
           };
 
-          if (payload.challengeId) postBody.challenge_id = payload.challengeId;
-          if (payload.blockId) postBody.block_id = payload.blockId;
           if (payload.isFeedVisible !== undefined)
             postBody.is_feed_visible = payload.isFeedVisible;
 
@@ -201,11 +197,6 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
 
           queryClient.invalidateQueries({ queryKey: ["feed"] });
           queryClient.invalidateQueries({ queryKey: ["home-feed"] });
-          if (payload.blockId) {
-            queryClient.invalidateQueries({
-              queryKey: ["discussion-posts", payload.blockId],
-            });
-          }
 
           toast({
             title: "Post published",

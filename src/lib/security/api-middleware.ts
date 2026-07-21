@@ -81,7 +81,7 @@ export const securityHeaders = {
   // Control referrer information
   "Referrer-Policy": "strict-origin-when-cross-origin",
   // Permissions policy
-  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "Permissions-Policy": "camera=(), microphone=(self), geolocation=()",
 };
 
 /**

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { VECTOR_CONFIG, TRAINER_BUSINESS_SKU } from "@/lib/vector/config";
-import { Loader2, UserPlus, Lock } from "lucide-react";
+import { Loader2, UserPlus, Lock, ChevronRight } from "lucide-react";
 
 type ProfileProps = {
   id: string;
@@ -43,6 +43,14 @@ type ConnectionRow = {
   } | null;
 };
 
+type InviteRow = {
+  id: string;
+  invite_role: "rider" | "trainer";
+  code: string;
+  status: string;
+  created_at: string;
+};
+
 export function CoachingPanel({ profile }: { profile: ProfileProps }) {
   const { toast } = useToast();
   const both = profile.role_rider && profile.role_trainer;
@@ -50,16 +58,25 @@ export function CoachingPanel({ profile }: { profile: ProfileProps }) {
     profile.role_rider ? "riding" : "coaching"
   );
   const [connections, setConnections] = useState<ConnectionRow[]>([]);
+  const [invites, setInvites] = useState<InviteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviting, setInviting] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/connections");
-      const data = await res.json();
-      if (res.ok) {
-        setConnections(data.connections || []);
+      const [connRes, inviteRes] = await Promise.all([
+        fetch("/api/connections"),
+        fetch("/api/connections/invites"),
+      ]);
+      const connData = await connRes.json();
+      const inviteData = await inviteRes.json();
+      if (connRes.ok) setConnections(connData.connections || []);
+      if (inviteRes.ok) {
+        setInvites(
+          (inviteData.invites || []).filter((i: InviteRow) => i.status === "open")
+        );
       }
     } finally {
       setLoading(false);
@@ -79,6 +96,10 @@ export function CoachingPanel({ profile }: { profile: ProfileProps }) {
   const rosterCount = asTrainer.length;
   const atCap = rosterCount >= VECTOR_CONFIG.FREE_COACH_MAX_RIDERS;
   const showBusinessUpsell = atCap || !profile.trainer_business;
+
+  const pendingForMode = invites.filter((i) =>
+    mode === "riding" ? i.invite_role === "trainer" : i.invite_role === "rider"
+  );
 
   async function invite(inviteRole: "rider" | "trainer") {
     setInviting(true);
@@ -113,6 +134,7 @@ export function CoachingPanel({ profile }: { profile: ProfileProps }) {
           description: url,
         });
       }
+      await load();
     } finally {
       setInviting(false);
     }
@@ -137,6 +159,42 @@ export function CoachingPanel({ profile }: { profile: ProfileProps }) {
       return;
     }
     await load();
+  }
+
+  async function startBusinessCheckout() {
+    setCheckoutLoading(true);
+    try {
+      const tiersRes = await fetch("/api/payments/tiers");
+      const tiersData = await tiersRes.json();
+      const tier = (tiersData.tiers || []).find(
+        (t: { name: string; stripe_price_id: string | null }) =>
+          t.name === "trainer_business"
+      );
+      if (!tier?.stripe_price_id) {
+        toast({
+          title: TRAINER_BUSINESS_SKU.name,
+          description: `${TRAINER_BUSINESS_SKU.priceLabel}${TRAINER_BUSINESS_SKU.priceTbd ? " (price TBD)" : ""} — checkout opens once Stripe is configured.`,
+        });
+        return;
+      }
+      const res = await fetch("/api/payments/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "subscription", tierId: tier.id }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        toast({
+          title: "Checkout unavailable",
+          description: typeof data.error === "string" ? data.error : "Try again later",
+          variant: "destructive",
+        });
+        return;
+      }
+      window.location.href = data.url;
+    } finally {
+      setCheckoutLoading(false);
+    }
   }
 
   return (
@@ -199,6 +257,9 @@ export function CoachingPanel({ profile }: { profile: ProfileProps }) {
               Invite your trainer
             </Button>
           </div>
+          {pendingForMode.length > 0 && (
+            <PendingInvites invites={pendingForMode} />
+          )}
           {asRider.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No coaches connected yet. Invite your trainer to share rides alongside them.
@@ -277,32 +338,65 @@ export function CoachingPanel({ profile }: { profile: ProfileProps }) {
             </Button>
           </div>
 
+          {pendingForMode.length > 0 && (
+            <PendingInvites invites={pendingForMode} />
+          )}
+
           {asTrainer.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No riders on your roster yet. Send an invite to grow your coaching circle.
             </p>
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2">
-              {asTrainer.map((c) => (
-                <li
-                  key={c.id}
-                  className="rounded-lg border border-gold/15 p-3"
-                >
-                  <p className="font-medium">{c.rider?.display_name || "Rider"}</p>
-                  <p className="text-xs text-muted-foreground">
-                    @{c.rider?.username || "—"}
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="mt-2 h-8 px-0 text-destructive"
-                    onClick={() => updateConnection(c.id, { status: "removed" })}
+              {asTrainer.map((c) => {
+                const name = c.rider?.display_name || "Rider";
+                const monogram = name
+                  .split(/\s+/)
+                  .map((w) => w[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase();
+                return (
+                  <li
+                    key={c.id}
+                    className="rounded-lg border border-gold/15 p-3 space-y-2"
                   >
-                    Remove
-                  </Button>
-                </li>
-              ))}
+                    <Link
+                      href={`/profile/coach/${c.rider_id}`}
+                      className="flex items-center gap-3 group"
+                    >
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-gold/25 bg-[#131C31] text-xs font-semibold text-gold">
+                        {monogram}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium group-hover:text-gold transition-colors">
+                          {name}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          @{c.rider?.username || "—"}
+                        </p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </Link>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-0 text-destructive"
+                      onClick={() => updateConnection(c.id, { status: "removed" })}
+                    >
+                      Remove
+                    </Button>
+                  </li>
+                );
+              })}
             </ul>
+          )}
+
+          {!profile.trainer_business && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <LockedBusinessTile title="Cross-client analytics" />
+              <LockedBusinessTile title="Branded reports" />
+            </div>
           )}
 
           {showBusinessUpsell && (
@@ -318,9 +412,22 @@ export function CoachingPanel({ profile }: { profile: ProfileProps }) {
                 {TRAINER_BUSINESS_SKU.priceLabel}
                 {TRAINER_BUSINESS_SKU.priceTbd ? " (price TBD)" : ""}.
               </p>
-              <Button size="sm" className="bg-gold text-navy font-semibold hover:bg-gold-bright" asChild>
-                <Link href="/settings">Learn more</Link>
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  className="bg-gold text-navy font-semibold hover:bg-gold-bright"
+                  disabled={checkoutLoading}
+                  onClick={startBusinessCheckout}
+                >
+                  {checkoutLoading && (
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                  )}
+                  Upgrade
+                </Button>
+                <Button size="sm" variant="outline" className="border-gold/30" asChild>
+                  <Link href="/settings">Learn more</Link>
+                </Button>
+              </div>
             </div>
           )}
         </div>
@@ -329,6 +436,42 @@ export function CoachingPanel({ profile }: { profile: ProfileProps }) {
           Enable riding or coaching on your profile to manage connections.
         </p>
       )}
+    </div>
+  );
+}
+
+function PendingInvites({ invites }: { invites: InviteRow[] }) {
+  return (
+    <div className="rounded-lg border border-gold/15 bg-[#131C31]/60 p-3 space-y-2">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cream/50">
+        Pending invites
+      </p>
+      <ul className="space-y-1.5 text-xs text-muted-foreground">
+        {invites.map((i) => (
+          <li key={i.id} className="flex justify-between gap-2">
+            <span>
+              Inviting a {i.invite_role} · code{" "}
+              <span className="font-mono text-cream/70">{i.code}</span>
+            </span>
+            <span className="shrink-0 text-cream/40">open</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function LockedBusinessTile({ title }: { title: string }) {
+  return (
+    <div className="rounded-lg border border-gold/20 bg-[#131C31] p-4 opacity-90">
+      <div className="flex items-center gap-2 text-gold">
+        <Lock className="h-3.5 w-3.5" />
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em]">
+          Trainer Business
+        </p>
+      </div>
+      <p className="mt-2 font-serif text-base text-cream">{title}</p>
+      <p className="mt-1 text-xs text-muted-foreground">Coming soon</p>
     </div>
   );
 }

@@ -92,3 +92,49 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+
+/** Creator-only revoke (sets revoked=true). */
+export async function PATCH(_request: NextRequest, { params }: RouteParams) {
+  try {
+    const { token } = await params;
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
+    const { data: link, error: findError } = await supabase
+      .from("share_links")
+      .select("id, token, created_by, revoked")
+      .eq("token", token)
+      .eq("created_by", user.id)
+      .maybeSingle();
+
+    if (findError || !link) {
+      return NextResponse.json({ error: "Share link not found" }, { status: 404 });
+    }
+
+    if (link.revoked) {
+      return NextResponse.json({ link });
+    }
+
+    const { data: updated, error } = await supabase
+      .from("share_links")
+      .update({ revoked: true })
+      .eq("id", link.id)
+      .eq("created_by", user.id)
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    return NextResponse.json({ link: updated });
+  } catch {
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}

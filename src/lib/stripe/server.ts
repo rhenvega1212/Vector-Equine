@@ -62,7 +62,6 @@ export async function createCourseCheckoutSession(params: {
   customerId: string;
   priceId: string;
   productId: string;
-  challengeId: string;
   userId: string;
   successUrl: string;
   cancelUrl: string;
@@ -81,7 +80,6 @@ export async function createCourseCheckoutSession(params: {
     cancel_url: params.cancelUrl,
     metadata: {
       product_id: params.productId,
-      challenge_id: params.challengeId,
       user_id: params.userId,
       type: "course_purchase",
     },

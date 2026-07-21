@@ -3,9 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { SESSION_TYPE_LABELS } from "@/lib/validations/training-session";
-import { format, parseISO } from "date-fns";
 import { Plus } from "lucide-react";
 import { TrainSessionsFilters } from "@/components/train/sessions-filters";
+import {
+  formatSessionWhen,
+  sessionDisplayTitle,
+} from "@/lib/train/format-session-when";
 
 interface SessionsPageProps {
   searchParams: Promise<{ range?: string; horse?: string; horse_id?: string; session_type?: string }> | { range?: string; horse?: string; horse_id?: string; session_type?: string };
@@ -63,7 +66,7 @@ export default async function TrainSessionsPage({ searchParams }: SessionsPagePr
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold">History</p>
           <h1 className="mt-1 font-serif text-3xl">Sessions</h1>
-          <p className="text-cream/60">View and manage your training sessions</p>
+          <p className="text-cream/60">View and manage your Vector sessions</p>
         </div>
         <Link href="/train/sessions/new">
           <Button className="bg-gold text-navy font-semibold hover:bg-gold/90 w-full sm:w-auto">
@@ -91,26 +94,35 @@ export default async function TrainSessionsPage({ searchParams }: SessionsPagePr
             </div>
           ) : (
             <ul className="divide-y divide-gold/10">
-              {sessions.map((s: { id: string; session_date: string; session_title?: string | null; session_type: string; duration_minutes?: number | null; overall_feel: number; horse?: string | null; horse_id?: string | null; video_link_url?: string | null; video_upload_path?: string | null }) => (
+              {sessions.map((s: { id: string; session_date: string; created_at?: string; session_title?: string | null; session_type: string; duration_minutes?: number | null; overall_feel: number; horse?: string | null; horse_id?: string | null; video_link_url?: string | null; video_upload_path?: string | null }) => (
                 <li key={s.id}>
                   <Link
                     href={`/train/sessions/${s.id}`}
                     className="flex flex-wrap items-center justify-between gap-2 p-4 hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">{format(parseISO(s.session_date), "MMM d, yyyy")}</span>
-                      {s.session_title && <span className="text-muted-foreground">·</span>}
-                      {s.session_title && <span className="text-foreground">{s.session_title}</span>}
+                      <span className="font-medium">
+                        {formatSessionWhen(s.session_date, s.created_at)}
+                      </span>
+                      <span className="text-muted-foreground">·</span>
+                      <span className="text-foreground">
+                        {sessionDisplayTitle(
+                          s.session_title,
+                          SESSION_TYPE_LABELS[s.session_type] || s.session_type
+                        )}
+                      </span>
                       <span className="text-muted-foreground">·</span>
                       <span>{horseDisplay(s)}</span>
-                      <span className="text-muted-foreground">·</span>
-                      <span className="text-sm text-gold/90">
-                        {SESSION_TYPE_LABELS[s.session_type] || s.session_type}
-                      </span>
-                      {s.duration_minutes != null && <span className="text-xs text-muted-foreground">{s.duration_minutes} min</span>}
+                      {s.duration_minutes != null && (
+                        <span className="text-xs text-muted-foreground">
+                          {s.duration_minutes} min
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
-                      {(s.video_link_url || s.video_upload_path) && <span className="text-xs text-muted-foreground">Video</span>}
+                      {(s.video_link_url || s.video_upload_path) && (
+                        <span className="text-xs text-muted-foreground">Video</span>
+                      )}
                       <span className="text-gold font-medium">{s.overall_feel}/10</span>
                     </div>
                   </Link>

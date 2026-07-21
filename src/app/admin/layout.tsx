@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import {
   Users,
   Flag,
-  Trophy,
   ArrowLeft,
   LayoutDashboard,
   Shield,
@@ -42,7 +41,6 @@ export default async function AdminLayout({
     { href: "/admin/users", label: "Users", icon: Users },
     { href: "/admin/flags", label: "Feature Flags", icon: FlaskConical },
     { href: "/admin/reports", label: "Reports", icon: Flag },
-    { href: "/admin/challenges", label: "Challenges", icon: Trophy },
   ];
 
   return (

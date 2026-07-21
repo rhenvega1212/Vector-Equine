@@ -27,9 +27,8 @@ export default async function NotificationsPage() {
       actor:profiles!notifications_actor_id_fkey (id, username, display_name, avatar_url),
       post:posts (id, content),
       comment:comments (id, content),
-      event:events (id, title),
-      challenge:challenges (id, title)
-    `)
+        event:events (id, title)
+      `)
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(50);

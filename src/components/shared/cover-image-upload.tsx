@@ -15,7 +15,7 @@ import { Upload, X, Loader2, ImageIcon, Pencil } from "lucide-react";
 interface CoverImageUploadProps {
   value?: string | null;
   onChange: (url: string | null) => void;
-  bucket?: "challenge-media" | "event-banners";
+  bucket?: "event-banners" | "avatars";
   pathPrefix?: string;
   /** Height class for the preview container */
   previewHeight?: string;
@@ -25,7 +25,7 @@ interface CoverImageUploadProps {
 export function CoverImageUpload({
   value,
   onChange,
-  bucket = "challenge-media",
+  bucket = "event-banners",
   pathPrefix = "covers",
   previewHeight = "h-48",
   disabled = false,

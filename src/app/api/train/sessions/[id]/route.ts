@@ -20,11 +20,11 @@ export async function GET(
     const flagBlock = await flagGuardForApi("training_diary");
     if (flagBlock) return flagBlock;
 
+    // Owner or connected trainer (RLS)
     const { data: session, error } = await supabase
       .from("training_sessions")
       .select("*")
       .eq("id", id)
-      .eq("user_id", user.id)
       .single();
 
     if (error || !session) {
@@ -56,15 +56,48 @@ export async function PATCH(
     const body = await request.json();
     const parsed = updateTrainingSessionSchema.parse(body);
 
-    const payload: Record<string, unknown> = { ...parsed };
-    delete payload.user_id;
-    if (payload.video_link_url === "") payload.video_link_url = null;
+    const { data: existing } = await supabase
+      .from("training_sessions")
+      .select("id, user_id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!existing) {
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
+
+    const isOwner = existing.user_id === user.id;
+    let payload: Record<string, unknown>;
+
+    if (isOwner) {
+      payload = { ...parsed };
+      delete payload.user_id;
+      if (payload.video_link_url === "") payload.video_link_url = null;
+    } else {
+      // Trainers may only write coaching artifacts
+      const coachingOnly = z
+        .object({
+          summary: z.string().max(10000).optional().nullable(),
+          homework: z.string().max(10000).optional().nullable(),
+        })
+        .strict()
+        .parse({
+          summary: parsed.summary,
+          homework: parsed.homework,
+        });
+      payload = coachingOnly;
+      if (Object.keys(payload).length === 0) {
+        return NextResponse.json(
+          { error: "Trainers may only update summary and homework" },
+          { status: 403 }
+        );
+      }
+    }
 
     const { data: session, error } = await supabase
       .from("training_sessions")
       .update({ ...payload, updated_at: new Date().toISOString() })
       .eq("id", id)
-      .eq("user_id", user.id)
       .select()
       .single();
 

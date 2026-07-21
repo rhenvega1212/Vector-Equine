@@ -13,6 +13,8 @@ export function TrainLayoutClient({
 }) {
   const pathname = usePathname();
   const hideLoopNav =
+    pathname.startsWith("/train/setup") ||
+    pathname.startsWith("/train/lab") ||
     pathname.startsWith("/train/ride/") ||
     pathname.startsWith("/train/sessions/new") ||
     pathname.startsWith("/train/horses/new") ||

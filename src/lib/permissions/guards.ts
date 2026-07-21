@@ -93,10 +93,6 @@ export function canCreateEvents(profile: Profile | null): boolean {
   return isAdmin(profile) || isApprovedTrainer(profile);
 }
 
-export function canCreateChallenges(profile: Profile | null): boolean {
-  // Only admins can create challenges in MVP
-  return isAdmin(profile);
-}
 
 export function canModerateContent(profile: Profile | null): boolean {
   return isAdmin(profile);

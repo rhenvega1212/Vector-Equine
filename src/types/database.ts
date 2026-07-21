@@ -32,6 +32,7 @@ export type Database = {
           suspended_at: string | null;
           suspended_by: string | null;
           suspension_reason: string | null;
+          vector_setup_completed_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -57,6 +58,7 @@ export type Database = {
           suspended_at?: string | null;
           suspended_by?: string | null;
           suspension_reason?: string | null;
+          vector_setup_completed_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -82,6 +84,7 @@ export type Database = {
           suspended_at?: string | null;
           suspended_by?: string | null;
           suspension_reason?: string | null;
+          vector_setup_completed_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -873,6 +876,123 @@ export type Database = {
           updated_at?: string;
         };
       };
+      capture_sessions: {
+        Row: {
+          id: string;
+          rider_id: string;
+          horse_id: string | null;
+          training_session_id: string | null;
+          join_code: string;
+          livekit_room: string;
+          status: "waiting" | "live" | "ended";
+          t0: string;
+          started_at: string;
+          ended_at: string | null;
+          expires_at: string;
+          trainer_display_name: string | null;
+          trainer_participant_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          rider_id: string;
+          horse_id?: string | null;
+          training_session_id?: string | null;
+          join_code: string;
+          livekit_room: string;
+          status?: "waiting" | "live" | "ended";
+          t0?: string;
+          started_at?: string;
+          ended_at?: string | null;
+          expires_at?: string;
+          trainer_display_name?: string | null;
+          trainer_participant_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          rider_id?: string;
+          horse_id?: string | null;
+          training_session_id?: string | null;
+          join_code?: string;
+          livekit_room?: string;
+          status?: "waiting" | "live" | "ended";
+          t0?: string;
+          started_at?: string;
+          ended_at?: string | null;
+          expires_at?: string;
+          trainer_display_name?: string | null;
+          trainer_participant_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      session_transcript_segments: {
+        Row: {
+          id: string;
+          capture_session_id: string;
+          offset_ms: number;
+          ended_offset_ms: number | null;
+          speaker: "rider" | "trainer" | "system";
+          text: string;
+          confidence: number | null;
+          raw_json: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          capture_session_id: string;
+          offset_ms: number;
+          ended_offset_ms?: number | null;
+          speaker: "rider" | "trainer" | "system";
+          text: string;
+          confidence?: number | null;
+          raw_json?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          capture_session_id?: string;
+          offset_ms?: number;
+          ended_offset_ms?: number | null;
+          speaker?: "rider" | "trainer" | "system";
+          text?: string;
+          confidence?: number | null;
+          raw_json?: Json | null;
+          created_at?: string;
+        };
+      };
+      session_media_assets: {
+        Row: {
+          id: string;
+          capture_session_id: string;
+          kind: "video" | "sensor" | "audio_recording";
+          storage_path: string | null;
+          sync_offset_ms: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          capture_session_id: string;
+          kind: "video" | "sensor" | "audio_recording";
+          storage_path?: string | null;
+          sync_offset_ms?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          capture_session_id?: string;
+          kind?: "video" | "sensor" | "audio_recording";
+          storage_path?: string | null;
+          sync_offset_ms?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       ai_video_uploads: {
         Row: {
           id: string;
@@ -1161,6 +1281,9 @@ export type Submission = Tables<"submissions">;
 export type SubmissionLike = Tables<"submission_likes">;
 export type SubmissionComment = Tables<"submission_comments">;
 export type TrainingSession = Tables<"training_sessions">;
+export type CaptureSession = Tables<"capture_sessions">;
+export type SessionTranscriptSegment = Tables<"session_transcript_segments">;
+export type SessionMediaAsset = Tables<"session_media_assets">;
 export type CoachConnection = Tables<"coach_connections">;
 export type ConnectionInvite = Tables<"connection_invites">;
 export type SessionShare = Tables<"session_shares">;

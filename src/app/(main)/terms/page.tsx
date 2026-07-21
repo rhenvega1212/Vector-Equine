@@ -35,7 +35,7 @@ export default function TermsOfServicePage() {
             <h2 className="text-xl font-semibold text-gold mb-3">2. Description of Service</h2>
             <p className="text-muted-foreground leading-relaxed">
               Vector Equine is a social platform for equestrians that provides features including but not 
-              limited to: social networking, event management, educational challenges, and community 
+              limited to: social networking, event management, and community 
               engagement tools. The Service is provided &quot;as is&quot; and we reserve the right to modify, 
               suspend, or discontinue any aspect of the Service at any time.
             </p>
@@ -88,9 +88,9 @@ export default function TermsOfServicePage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-gold mb-3">6. Events and Challenges</h2>
+            <h2 className="text-xl font-semibold text-gold mb-3">6. Events</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Events and challenges on Vector Equine are created by administrators and approved trainers. 
+              Events on Vector Equine are created by administrators and approved trainers. 
               Participation is at your own risk. We do not guarantee the quality, safety, or legality 
               of any event. You are responsible for your own safety when participating in any 
               equestrian activities mentioned or organized through the Service.

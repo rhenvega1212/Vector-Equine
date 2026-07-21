@@ -9,7 +9,6 @@ import { z } from "zod";
 
 const checkoutSchema = z.object({
   productId: z.string().uuid().optional(),
-  challengeId: z.string().uuid().optional(),
   tierId: z.string().uuid().optional(),
   type: z.enum(["course", "subscription"]),
 });
@@ -45,7 +44,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { productId, challengeId, tierId, type } = validation.data;
+    const { productId, tierId, type } = validation.data;
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
     // Get or create Stripe customer
@@ -107,7 +106,6 @@ export async function POST(request: NextRequest) {
         customerId,
         priceId: product.stripe_price_id,
         productId: product.id,
-        challengeId: product.challenge_id || challengeId || "",
         userId: user.id,
         successUrl: `${baseUrl}/payments/success?session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: `${baseUrl}/payments/canceled`,
@@ -175,17 +173,28 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Check for existing active subscription
-      const { data: existingSub } = await supabase
-        .from("user_subscriptions")
-        .select("id, status")
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .single();
+      const isTrainerBusiness = tier.name === "trainer_business";
 
-      if (existingSub) {
+      // Rider and Trainer Business can coexist; block only same-family actives
+      const { data: activeSubs } = await supabase
+        .from("user_subscriptions")
+        .select("id, tier_id, tier:subscription_tiers(name)")
+        .eq("user_id", user.id)
+        .eq("status", "active");
+
+      const blocking = (activeSubs || []).find((s: any) => {
+        const name = s.tier?.name as string | undefined;
+        if (isTrainerBusiness) return name === "trainer_business";
+        return name && name !== "trainer_business";
+      });
+
+      if (blocking) {
         return NextResponse.json(
-          { error: "You already have an active subscription. Please cancel it first to change plans." },
+          {
+            error: isTrainerBusiness
+              ? "You already have Trainer Business. Manage it from billing."
+              : "You already have an active rider subscription. Please cancel it first to change plans.",
+          },
           { status: 400 }
         );
       }

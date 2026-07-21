@@ -34,8 +34,6 @@ interface MediaItem {
 }
 
 export interface DiscussionModeProps {
-  challengeId: string;
-  blockId: string;
   prompt?: string;
   onPostCreated?: () => void;
 }
@@ -190,8 +188,6 @@ export function CreatePost({ discussionMode }: CreatePostProps = {}) {
           media_type: m.media_type,
           coverFile: m.coverFile,
         })),
-      challengeId: discussionMode?.challengeId,
-      blockId: discussionMode?.blockId,
       isFeedVisible: discussionMode ? shareToFeed : undefined,
     });
 

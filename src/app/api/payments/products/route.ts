@@ -11,10 +11,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from("products")
-      .select(`
-        *,
-        challenge:challenges(id, title, description, difficulty, duration_days)
-      `)
+      .select("*")
       .eq("is_active", true)
       .order("sort_order", { ascending: true });
 
@@ -68,7 +65,6 @@ export async function POST(request: NextRequest) {
       currency = "usd",
       interval,
       intervalCount,
-      challengeId,
       features = [],
     } = body;
 
@@ -98,7 +94,6 @@ export async function POST(request: NextRequest) {
         currency,
         interval,
         interval_count: intervalCount,
-        challenge_id: challengeId,
         features,
         stripe_product_id: stripeProduct.id,
         stripe_price_id: stripePrice.id,

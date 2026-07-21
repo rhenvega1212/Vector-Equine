@@ -58,7 +58,7 @@ export interface ARService {
   getARContent(contentId: string): Promise<ARContent>;
   
   /**
-   * Get all AR content for a challenge or lesson
+   * Get all AR content for a lesson or session
    */
   getARContentForLesson(lessonId: string): Promise<ARContent[]>;
   

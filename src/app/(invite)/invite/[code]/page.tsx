@@ -84,7 +84,11 @@ export default function InviteAcceptPage() {
         );
         return;
       }
-      router.push("/train");
+      router.push(
+        invite?.invite_role === "rider"
+          ? "/settings?subscribe=rider"
+          : "/train"
+      );
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
@@ -126,7 +130,9 @@ export default function InviteAcceptPage() {
         )}
         {invite && !error && (
           <p className="text-sm text-muted-foreground text-center">
-            Accepting connects your accounts so you can share rides and coaching notes.
+            {invite.invite_role === "rider"
+              ? "Accepting connects you as a rider. Capturing sessions works best with a rider subscription — browsing and coaching stay free."
+              : "Accepting connects your accounts so you can share rides and coaching notes. Coaching is free — no card needed."}
           </p>
         )}
       </CardContent>

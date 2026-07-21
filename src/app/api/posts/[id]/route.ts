@@ -113,7 +113,6 @@ export async function PATCH(
         post_media (*),
         post_likes (user_id),
         comments (id),
-        challenges (id, title, cover_image_url)
       `)
       .eq("id", id)
       .single();

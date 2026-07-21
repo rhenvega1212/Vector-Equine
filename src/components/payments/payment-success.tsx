@@ -95,9 +95,9 @@ export function PaymentSuccess() {
 
             <div className="flex flex-col sm:flex-row gap-3 w-full">
               <Button asChild className="flex-1 bg-gold hover:bg-gold">
-                <Link href="/challenges">
+                <Link href="/train">
                   <Sparkles className="h-4 w-4 mr-2" />
-                  Go to Courses
+                  Go to Vector
                 </Link>
               </Button>
               <Button asChild variant="outline" className="flex-1">
@@ -137,7 +137,7 @@ export function PaymentCanceled() {
                 </Link>
               </Button>
               <Button asChild variant="outline" className="flex-1">
-                <Link href="/challenges">Back to Courses</Link>
+                <Link href="/train">Back to Vector</Link>
               </Button>
             </div>
           </div>

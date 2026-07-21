@@ -41,7 +41,7 @@ export interface BlockEditorProps {
 export interface BlockRendererProps {
   block: BlockData;
   currentUserId?: string;
-  challengeId: string;
+  challengeId?: string;
   isCompleted?: boolean;
   onComplete?: () => void;
 }

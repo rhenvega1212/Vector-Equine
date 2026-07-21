@@ -41,7 +41,7 @@ export default function PrivacyPolicyPage() {
               <li>Account information (email address, username, display name, password)</li>
               <li>Profile information (bio, location, discipline, rider level, profile photo)</li>
               <li>Content you create (posts, comments, photos, videos)</li>
-              <li>Event RSVPs and challenge enrollments</li>
+              <li>Event RSVPs</li>
               <li>Communications with us</li>
             </ul>
           </section>

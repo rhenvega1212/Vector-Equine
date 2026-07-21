@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -54,6 +54,8 @@ const RIDER_LEVELS = [
 
 export default function SettingsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const showRiderSubscribeNudge = searchParams.get("subscribe") === "rider";
   const { toast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -289,6 +291,22 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {showRiderSubscribeNudge && (
+        <div className="mb-6 rounded-xl border border-gold/30 bg-gold/10 p-4 space-y-1">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gold">
+            Rider subscription
+          </p>
+          <p className="text-sm text-muted-foreground">
+            You&apos;re connected as a rider. Capturing sessions (comms, sensor, or hybrid)
+            needs an active rider subscription — browsing, social, and coaching connections
+            stay free.
+          </p>
+          <Button size="sm" className="mt-2 bg-gold text-navy font-semibold hover:bg-gold-bright" asChild>
+            <Link href="/pricing">View plans</Link>
+          </Button>
+        </div>
+      )}
 
       <Card className="mb-6 bg-card border-border">
         <CardHeader>

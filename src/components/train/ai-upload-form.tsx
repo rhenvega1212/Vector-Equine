@@ -68,19 +68,19 @@ export function AiUploadForm() {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setStatus("error");
-        setErrorMessage(data.error ?? "Analysis failed");
-        toast({ title: "Analysis failed", description: data.error ?? "Something went wrong", variant: "destructive" });
+        setErrorMessage(data.error ?? "Review failed");
+        toast({ title: "Review failed", description: data.error ?? "Something went wrong", variant: "destructive" });
         return;
       }
 
       const { video_id } = await res.json();
       setStatus("complete");
-      toast({ title: "Analysis complete", description: "Your ride has been analyzed." });
+      toast({ title: "Ready", description: "Your ride notes are ready." });
       router.push(`/train/ride/plan/${video_id}`);
     } catch (err) {
       setStatus("error");
       setErrorMessage(err instanceof Error ? err.message : "Something went wrong");
-      toast({ title: "Error", description: "Upload or analysis failed.", variant: "destructive" });
+      toast({ title: "Error", description: "Upload or review failed.", variant: "destructive" });
     } finally {
       if (inputRef.current) inputRef.current.value = "";
     }
@@ -131,7 +131,7 @@ export function AiUploadForm() {
           {status === "uploading" || status === "processing" ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {status === "uploading" ? "Uploading…" : "Analyzing…"}
+              {status === "uploading" ? "Uploading…" : "Processing…"}
             </>
           ) : (
             <>
