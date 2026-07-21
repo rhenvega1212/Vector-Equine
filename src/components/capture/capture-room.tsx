@@ -11,6 +11,7 @@ import {
 } from "livekit-client";
 import { formatOffset } from "@/lib/capture/summary";
 import { createKeepAwake, type KeepAwakeHandle } from "@/lib/capture/keep-awake";
+import { VoiceLevelMeter } from "@/components/capture/voice-level-meter";
 
 type LivekitCreds = {
   configured: boolean;
@@ -59,6 +60,32 @@ const CALL_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
   autoGainControl: true,
   channelCount: 1,
 };
+
+function mergeSegments(prev: Segment[], incoming: Segment[]): Segment[] {
+  const softKey = (s: Segment) => `${s.speaker}:${s.offset_ms}:${s.text}`;
+  const byKey = new Map<string, Segment>();
+
+  for (const s of [...prev, ...incoming]) {
+    if (!s.text?.trim()) continue;
+    if (s.id) {
+      for (const [k, v] of Array.from(byKey.entries())) {
+        if (!v.id && softKey(v) === softKey(s)) byKey.delete(k);
+      }
+      byKey.set(s.id, { ...byKey.get(s.id), ...s });
+      continue;
+    }
+    let hasCanonical = false;
+    for (const v of Array.from(byKey.values())) {
+      if (v.id && softKey(v) === softKey(s)) {
+        hasCanonical = true;
+        break;
+      }
+    }
+    if (!hasCanonical) byKey.set(softKey(s), s);
+  }
+
+  return Array.from(byKey.values()).sort((a, b) => a.offset_ms - b.offset_ms);
+}
 
 function micErrorMessage(err: unknown): string {
   const name = err instanceof DOMException ? err.name : "";
@@ -142,14 +169,17 @@ export function CaptureRoom({
   const [deafened, setDeafened] = useState(false);
   const [peerConnected, setPeerConnected] = useState(false);
   const [listening, setListening] = useState(false);
+  const [speechUnsupported, setSpeechUnsupported] = useState(false);
   const [segments, setSegments] = useState<Segment[]>([]);
   const [interim, setInterim] = useState("");
+  const [peerInterim, setPeerInterim] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const [mics, setMics] = useState<MediaDeviceRow[]>([]);
   const [speakers, setSpeakers] = useState<MediaDeviceRow[]>([]);
   const [micId, setMicId] = useState<string>("");
   const [speakerId, setSpeakerId] = useState<string>("");
   const [screenHint, setScreenHint] = useState(false);
+  const [meterTrack, setMeterTrack] = useState<LocalAudioTrack | null>(null);
 
   const roomRef = useRef<Room | null>(null);
   const localMicRef = useRef<LocalAudioTrack | null>(null);
@@ -272,6 +302,7 @@ export function CaptureRoom({
   const teardownRoom = useCallback(() => {
     localMicRef.current?.stop();
     localMicRef.current = null;
+    setMeterTrack(null);
     try {
       roomRef.current?.disconnect();
     } catch {
@@ -338,6 +369,42 @@ export function CaptureRoom({
         });
         room.on(RoomEvent.ParticipantConnected, syncPeers);
         room.on(RoomEvent.ParticipantDisconnected, syncPeers);
+        room.on(RoomEvent.DataReceived, (payload) => {
+          try {
+            const msg = JSON.parse(new TextDecoder().decode(payload)) as {
+              type?: string;
+              id?: string;
+              offset_ms?: number;
+              speaker?: Segment["speaker"];
+              text?: string;
+              interim?: boolean;
+            };
+            if (msg.type !== "segment" || !msg.speaker) return;
+            // Don't echo our own speech back into the timeline twice
+            if (msg.speaker === speaker) return;
+            if (msg.interim) {
+              setPeerInterim(msg.text || "");
+              return;
+            }
+            if (!msg.text) return;
+            const peerSpeaker = msg.speaker;
+            const peerText = msg.text;
+            setPeerInterim("");
+            setSegments((prev) =>
+              mergeSegments(prev, [
+                {
+                  id: msg.id,
+                  offset_ms:
+                    msg.offset_ms ?? Math.max(0, Date.now() - t0Ms.current),
+                  speaker: peerSpeaker,
+                  text: peerText,
+                },
+              ])
+            );
+          } catch {
+            /* ignore malformed */
+          }
+        });
         room.on(RoomEvent.Reconnecting, () => {
           if (!intentionalEndRef.current) setRoomState("reconnecting");
         });
@@ -352,6 +419,7 @@ export function CaptureRoom({
           roomRef.current = null;
           localMicRef.current?.stop();
           localMicRef.current = null;
+          setMeterTrack(null);
           if (intentionalEndRef.current) {
             setRoomState("idle");
             callDesiredRef.current = false;
@@ -383,6 +451,7 @@ export function CaptureRoom({
           deviceId: micIdRef.current || undefined,
         });
         localMicRef.current = micTrack;
+        setMeterTrack(micTrack);
         await room.localParticipant.publishTrack(micTrack, {
           source: Track.Source.Microphone,
         });
@@ -429,6 +498,7 @@ export function CaptureRoom({
       startKeepAwake,
       stopKeepAwake,
       teardownRoom,
+      speaker,
     ]
   );
 
@@ -538,6 +608,7 @@ export function CaptureRoom({
         deviceId: nextId || undefined,
       });
       localMicRef.current = micTrack;
+      setMeterTrack(micTrack);
       await room.localParticipant.publishTrack(micTrack, {
         source: Track.Source.Microphone,
       });
@@ -547,8 +618,60 @@ export function CaptureRoom({
     }
   }
 
+  const authHeaders = useCallback(() => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (guestToken) headers.Authorization = `Bearer ${guestToken}`;
+    return headers;
+  }, [guestToken]);
+
+  const broadcastSegment = useCallback(
+    (seg: Segment & { interim?: boolean }) => {
+      const room = roomRef.current;
+      if (!room || room.state !== "connected") return;
+      try {
+        const bytes = new TextEncoder().encode(
+          JSON.stringify({
+            type: "segment",
+            id: seg.id,
+            offset_ms: seg.offset_ms,
+            speaker: seg.speaker,
+            text: seg.text,
+            interim: !!seg.interim,
+          })
+        );
+        void room.localParticipant.publishData(bytes, { reliable: !seg.interim });
+      } catch {
+        /* ignore */
+      }
+    },
+    []
+  );
+
+  const pullSegments = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/capture/sessions/${captureSessionId}/segments`,
+        { headers: authHeaders(), cache: "no-store" }
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      const rows = (data.segments || []) as Segment[];
+      if (rows.length === 0) return;
+      setSegments((prev) => mergeSegments(prev, rows));
+    } catch {
+      /* ignore */
+    }
+  }, [authHeaders, captureSessionId]);
+
   async function postSegment(text: string, confidence?: number) {
     const offset_ms = Math.max(0, Date.now() - t0Ms.current);
+    const localSeg: Segment = { offset_ms, speaker, text };
+    // Optimistic local + instant peer sync
+    setSegments((prev) => mergeSegments(prev, [localSeg]));
+    broadcastSegment(localSeg);
+
     const payload = {
       segments: [
         {
@@ -559,34 +682,40 @@ export function CaptureRoom({
         },
       ],
     };
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (guestToken) headers.Authorization = `Bearer ${guestToken}`;
 
     const res = await fetch(
       `/api/capture/sessions/${captureSessionId}/segments`,
       {
         method: "POST",
-        headers,
+        headers: authHeaders(),
         body: JSON.stringify(payload),
         keepalive: true,
       }
     );
     if (res.ok) {
       const data = await res.json();
-      const saved = data.segments?.[0];
-      setSegments((prev) => [
-        ...prev,
-        {
-          id: saved?.id,
-          offset_ms,
-          speaker,
-          text,
-        },
-      ]);
+      const saved = data.segments?.[0] as Segment | undefined;
+      if (saved) {
+        setSegments((prev) => mergeSegments(prev, [saved]));
+        broadcastSegment({
+          id: saved.id,
+          offset_ms: saved.offset_ms ?? offset_ms,
+          speaker: saved.speaker ?? speaker,
+          text: saved.text ?? text,
+        });
+      }
     }
   }
+
+  // Shared conversation timeline — rider + trainer both see each other
+  useEffect(() => {
+    if (roomState !== "connected" && roomState !== "reconnecting") return;
+    void pullSegments();
+    const id = window.setInterval(() => {
+      void pullSegments();
+    }, 1500);
+    return () => window.clearInterval(id);
+  }, [roomState, pullSegments]);
 
   useEffect(() => {
     if (roomState !== "connected") {
@@ -595,7 +724,12 @@ export function CaptureRoom({
     }
     const SpeechCtor =
       window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechCtor) return;
+    if (!SpeechCtor) {
+      setSpeechUnsupported(true);
+      setListening(false);
+      return;
+    }
+    setSpeechUnsupported(false);
 
     const recognition = new SpeechCtor();
     recognitionRef.current = recognition;
@@ -612,18 +746,37 @@ export function CaptureRoom({
         if (!transcript) continue;
         if (result.isFinal) {
           setInterim("");
+          broadcastSegment({
+            offset_ms: Math.max(0, Date.now() - t0Ms.current),
+            speaker,
+            text: "",
+            interim: true,
+          });
           void postSegment(transcript, result[0].confidence);
         } else {
           interimText += transcript;
         }
       }
-      if (interimText) setInterim(interimText);
+      if (interimText) {
+        setInterim(interimText);
+        broadcastSegment({
+          offset_ms: Math.max(0, Date.now() - t0Ms.current),
+          speaker,
+          text: interimText,
+          interim: true,
+        });
+      }
     };
 
     recognition.onerror = (event) => {
       if (event.error === "not-allowed") {
         setListening(false);
         wantListeningRef.current = false;
+        setSpeechUnsupported(true);
+        return;
+      }
+      // no-speech / aborted are normal — keep listening flag optimistic
+      if (event.error === "no-speech" || event.error === "aborted") {
         return;
       }
       setListening(false);
@@ -651,7 +804,7 @@ export function CaptureRoom({
         } catch {
           setListening(false);
         }
-      }, 500);
+      }, 250);
     };
 
     try {
@@ -812,11 +965,20 @@ export function CaptureRoom({
                 ? `On call with ${peerLabel}`
                 : `In call — waiting for ${peerLabel}…`}
             </p>
+
+            <VoiceLevelMeter track={meterTrack} muted={muted} />
+
             <p className="text-xs text-cream/45">
-              Transcript:{" "}
-              {listening
-                ? "listening…"
-                : "pauses if the screen locks — call stays on this lesson"}
+              Your transcript:{" "}
+              {speechUnsupported
+                ? "speech not available in this browser — try Safari/Chrome with mic allowed"
+                : listening
+                  ? "listening…"
+                  : "paused — will resume when this screen is open"}
+            </p>
+            <p className="text-xs text-cream/40">
+              Timeline syncs both sides — you should see {peerLabel}&apos;s cues
+              here too.
             </p>
             {screenHint && (
               <p className="text-xs text-gold/80">
@@ -886,25 +1048,49 @@ export function CaptureRoom({
 
       <div className="space-y-2 rounded-xl border border-gold/15 bg-[#131C31] px-4 py-3">
         <p className="text-[10px] uppercase tracking-[0.18em] text-cream/40">
-          Timeline
+          Conversation timeline
         </p>
-        {segments.length === 0 && !interim && (
+        {segments.length === 0 && !interim && !peerInterim && (
           <p className="text-sm text-cream/40">
-            Speaking will appear here with timestamps.
+            Rider and trainer speech will appear here with timestamps.
           </p>
         )}
-        {segments.map((s, i) => (
-          <div key={s.id || `${s.offset_ms}-${i}`} className="text-sm">
-            <span className="tabular-nums text-gold/80">
-              {formatOffset(s.offset_ms)}
-            </span>{" "}
-            <span className="text-[10px] uppercase tracking-wider text-cream/40">
-              {s.speaker}
-            </span>
-            <p className="text-cream/90">{s.text}</p>
-          </div>
-        ))}
-        {interim && <p className="text-sm italic text-cream/45">{interim}</p>}
+        {segments.map((s, i) => {
+          const mine = s.speaker === speaker;
+          const label =
+            s.speaker === "system"
+              ? "system"
+              : mine
+                ? "you"
+                : s.speaker === "trainer"
+                  ? peerLabel
+                  : peerLabel;
+          return (
+            <div key={s.id || `${s.speaker}-${s.offset_ms}-${i}`} className="text-sm">
+              <span className="tabular-nums text-gold/80">
+                {formatOffset(s.offset_ms)}
+              </span>{" "}
+              <span
+                className={
+                  mine
+                    ? "text-[10px] uppercase tracking-wider text-cream/40"
+                    : "text-[10px] uppercase tracking-wider text-gold"
+                }
+              >
+                {label}
+              </span>
+              <p className="text-cream/90">{s.text}</p>
+            </div>
+          );
+        })}
+        {interim && (
+          <p className="text-sm italic text-cream/45">You: {interim}</p>
+        )}
+        {peerInterim && (
+          <p className="text-sm italic text-gold/70">
+            {peerLabel}: {peerInterim}
+          </p>
+        )}
       </div>
 
       {onEnd && (

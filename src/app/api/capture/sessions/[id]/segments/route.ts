@@ -124,9 +124,42 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function GET(_request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+
+    const authHeader = request.headers.get("authorization");
+    const guestToken =
+      authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+    if (guestToken) {
+      const claims = verifyGuestCaptureToken(guestToken);
+      if (!claims || claims.captureSessionId !== id) {
+        return NextResponse.json({ error: "Invalid guest token" }, { status: 401 });
+      }
+      if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
+      }
+      const admin = createAdminClient();
+      const { data: capture } = await admin
+        .from("capture_sessions")
+        .select("id")
+        .eq("id", id)
+        .maybeSingle();
+      if (!capture) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+      const { data, error } = await admin
+        .from("session_transcript_segments")
+        .select("id, offset_ms, ended_offset_ms, speaker, text, confidence, created_at")
+        .eq("capture_session_id", id)
+        .order("offset_ms", { ascending: true });
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+      return NextResponse.json({ segments: data || [] });
+    }
+
     const supabase = await createClient();
     const {
       data: { user },
