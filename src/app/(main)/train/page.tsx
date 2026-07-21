@@ -26,7 +26,8 @@ export default async function VectorTodayPage({ searchParams }: TodayProps) {
     .eq("id", user.id)
     .single();
 
-  const firstName = (profile?.display_name || "Rider").split(" ")[0];
+  const firstName =
+    profile?.display_name?.trim().split(/\s+/)[0] || "there";
 
   const { data: horses, error: horsesError } = await supabase
     .from("horse_profiles")
@@ -98,6 +99,19 @@ export default async function VectorTodayPage({ searchParams }: TodayProps) {
   }
 
   const recent = list.slice(0, 2);
+  const recentIds = recent.map((s) => s.id);
+  const trainerBySession = new Map<string, string>();
+  if (recentIds.length > 0) {
+    const { data: captures } = await supabase
+      .from("capture_sessions")
+      .select("training_session_id, trainer_display_name")
+      .in("training_session_id", recentIds);
+    for (const c of captures || []) {
+      if (c.training_session_id && c.trainer_display_name) {
+        trainerBySession.set(c.training_session_id, c.trainer_display_name);
+      }
+    }
+  }
   const scored = list.filter((s) => s.connection != null || s.rhythm != null);
   const aidConsistency =
     scored.length > 0
@@ -229,7 +243,13 @@ export default async function VectorTodayPage({ searchParams }: TodayProps) {
               Recent rides
             </h2>
             <ul className="space-y-2">
-              {recent.map((s) => (
+              {recent.map((s) => {
+                const withTrainer =
+                  trainerBySession.get(s.id) ||
+                  (typeof s.notes === "string" && /^With\s+/i.test(s.notes)
+                    ? s.notes.replace(/^With\s+/i, "").trim()
+                    : null);
+                return (
                 <li key={s.id}>
                   <Link
                     href={`/train/sessions/${s.id}`}
@@ -249,12 +269,19 @@ export default async function VectorTodayPage({ searchParams }: TodayProps) {
                             s.session_type
                         )}
                       </p>
-                      <p className="text-xs text-gold/80">Debrief</p>
+                      <p className="text-xs text-gold/80">
+                        {withTrainer
+                          ? `Lesson with ${withTrainer} · Debrief`
+                          : "Debrief"}
+                      </p>
                     </div>
-                    <span className="font-serif text-lg text-gold">{s.overall_feel}/10</span>
+                    <span className="text-xs uppercase tracking-wider text-cream/40">
+                      Open
+                    </span>
                   </Link>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </section>
         </>

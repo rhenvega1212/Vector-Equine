@@ -44,18 +44,27 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       .order("offset_ms", { ascending: true });
 
     const list = segments || [];
-    const { summary, homework, exercises } = summarizeCaptureTranscript(list);
 
+    let horseFocus: string | null = null;
     let horseName = "Horse";
     if (capture.horse_id) {
       const { data: horse } = await supabase
         .from("horse_profiles")
-        .select("name, barn_name")
+        .select("name, barn_name, current_focus")
         .eq("id", capture.horse_id)
         .eq("user_id", user.id)
         .maybeSingle();
       horseName = horse?.barn_name?.trim() || horse?.name || "Horse";
+      horseFocus = horse?.current_focus ?? null;
     }
+
+    const { summary, homework, exercises, focus } = summarizeCaptureTranscript(
+      list,
+      {
+        horseFocus,
+        trainerName: capture.trainer_display_name,
+      }
+    );
 
     const started = new Date(capture.t0).getTime();
     const ended = Date.now();
@@ -65,20 +74,21 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       ? format(new Date(), "yyyy-MM-dd")
       : format(startedAt, "yyyy-MM-dd");
 
+    // overall_feel is NOT NULL in schema — store neutral mid; UI does not show fake "execution" for comms
     const payload: Record<string, unknown> = {
       user_id: user.id,
       session_date: sessionDate,
       horse: horseName,
       session_type: "lesson",
-      overall_feel: 7,
+      overall_feel: 5,
       session_source: "comms",
       session_title: captureLessonTitle(capture.t0),
-      summary,
+      summary: focus ? `${focus}\n\n${summary}` : summary,
       homework,
       exercises,
       duration_minutes: durationMinutes,
       notes: capture.trainer_display_name
-        ? `Trainer (guest): ${capture.trainer_display_name}`
+        ? `With ${capture.trainer_display_name}`
         : null,
     };
     if (capture.horse_id) payload.horse_id = capture.horse_id;

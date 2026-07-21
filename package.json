@@ -12,6 +12,8 @@
     "db:push": "supabase db push"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.16",
+    "@ai-sdk/react": "^4.0.35",
     "@date-fns/tz": "^1.4.1",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
@@ -47,6 +49,7 @@
     "@tiptap/extension-underline": "^3.20.0",
     "@tiptap/react": "^3.20.0",
     "@tiptap/starter-kit": "^3.20.0",
+    "ai": "^7.0.32",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
