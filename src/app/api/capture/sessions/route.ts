@@ -74,12 +74,39 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // End any lingering live sessions for this rider
-    await supabase
+    // Resume an open lesson instead of killing it (phone lock / remount / refresh)
+    const { data: existing } = await supabase
       .from("capture_sessions")
-      .update({ status: "ended", ended_at: new Date().toISOString() })
+      .select("*")
       .eq("rider_id", user.id)
-      .in("status", ["waiting", "live"]);
+      .in("status", ["waiting", "live"])
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      const origin =
+        request.headers.get("origin") ||
+        process.env.NEXT_PUBLIC_APP_URL ||
+        "http://localhost:3000";
+      const joinUrl = `${origin.replace(/\/$/, "")}/join/${existing.join_code}`;
+      const token = await mintLiveKitToken({
+        roomName: existing.livekit_room,
+        identity: `rider_${user.id}`,
+        name: "Rider",
+        canPublish: true,
+      });
+      return NextResponse.json({
+        ...existing,
+        join_url: joinUrl,
+        resumed: true,
+        livekit: {
+          configured: isLiveKitConfigured(),
+          url: getLiveKitUrl(),
+          token,
+        },
+      });
+    }
 
     let joinCode = generateJoinCode(6).toUpperCase();
     for (let attempt = 0; attempt < 5; attempt++) {

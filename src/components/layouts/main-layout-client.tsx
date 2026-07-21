@@ -36,6 +36,7 @@ export function MainLayoutClient({
   const [stopping, setStopping] = useState(false);
   const pathname = usePathname();
   const onVector = pathname.startsWith("/train");
+  const onCaptureLive = pathname.startsWith("/train/ride/live");
 
   async function handleStopImpersonating() {
     setStopping(true);
@@ -108,20 +109,27 @@ export function MainLayoutClient({
           onVector ? "pt-0 pb-0" : "py-4 sm:py-6"
         )}
         style={
-          onVector
+          onCaptureLive
             ? {
-                // Header is fixed: h-14 + safe-area — no extra cream gap
                 paddingTop: "calc(3.5rem + env(safe-area-inset-top, 0px))",
-                // App tab bar (h-12) + Loop dock (~4.5rem) + safe area
+                // Sticky End bar only — no app tab / Loop on live
                 paddingBottom:
-                  "calc(3rem + 4.75rem + env(safe-area-inset-bottom, 0px))",
+                  "calc(5.5rem + env(safe-area-inset-bottom, 0px))",
               }
-            : {
-                paddingTop:
-                  "calc(3.5rem + env(safe-area-inset-top, 0px))",
-                paddingBottom:
-                  "calc(3rem + env(safe-area-inset-bottom, 0px))",
-              }
+            : onVector
+              ? {
+                  // Header is fixed: h-14 + safe-area — no extra cream gap
+                  paddingTop: "calc(3.5rem + env(safe-area-inset-top, 0px))",
+                  // App tab bar (h-12) + Loop dock (~4.5rem) + safe area
+                  paddingBottom:
+                    "calc(3rem + 4.75rem + env(safe-area-inset-bottom, 0px))",
+                }
+              : {
+                  paddingTop:
+                    "calc(3.5rem + env(safe-area-inset-top, 0px))",
+                  paddingBottom:
+                    "calc(3rem + env(safe-area-inset-bottom, 0px))",
+                }
         }
       >
         {children}

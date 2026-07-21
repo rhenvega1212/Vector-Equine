@@ -30,6 +30,10 @@ type Joined = {
   };
 };
 
+function storageKey(code: string) {
+  return `vector-capture-join:${code}`;
+}
+
 export default function GuestJoinPage() {
   const params = useParams<{ code: string }>();
   const code = (params.code || "").toUpperCase();
@@ -44,6 +48,23 @@ export default function GuestJoinPage() {
     let cancelled = false;
     (async () => {
       try {
+        // Resume trainer session after lock / Safari reload
+        try {
+          const raw = sessionStorage.getItem(storageKey(code));
+          if (raw) {
+            const saved = JSON.parse(raw) as Joined;
+            if (saved?.capture_session_id && saved?.guest_token) {
+              if (!cancelled) {
+                setJoined(saved);
+                setLoading(false);
+                return;
+              }
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+
         const res = await fetch(`/api/capture/join/${code}`);
         const data = await res.json();
         if (!res.ok) {
@@ -70,6 +91,25 @@ export default function GuestJoinPage() {
     setJoining(true);
     setError(null);
     try {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: false,
+        });
+        stream.getTracks().forEach((t) => t.stop());
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "";
+        if (
+          /not allowed|Permission/i.test(msg) ||
+          (e instanceof DOMException && e.name === "NotAllowedError")
+        ) {
+          setError(
+            "Microphone blocked. On iPhone: Settings → Apps → Safari → Microphone → Allow, then reload and try again."
+          );
+          return;
+        }
+      }
+
       const res = await fetch(`/api/capture/join/${code}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -79,6 +119,11 @@ export default function GuestJoinPage() {
       if (!res.ok) {
         setError(data.error || "Could not join");
         return;
+      }
+      try {
+        sessionStorage.setItem(storageKey(code), JSON.stringify(data));
+      } catch {
+        /* ignore */
       }
       setJoined(data);
     } catch {
@@ -117,7 +162,8 @@ export default function GuestJoinPage() {
             {joined.horse_name ? ` — ${joined.horse_name}` : ""}
           </h1>
           <p className="text-sm text-cream/50">
-            Two-way audio. Your cues are timestamped on the timeline.
+            Two-way audio. Lesson stays open if the phone sleeps — call
+            reconnects automatically.
           </p>
         </header>
         <CaptureRoom

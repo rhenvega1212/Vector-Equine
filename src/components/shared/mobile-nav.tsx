@@ -35,6 +35,10 @@ export function MobileNav({ profile }: MobileNavProps) {
   const flags = useFeatureFlags();
 
   const onVector = pathname.startsWith("/train");
+  // Capture Live needs the full screen — End lesson must stay reachable after unlock
+  if (pathname.startsWith("/train/ride/live")) {
+    return null;
+  }
 
   return (
     <nav

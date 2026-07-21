@@ -43,10 +43,12 @@ const nextConfig = {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin',
           },
-          // Permissions policy - restrict sensitive APIs by default
+          // Mic allowed for Capture Live / trainer join (camera & geo stay off).
+          // microphone=() here previously overrode route overrides on some CDNs
+          // and caused iOS NotAllowedError on Start headset call.
           {
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()',
+            value: 'camera=(), microphone=(self), geolocation=()',
           },
           // Strict Transport Security (HTTPS only)
           {
