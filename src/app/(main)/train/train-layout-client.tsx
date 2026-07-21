@@ -21,15 +21,19 @@ export function TrainLayoutClient({
     /\/train\/(sessions|horses)\/[^/]+\/edit/.test(pathname);
 
   return (
-    <div className="dark bg-navy text-cream min-h-screen -mx-3 sm:-mx-4 px-3 sm:px-4 py-6 pb-28 md:pb-6">
-      <div className="space-y-6">{children}</div>
+    <div className="dark bg-navy text-cream min-h-[70vh] -mx-3 sm:-mx-4 px-3 sm:px-4 pt-3 sm:pt-4 pb-2 md:pb-6">
+      <div className="space-y-5 sm:space-y-6">{children}</div>
 
       {!hideLoopNav && (
         <nav
-          className="fixed bottom-16 md:bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none"
+          className="fixed left-0 right-0 z-40 flex justify-center pointer-events-none md:bottom-6"
+          style={{
+            // Sit just above the compact app tab bar (h-12 + safe area)
+            bottom: "calc(3rem + env(safe-area-inset-bottom, 0px) + 0.5rem)",
+          }}
           aria-label="Vector loop"
         >
-          <div className="pointer-events-auto flex items-end gap-1 rounded-2xl border border-gold/20 bg-navy px-2 py-2">
+          <div className="pointer-events-auto flex items-end gap-0.5 rounded-2xl border border-gold/25 bg-navy/95 px-1.5 py-1.5 shadow-lg shadow-black/40 backdrop-blur-md">
             <LoopLink
               href="/train"
               label="Today"
@@ -38,17 +42,22 @@ export function TrainLayoutClient({
             />
             <Link
               href="/train/ride/plan"
-              className="mx-1 flex h-14 w-14 -translate-y-2 flex-col items-center justify-center rounded-full bg-gold text-navy transition hover:bg-gold-bright"
+              className="mx-0.5 flex h-12 w-12 -translate-y-1.5 flex-col items-center justify-center rounded-full bg-gold text-navy transition hover:bg-gold-bright"
               aria-label="Start ride"
             >
-              <Plus className="h-6 w-6" strokeWidth={2.5} />
-              <span className="text-[9px] font-semibold uppercase tracking-wider">Start</span>
+              <Plus className="h-5 w-5" strokeWidth={2.5} />
+              <span className="text-[8px] font-semibold uppercase tracking-wider">
+                Start
+              </span>
             </Link>
             <LoopLink
               href="/train/horse"
               label="Horse"
               icon={HorseHeadIcon}
-              active={pathname.startsWith("/train/horse") || pathname.startsWith("/train/horses")}
+              active={
+                pathname.startsWith("/train/horse") ||
+                pathname.startsWith("/train/horses")
+              }
             />
           </div>
         </nav>
@@ -72,11 +81,11 @@ function LoopLink({
     <Link
       href={href}
       className={cn(
-        "flex min-w-[4.5rem] flex-col items-center gap-0.5 rounded-xl px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] transition-colors",
+        "flex min-w-[3.75rem] flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors",
         active ? "text-gold" : "text-cream/60 hover:text-cream"
       )}
     >
-      <Icon className={cn("h-5 w-5", active && "text-gold")} />
+      <Icon className={cn("h-4 w-4", active && "text-gold")} />
       {label}
     </Link>
   );

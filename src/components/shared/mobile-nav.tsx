@@ -34,15 +34,19 @@ export function MobileNav({ profile }: MobileNavProps) {
   const pathname = usePathname();
   const flags = useFeatureFlags();
 
+  const onVector = pathname.startsWith("/train");
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t glass md:hidden safe-area-bottom">
-      <div
-        className="flex items-center justify-around"
-        style={{
-          height: "calc(60px + env(safe-area-inset-bottom))",
-          paddingBottom: "env(safe-area-inset-bottom)",
-        }}
-      >
+    <nav
+      className={cn(
+        "fixed bottom-0 left-0 right-0 z-50 border-t md:hidden",
+        onVector
+          ? "border-gold/15 bg-navy/95 text-cream backdrop-blur-md"
+          : "glass border-border"
+      )}
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+    >
+      <div className="flex h-12 items-center justify-around px-1">
         {navItems.map((item) => {
           const Icon = item.icon;
           const flagBlocked = !!item.flag && !flags[item.flag];
@@ -57,12 +61,13 @@ export function MobileNav({ profile }: MobileNavProps) {
               <div
                 key={item.href}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 px-2 py-1.5 text-[10px] touch-target cursor-not-allowed opacity-70 text-muted-foreground"
+                  "flex h-11 w-16 flex-col items-center justify-center gap-0.5 text-[10px] cursor-not-allowed opacity-50",
+                  onVector ? "text-cream/40" : "text-muted-foreground"
                 )}
                 title="Coming soon"
               >
                 <Icon className="h-5 w-5" />
-                <span className="font-medium">{item.label}</span>
+                <span className="font-medium leading-none">{item.label}</span>
               </div>
             );
           }
@@ -72,14 +77,18 @@ export function MobileNav({ profile }: MobileNavProps) {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center justify-center gap-0.5 px-2 py-1.5 text-[10px] transition-all duration-300 touch-target",
+                "flex h-11 w-16 flex-col items-center justify-center gap-0.5 text-[10px] transition-colors",
                 isActive
-                  ? "text-primary scale-105"
-                  : "text-muted-foreground active:text-foreground active:scale-95"
+                  ? onVector
+                    ? "text-gold"
+                    : "text-primary"
+                  : onVector
+                    ? "text-cream/55 active:text-cream"
+                    : "text-muted-foreground active:text-foreground"
               )}
             >
-              <Icon className={cn("h-5 w-5", isActive && "text-primary")} />
-              <span className={cn("font-medium", isActive && "text-primary")}>{item.label}</span>
+              <Icon className={cn("h-5 w-5", isActive && (onVector ? "text-gold" : "text-primary"))} />
+              <span className="font-medium leading-none">{item.label}</span>
             </Link>
           );
         })}

@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { UserX, Loader2 } from "lucide-react";
 import { UploadProgressBar } from "@/components/shared/upload-progress-bar";
 import { FeatureFlagsProvider } from "@/lib/flags/context";
 import { allFlagsOff, type EvaluatedFlags } from "@/lib/flags/registry";
 import { CurrentUserProvider } from "@/lib/auth/current-user-context";
+import { cn } from "@/lib/utils";
 
 const MainNav = dynamic(
   () => import("@/components/shared/main-nav").then((m) => ({ default: m.MainNav })),
@@ -32,6 +34,8 @@ export function MainLayoutClient({
   canModerate?: boolean;
 }) {
   const [stopping, setStopping] = useState(false);
+  const pathname = usePathname();
+  const onVector = pathname.startsWith("/train");
 
   async function handleStopImpersonating() {
     setStopping(true);
@@ -62,11 +66,18 @@ export function MainLayoutClient({
   return (
     <FeatureFlagsProvider flags={flags}>
     <CurrentUserProvider canModerate={canModerate}>
-    <div className="min-h-screen bg-background">
+    <div
+      className={cn(
+        "min-h-screen",
+        onVector ? "bg-navy text-cream" : "bg-background"
+      )}
+    >
       {isImpersonating && (
         <div
           className="fixed right-3 z-[60] flex items-center gap-3 rounded-xl border border-gold/30 bg-background/95 px-3 py-2 shadow-lg backdrop-blur-xl md:right-4"
-          style={{ bottom: "calc(72px + env(safe-area-inset-bottom) + 12px)" }}
+          style={{
+            bottom: "calc(3rem + env(safe-area-inset-bottom, 0px) + 12px)",
+          }}
         >
           <span className="text-xs sm:text-sm text-foreground">
             Viewing as <strong>{profile?.display_name}</strong>{" "}
@@ -92,11 +103,26 @@ export function MainLayoutClient({
       )}
       <MainNav profile={profile} />
       <main
-        className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:pb-6"
-        style={{
-          paddingTop: "calc(3.5rem + env(safe-area-inset-top) + 0.75rem)",
-          paddingBottom: "calc(72px + env(safe-area-inset-bottom))",
-        }}
+        className={cn(
+          "container mx-auto px-3 sm:px-4 md:pb-6",
+          onVector ? "pt-0 pb-0" : "py-4 sm:py-6"
+        )}
+        style={
+          onVector
+            ? {
+                // Header is fixed: h-14 + safe-area — no extra cream gap
+                paddingTop: "calc(3.5rem + env(safe-area-inset-top, 0px))",
+                // App tab bar (h-12) + Loop dock (~4.5rem) + safe area
+                paddingBottom:
+                  "calc(3rem + 4.75rem + env(safe-area-inset-bottom, 0px))",
+              }
+            : {
+                paddingTop:
+                  "calc(3.5rem + env(safe-area-inset-top, 0px))",
+                paddingBottom:
+                  "calc(3rem + env(safe-area-inset-bottom, 0px))",
+              }
+        }
       >
         {children}
       </main>

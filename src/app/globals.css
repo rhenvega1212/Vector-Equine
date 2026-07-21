@@ -56,7 +56,8 @@
     -webkit-tap-highlight-color: transparent;
   }
   html {
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    /* Safe areas are handled by fixed header / tab bar — do not pad html
+       or it stacks with chrome insets and leaves a cream gap on iOS. */
     text-size-adjust: 100%;
     -webkit-text-size-adjust: 100%;
   }
