@@ -5,6 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CaptureRoom } from "@/components/capture/capture-room";
+import {
+  MIC_BLOCKED_HELP,
+  isMicGrantedStored,
+  requestMicAccess,
+} from "@/lib/capture/mic-preflight";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 type CaptureStart = {
@@ -32,6 +37,13 @@ function CaptureLiveInner() {
   const [starting, setStarting] = useState(true);
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [micReady, setMicReady] = useState(false);
+  const [micHelp, setMicHelp] = useState<string | null>(null);
+  const [micBusy, setMicBusy] = useState(false);
+
+  useEffect(() => {
+    setMicReady(isMicGrantedStored());
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,7 +102,6 @@ function CaptureLiveInner() {
     return () => {
       cancelled = true;
     };
-    // Start once after horse roster resolves (horseId already set in that effect).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [horsesReady]);
 
@@ -98,37 +109,43 @@ function CaptureLiveInner() {
     ? `/train/ride/plan?horseId=${horseId}`
     : "/train/ride/plan";
 
-  async function endLesson() {
+  async function allowMic() {
+    setMicBusy(true);
+    const result = await requestMicAccess();
+    setMicBusy(false);
+    if (result.ok) {
+      setMicReady(true);
+      setMicHelp(null);
+      return;
+    }
+    setMicHelp(result.message || MIC_BLOCKED_HELP);
+  }
+
+  async function endLesson(result?: {
+    training_session_id?: string;
+    ended_by?: string;
+  }) {
+    if (result?.training_session_id) {
+      setEnding(true);
+      router.push(`/train/sessions/${result.training_session_id}`);
+      return;
+    }
+    // Fallback if CaptureRoom already ended remotely without an id yet
     if (!capture) return;
     setEnding(true);
     setError(null);
-
-    const maxAttempts = 3;
-    let lastError = "Could not end lesson";
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        const res = await fetch(`/api/capture/sessions/${capture.id}/end`, {
-          method: "POST",
-          keepalive: attempt === maxAttempts - 1,
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.training_session_id) {
-          router.push(`/train/sessions/${data.training_session_id}`);
-          return;
-        }
-        lastError = data.error || "Could not end lesson";
-        // Don't retry auth / hard client errors
-        if (res.status === 401 || res.status === 404) break;
-      } catch {
-        lastError = "Could not end lesson — check barn Wi‑Fi and try again";
+    try {
+      const res = await fetch(`/api/capture/sessions/${capture.id}/status`, {
+        cache: "no-store",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.training_session_id) {
+        router.push(`/train/sessions/${data.training_session_id}`);
+        return;
       }
-      if (attempt < maxAttempts - 1) {
-        await new Promise((r) => setTimeout(r, 800 * Math.pow(2, attempt)));
-      }
+    } catch {
+      /* ignore */
     }
-
-    setError(lastError);
     setEnding(false);
   }
 
@@ -146,6 +163,38 @@ function CaptureLiveInner() {
       </div>
 
       <p className="text-center text-xs text-cream/50">{horseName}</p>
+
+      {!micReady && (
+        <div className="rounded-xl border border-gold/30 bg-gold/10 px-4 py-3 space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
+            Microphone access
+          </p>
+          <p className="text-sm text-cream/85">
+            Vector needs the mic for your headset call and conversation
+            timeline. Tap Allow now — before you start the call — so Safari
+            asks while you can still read these steps.
+          </p>
+          <ol className="list-decimal space-y-1 pl-4 text-xs text-cream/70">
+            <li>Tap Allow microphone below</li>
+            <li>Choose Allow in the Safari prompt</li>
+            <li>
+              If you already denied it: Settings → Apps → Safari → Microphone
+              → Allow, then return here
+            </li>
+          </ol>
+          {micHelp && (
+            <p className="text-sm text-destructive whitespace-pre-wrap">{micHelp}</p>
+          )}
+          <button
+            type="button"
+            disabled={micBusy}
+            onClick={() => void allowMic()}
+            className="w-full rounded-lg bg-gold px-4 py-3 text-sm font-semibold text-navy hover:bg-gold-bright disabled:opacity-50"
+          >
+            {micBusy ? "Asking Safari…" : "Allow microphone"}
+          </button>
+        </div>
+      )}
 
       {starting && (
         <div className="flex items-center justify-center gap-2 py-12 text-cream/50">
@@ -172,6 +221,32 @@ function CaptureLiveInner() {
           peerLabel="trainer"
           onEnd={endLesson}
           ending={ending}
+          autoStart={micReady}
+          onLessonClosed={({ remote, training_session_id }) => {
+            if (!remote) return;
+            if (training_session_id) {
+              router.push(`/train/sessions/${training_session_id}`);
+              return;
+            }
+            void (async () => {
+              for (let i = 0; i < 6; i++) {
+                try {
+                  const res = await fetch(
+                    `/api/capture/sessions/${capture.id}/status`,
+                    { cache: "no-store" }
+                  );
+                  const data = await res.json();
+                  if (data.training_session_id) {
+                    router.push(`/train/sessions/${data.training_session_id}`);
+                    return;
+                  }
+                } catch {
+                  /* ignore */
+                }
+                await new Promise((r) => setTimeout(r, 800));
+              }
+            })();
+          }}
         />
       )}
     </div>

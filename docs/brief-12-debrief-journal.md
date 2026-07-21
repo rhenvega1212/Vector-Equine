@@ -8,11 +8,16 @@
 
 1. **Header** — title, horse, **Lesson with {trainer}**, when, duration, source
 2. **Today’s focus** — one sentence (not a fake execution score for `comms`)
-3. **Lesson story** — multi-paragraph / bullet summary from transcript
-4. **Coach cue reel** — timestamped trainer quotes → Timeline jump
-5. **Key work** — exercises / patterns
-6. **Homework / next ride**
-7. **Ask Vector** — Claude chat grounded in this lesson
+3. **Lesson story** — multi-paragraph summary from cleaned transcript (trainer quotes woven in)
+4. **Coach quotes** — valuable trainer lines in quotation marks → Timeline jump
+5. **What you marked** — rider-starred timeline moments folded into the brief
+6. **Key work** — exercises / patterns
+7. **Homework / next ride**
+8. **Ask Vector** — Claude chat grounded in this lesson
+
+## Rider highlight flow
+
+On **Timeline**, star any cue. That toggles `raw_json.rider_highlight` and rewrites the journal’s “What you marked” block inside `summary` (replaceable markers). Journal updates without leaving Debrief.
 
 ## Coming soon (architecture visible)
 

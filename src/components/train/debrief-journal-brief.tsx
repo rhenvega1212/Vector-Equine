@@ -2,11 +2,36 @@
 
 import { formatOffset } from "@/lib/capture/summary";
 import { DebriefComingSoon } from "@/components/train/debrief-coming-soon";
+import {
+  RIDER_HIGHLIGHTS_END,
+  RIDER_HIGHLIGHTS_START,
+} from "@/lib/capture/transcript-cleanup";
 
 export type BriefCue = {
   offset_ms: number;
   text: string;
+  featured?: boolean;
 };
+
+function splitRiderMarks(story: string | null): {
+  storyBody: string | null;
+  riderMarks: string | null;
+} {
+  if (!story?.trim()) return { storyBody: null, riderMarks: null };
+  const start = story.indexOf(RIDER_HIGHLIGHTS_START);
+  const end = story.indexOf(RIDER_HIGHLIGHTS_END);
+  if (start === -1 || end === -1 || end < start) {
+    return { storyBody: story.trim(), riderMarks: null };
+  }
+  const before = story.slice(0, start).trim();
+  const mid = story
+    .slice(start + RIDER_HIGHLIGHTS_START.length, end)
+    .trim()
+    .replace(/^What you marked as valuable:\s*/i, "");
+  const after = story.slice(end + RIDER_HIGHLIGHTS_END.length).trim();
+  const storyBody = [before, after].filter(Boolean).join("\n\n") || null;
+  return { storyBody, riderMarks: mid || null };
+}
 
 export function DebriefJournalBrief({
   focus,
@@ -27,11 +52,11 @@ export function DebriefJournalBrief({
   isComms: boolean;
   onJumpTimeline?: (offsetMs: number) => void;
 }) {
-  const storyParagraphs = (story || "")
+  const { storyBody, riderMarks } = splitRiderMarks(story);
+  const storyParagraphs = (storyBody || "")
     .split(/\n\n+/)
     .map((p) => p.trim())
     .filter(Boolean);
-  // First paragraph may be focus when end route prepended it
   const focusLine =
     focus ||
     (storyParagraphs.length > 1 && storyParagraphs[0].length < 160
@@ -46,6 +71,9 @@ export function DebriefJournalBrief({
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean);
+
+  const featuredQuotes = cues.filter((c) => c.featured);
+  const quoteReel = featuredQuotes.length > 0 ? featuredQuotes : cues.slice(0, 6);
 
   return (
     <div className="space-y-8">
@@ -89,26 +117,29 @@ export function DebriefJournalBrief({
         </section>
       )}
 
-      {cues.length > 0 && (
+      {quoteReel.length > 0 && (
         <section className="space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gold">
-            Coach cue reel
+            Coach quotes
           </p>
-          <ul className="space-y-2">
-            {cues.map((c, i) => (
+          <p className="text-xs text-cream/45">
+            Direct lines from {trainerName || "your trainer"} — tap to jump the
+            timeline.
+          </p>
+          <ul className="space-y-3">
+            {quoteReel.map((c, i) => (
               <li key={`${c.offset_ms}-${i}`}>
                 <button
                   type="button"
                   onClick={() => onJumpTimeline?.(c.offset_ms)}
-                  className="w-full rounded-lg border border-gold/15 bg-[#131C31] px-3 py-3 text-left transition hover:border-gold/35"
+                  className="w-full rounded-lg border border-gold/20 bg-[#131C31] px-4 py-3 text-left transition hover:border-gold/40"
                 >
-                  <span className="tabular-nums text-gold/80">
+                  <span className="tabular-nums text-xs text-gold/80">
                     {formatOffset(c.offset_ms)}
                   </span>
-                  <span className="ml-2 text-[10px] uppercase tracking-wider text-gold">
-                    {trainerName || "trainer"}
-                  </span>
-                  <p className="mt-1 text-sm text-cream/90">{c.text}</p>
+                  <p className="mt-2 font-serif text-lg leading-snug text-cream">
+                    “{c.text}”
+                  </p>
                 </button>
               </li>
             ))}
@@ -116,15 +147,29 @@ export function DebriefJournalBrief({
         </section>
       )}
 
-      {cues.length === 0 && isComms && (
+      {quoteReel.length === 0 && isComms && (
         <section className="space-y-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gold">
-            Coach cue reel
+            Coach quotes
           </p>
           <p className="text-sm text-cream/45">
-            No trainer cues on the timeline yet. When your trainer&apos;s mic and
-            speech are on, their lines land here.
+            Valuable trainer lines will land here after End cleans the
+            transcript. You can also star moments on the Timeline.
           </p>
+        </section>
+      )}
+
+      {riderMarks && (
+        <section className="space-y-3 rounded-xl border border-gold/25 bg-gold/5 px-4 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gold">
+            What you marked
+          </p>
+          <p className="text-xs text-cream/50">
+            Moments you starred on the timeline — folded into this brief.
+          </p>
+          <div className="space-y-2 whitespace-pre-wrap text-sm leading-relaxed text-cream/90">
+            {riderMarks}
+          </div>
         </section>
       )}
 

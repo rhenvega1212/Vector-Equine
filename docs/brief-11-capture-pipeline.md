@@ -14,7 +14,7 @@ Turns a lesson into a **timestamped transcript + customer journal**, with schema
 1. Rider: Today → Plan → **Live** → `POST /api/capture/sessions` (join code + QR)
 2. Trainer: open `/join/CODE` → name + mic → two-way room
 3. Both: browser speech recognition posts `session_transcript_segments` with `offset_ms` from `t0`
-4. Rider: **End lesson** → journal `training_sessions` (`session_source: comms`) + Debrief
+4. Rider: **End lesson** → Claude cleans ASR + writes journal brief (falls back to heuristic if no key) → `training_sessions` (`session_source: comms`) + Debrief. Raw ASR kept in `raw_json.asr_text`.
 5. Lab: export JSON (`t0`, segments, empty `media[]` / `sensors[]`)
 
 ## Schema

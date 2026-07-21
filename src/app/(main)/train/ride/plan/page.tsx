@@ -1,10 +1,10 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Suspense } from "react";
 import { AiUploadForm } from "@/components/train/ai-upload-form";
+import { MicWarmLink } from "@/components/capture/mic-warm-link";
 
 const EXERCISES = [
   {
@@ -133,11 +133,14 @@ function PlanPageInner() {
           <Button variant="outline" className="flex-1 border-gold/40 text-gold hover:bg-gold/10">
             Set as today&apos;s plan
           </Button>
-          <Link href={liveHref} className="flex-1">
-            <Button className="w-full bg-gold text-navy font-semibold hover:bg-gold-bright">
+          <div className="flex-1">
+            <MicWarmLink
+              href={liveHref}
+              className="w-full bg-gold text-navy font-semibold hover:bg-gold-bright"
+            >
               Start ride
-            </Button>
-          </Link>
+            </MicWarmLink>
+          </div>
         </div>
       </div>
     </div>

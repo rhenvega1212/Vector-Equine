@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { SESSION_TYPE_LABELS } from "@/lib/validations/training-session";
 import { HorseSwitcher } from "@/components/train/horse-switcher";
+import { TrainRideCtas } from "@/components/train/train-ride-ctas";
 import {
   formatSessionWhen,
   sessionDisplayTitle,
@@ -173,13 +174,8 @@ export default async function VectorTodayPage({ searchParams }: TodayProps) {
             ? "One clear goal. Vector works alongside your trainer."
             : "Plan a goal, ride it, and get a calm debrief."}
         </p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Button className="bg-gold text-navy font-semibold hover:bg-gold-bright" asChild>
-            <Link href={planHref}>Plan today&apos;s ride</Link>
-          </Button>
-          <Button variant="outline" className="border-gold/40 text-gold hover:bg-gold/10" asChild>
-            <Link href={liveHref}>Start ride</Link>
-          </Button>
+        <div className="mt-6">
+          <TrainRideCtas planHref={planHref} liveHref={liveHref} />
         </div>
       </section>
 

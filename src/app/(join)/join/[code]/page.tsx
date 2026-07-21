@@ -104,7 +104,7 @@ export default function GuestJoinPage() {
           (e instanceof DOMException && e.name === "NotAllowedError")
         ) {
           setError(
-            "Microphone blocked. On iPhone: Settings → Apps → Safari → Microphone → Allow, then reload and try again."
+            "Microphone blocked. On iPhone: Settings → Apps → Safari → Microphone → Allow, then come back and tap Join with microphone again. This message stays until you succeed."
           );
           return;
         }
@@ -162,8 +162,8 @@ export default function GuestJoinPage() {
             {joined.horse_name ? ` — ${joined.horse_name}` : ""}
           </h1>
           <p className="text-sm text-cream/50">
-            Two-way audio. Lesson stays open if the phone sleeps — call
-            reconnects automatically.
+            Two-way audio. Either of you can End lesson — it closes for both
+            phones.
           </p>
         </header>
         <CaptureRoom
@@ -174,6 +174,14 @@ export default function GuestJoinPage() {
           livekit={joined.livekit}
           guestToken={joined.guest_token}
           peerLabel={joined.rider_name}
+          autoStart
+          onLessonClosed={() => {
+            try {
+              sessionStorage.removeItem(storageKey(code));
+            } catch {
+              /* ignore */
+            }
+          }}
         />
       </div>
     );

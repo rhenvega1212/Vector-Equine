@@ -79,14 +79,27 @@ export default async function DebriefPage({ params }: SessionPageProps) {
     ended_offset_ms: number | null;
     speaker: string;
     text: string;
+    rider_highlight?: boolean;
+    featured_quote?: boolean;
   }[] = [];
   if (capture?.id) {
     const { data: segments } = await supabase
       .from("session_transcript_segments")
-      .select("id, offset_ms, ended_offset_ms, speaker, text")
+      .select("id, offset_ms, ended_offset_ms, speaker, text, raw_json")
       .eq("capture_session_id", capture.id)
       .order("offset_ms", { ascending: true });
-    timeline = segments || [];
+    timeline = (segments || []).map((s) => {
+      const raw = (s.raw_json || {}) as Record<string, unknown>;
+      return {
+        id: s.id,
+        offset_ms: s.offset_ms,
+        ended_offset_ms: s.ended_offset_ms,
+        speaker: s.speaker,
+        text: s.text,
+        rider_highlight: !!raw.rider_highlight,
+        featured_quote: !!raw.featured_quote,
+      };
+    });
   }
 
   const trainerName =
@@ -96,7 +109,17 @@ export default async function DebriefPage({ params }: SessionPageProps) {
       : null);
 
   const { focus, story } = splitFocusAndStory(session.summary);
-  const cues = cueReelFromSegments(timeline);
+  const featuredCues = timeline
+    .filter((s) => s.speaker === "trainer" && s.featured_quote)
+    .map((s) => ({
+      offset_ms: s.offset_ms,
+      text: s.text,
+      featured: true as const,
+    }));
+  const cues =
+    featuredCues.length > 0
+      ? featuredCues
+      : cueReelFromSegments(timeline).map((c) => ({ ...c, featured: false }));
   const source = session.session_source as string | null;
   const isComms = source === "comms" || (!source && !!capture);
 
@@ -184,6 +207,7 @@ export default async function DebriefPage({ params }: SessionPageProps) {
           isComms={!!isComms}
           timeline={timeline}
           showChat={isOwner}
+          canHighlight={isOwner}
         />
       ) : (
         <div className="space-y-6">

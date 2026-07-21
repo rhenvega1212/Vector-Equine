@@ -154,6 +154,8 @@ export function CaptureRoom({
   peerLabel,
   onEnd,
   ending,
+  autoStart = false,
+  onLessonClosed,
 }: {
   captureSessionId: string;
   t0: string;
@@ -164,8 +166,19 @@ export function CaptureRoom({
   joinCode?: string;
   joinUrl?: string;
   peerLabel: string;
-  onEnd?: () => void | Promise<void>;
+  /** Rider: navigate to debrief after end API succeeds. */
+  onEnd?: (result: {
+    training_session_id?: string;
+    ended_by?: string;
+  }) => void | Promise<void>;
   ending?: boolean;
+  /** Start headset call automatically after mount (trainer join / mic already warm). */
+  autoStart?: boolean;
+  /** Called when this phone leaves because someone ended (local or remote). */
+  onLessonClosed?: (info: {
+    remote: boolean;
+    training_session_id?: string | null;
+  }) => void;
 }) {
   const [roomState, setRoomState] = useState<
     "idle" | "connecting" | "connected" | "reconnecting" | "error"
@@ -190,6 +203,9 @@ export function CaptureRoom({
   const [pendingQueue, setPendingQueue] = useState(0);
   const [weakLink, setWeakLink] = useState(false);
   const [flushingEnd, setFlushingEnd] = useState(false);
+  const [lessonEnded, setLessonEnded] = useState(false);
+  const [endedRemote, setEndedRemote] = useState(false);
+  const autoStartedRef = useRef(false);
 
   const roomRef = useRef<Room | null>(null);
   const localMicRef = useRef<LocalAudioTrack | null>(null);
@@ -208,6 +224,10 @@ export function CaptureRoom({
   );
   const outboxRef = useRef<SegmentOutbox | null>(null);
   const segmentsRef = useRef<Segment[]>([]);
+  const pullSegmentsRef = useRef<(() => Promise<void>) | null>(null);
+  const leaveBecauseEndedRef = useRef<
+    (remote: boolean, trainingSessionId?: string | null) => void
+  >(() => undefined);
   const livekitRef = useRef(livekitProp);
   const micIdRef = useRef(micId);
   const speakerIdRef = useRef(speakerId);
@@ -290,7 +310,7 @@ export function CaptureRoom({
       keepAwakeRef.current = createKeepAwake();
     }
     await keepAwakeRef.current.start();
-    setScreenHint(false);
+    // Do not clear screenHint here — riders need time to read Auto-Lock / mic help
   }, []);
 
   const stopKeepAwake = useCallback(() => {
@@ -307,6 +327,11 @@ export function CaptureRoom({
       `/api/capture/sessions/${captureSessionId}/reconnect`,
       { method: "POST", headers }
     );
+    if (res.status === 410) {
+      const data = await res.json().catch(() => ({}));
+      leaveBecauseEndedRef.current(true, data.training_session_id ?? null);
+      return null;
+    }
     if (!res.ok) return null;
     const data = await res.json();
     return data.livekit as LivekitCreds;
@@ -355,7 +380,12 @@ export function CaptureRoom({
           const preview = await acquireMicStream(micIdRef.current || undefined);
           preview.getTracks().forEach((t) => t.stop());
           await refreshDevices();
-        } catch {
+        } catch (micErr) {
+          if (!opts?.reconnect) {
+            throw micErr instanceof Error
+              ? micErr
+              : new Error(micErrorMessage(micErr));
+          }
           /* reconnect may resume without re-prompt */
         }
 
@@ -380,7 +410,28 @@ export function CaptureRoom({
         room.on(RoomEvent.TrackSubscribed, (track) => {
           void attachRemoteAudio(track as RemoteTrack);
         });
-        room.on(RoomEvent.ParticipantConnected, syncPeers);
+        room.on(RoomEvent.ParticipantConnected, () => {
+          syncPeers();
+          // Catch peer up on cues they missed while alone in the room
+          try {
+            for (const seg of segmentsRef.current.slice(-40)) {
+              if (!seg.text?.trim()) continue;
+              const bytes = new TextEncoder().encode(
+                JSON.stringify({
+                  type: "segment",
+                  id: seg.id,
+                  offset_ms: seg.offset_ms,
+                  speaker: seg.speaker,
+                  text: seg.text,
+                  interim: false,
+                })
+              );
+              void room.localParticipant.publishData(bytes, { reliable: true });
+            }
+          } catch {
+            /* ignore */
+          }
+        });
         room.on(RoomEvent.ParticipantDisconnected, syncPeers);
         room.on(RoomEvent.DataReceived, (payload) => {
           try {
@@ -391,7 +442,15 @@ export function CaptureRoom({
               speaker?: Segment["speaker"];
               text?: string;
               interim?: boolean;
+              training_session_id?: string;
             };
+            if (msg.type === "session_ended") {
+              leaveBecauseEndedRef.current(
+                true,
+                msg.training_session_id ?? null
+              );
+              return;
+            }
             if (msg.type !== "segment" || !msg.speaker) return;
             // Don't echo our own speech back into the timeline twice
             if (msg.speaker === speaker) return;
@@ -427,6 +486,7 @@ export function CaptureRoom({
           void playKeepAliveAudio();
           void startKeepAwake();
           outboxRef.current?.kick();
+          void pullSegmentsRef.current?.();
         });
         room.on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
           if (participant !== room.localParticipant) return;
@@ -487,13 +547,20 @@ export function CaptureRoom({
         setScreenHint(false);
       } catch (e) {
         teardownRoom();
-        if (callDesiredRef.current && !intentionalEndRef.current) {
+        const msg = micErrorMessage(e);
+        const micBlocked = /Microphone blocked|No microphone/i.test(msg);
+        if (micBlocked) {
+          setScreenHint(true);
+          callDesiredRef.current = false;
+          setRoomState("error");
+          setRoomError(msg);
+        } else if (callDesiredRef.current && !intentionalEndRef.current) {
           setRoomState("reconnecting");
-          setRoomError(micErrorMessage(e));
+          setRoomError(msg);
           scheduleReconnect();
         } else {
           setRoomState("error");
-          setRoomError(micErrorMessage(e));
+          setRoomError(msg);
         }
       } finally {
         connectingRef.current = false;
@@ -524,6 +591,14 @@ export function CaptureRoom({
   );
 
   connectCallRef.current = connectCall;
+
+  // Trainer join / warm mic: start the call without a second tap
+  useEffect(() => {
+    if (!autoStart || autoStartedRef.current) return;
+    if (!livekitProp.configured) return;
+    autoStartedRef.current = true;
+    void connectCallRef.current();
+  }, [autoStart, livekitProp.configured]);
 
   useEffect(() => {
     return () => {
@@ -769,18 +844,10 @@ export function CaptureRoom({
 
   const pullSegments = useCallback(async () => {
     try {
-      const known = segmentsRef.current;
-      const maxOffset =
-        known.length > 0
-          ? Math.max(...known.map((s) => s.offset_ms))
-          : -1;
-      // First pull is full; later pulls are incremental to save barn bandwidth
-      const qs =
-        maxOffset >= 0
-          ? `?after_offset_ms=${encodeURIComponent(String(maxOffset))}`
-          : "";
+      // Full merge is cheap (text) and avoids missing late peer cues that
+      // share or lag behind a local max offset_ms (barn Wi‑Fi / outbox).
       const res = await fetch(
-        `/api/capture/sessions/${captureSessionId}/segments${qs}`,
+        `/api/capture/sessions/${captureSessionId}/segments`,
         { headers: authHeaders(), cache: "no-store" }
       );
       if (!res.ok) return;
@@ -792,6 +859,8 @@ export function CaptureRoom({
       /* ignore */
     }
   }, [authHeaders, captureSessionId]);
+
+  pullSegmentsRef.current = pullSegments;
 
   function postSegment(text: string, confidence?: number) {
     const offset_ms = Math.max(0, Date.now() - t0Ms.current);
@@ -809,14 +878,15 @@ export function CaptureRoom({
     });
   }
 
-  // Shared conversation timeline — adaptive poll (faster while recovering)
+  // Shared conversation timeline — poll whenever we have a session (not only in-call)
   useEffect(() => {
-    if (roomState !== "connected" && roomState !== "reconnecting") return;
     void pullSegments();
     const intervalMs =
       roomState === "reconnecting" || networkOffline || pendingQueue > 0
         ? 1200
-        : 4000;
+        : roomState === "connected"
+          ? 2500
+          : 3500;
     const id = window.setInterval(() => {
       void pullSegments();
     }, intervalMs);
@@ -957,6 +1027,72 @@ export function CaptureRoom({
     setDeafened(next);
   }
 
+  const leaveBecauseEnded = useCallback(
+    (remote: boolean, trainingSessionId?: string | null) => {
+      if (lessonEnded) return;
+      // Local End already in flight — don't treat status poll as a remote end
+      if (intentionalEndRef.current && !remote) {
+        /* continue */
+      } else if (intentionalEndRef.current && remote) {
+        // We initiated end; peer/status confirm — just ensure UI is closed
+        setLessonEnded(true);
+        setEndedRemote(false);
+        return;
+      }
+      intentionalEndRef.current = true;
+      callDesiredRef.current = false;
+      if (reconnectTimerRef.current != null) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      stopKeepAwake();
+      teardownRoom();
+      unlockSafariScroll();
+      setLessonEnded(true);
+      setEndedRemote(remote);
+      setRoomState("idle");
+      onLessonClosed?.({
+        remote,
+        training_session_id: trainingSessionId ?? null,
+      });
+    },
+    [lessonEnded, onLessonClosed, stopKeepAwake, teardownRoom]
+  );
+
+  leaveBecauseEndedRef.current = leaveBecauseEnded;
+
+  function broadcastSessionEnded(trainingSessionId?: string | null) {
+    const room = roomRef.current;
+    if (!room || room.state !== "connected") return;
+    try {
+      const bytes = new TextEncoder().encode(
+        JSON.stringify({
+          type: "session_ended",
+          training_session_id: trainingSessionId ?? null,
+        })
+      );
+      void room.localParticipant.publishData(bytes, { reliable: true });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function endSessionOnServer(): Promise<{
+    training_session_id?: string;
+    ended_by?: string;
+  } | null> {
+    const res = await fetch(`/api/capture/sessions/${captureSessionId}/end`, {
+      method: "POST",
+      headers: authHeaders(),
+      keepalive: true,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || "Could not end lesson");
+    }
+    return data;
+  }
+
   function handleEnd() {
     intentionalEndRef.current = true;
     callDesiredRef.current = false;
@@ -964,22 +1100,81 @@ export function CaptureRoom({
       window.clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
     }
-    stopKeepAwake();
-    teardownRoom();
-    unlockSafariScroll();
 
     void (async () => {
       setFlushingEnd(true);
+      setRoomError(null);
       try {
         await outboxRef.current?.flush({ timeoutMs: 10000 });
       } catch {
-        /* still attempt end — journal uses whatever landed in DB */
+        /* still attempt end */
+      }
+
+      // Tell the other phone immediately (before we tear down LiveKit)
+      broadcastSessionEnded(null);
+
+      let result: { training_session_id?: string; ended_by?: string } | null =
+        null;
+      try {
+        result = await endSessionOnServer();
+        // Re-broadcast with journal id if we have it
+        if (result?.training_session_id) {
+          broadcastSessionEnded(result.training_session_id);
+        }
+      } catch (e) {
+        setFlushingEnd(false);
+        setRoomError(
+          e instanceof Error ? e.message : "Could not end lesson — try again"
+        );
+        // Allow retry
+        intentionalEndRef.current = false;
+        callDesiredRef.current = roomRef.current?.state === "connected";
+        return;
       } finally {
         setFlushingEnd(false);
       }
-      await onEnd?.();
+
+      stopKeepAwake();
+      teardownRoom();
+      unlockSafariScroll();
+      setLessonEnded(true);
+      setEndedRemote(false);
+
+      try {
+        await onEnd?.(result || {});
+      } catch {
+        /* navigation errors */
+      }
+      onLessonClosed?.({
+        remote: false,
+        training_session_id: result?.training_session_id ?? null,
+      });
     })();
   }
+
+  // Backup: poll status so we still leave if the data-channel message was missed
+  useEffect(() => {
+    if (lessonEnded) return;
+    const tick = async () => {
+      if (intentionalEndRef.current) return;
+      try {
+        const res = await fetch(
+          `/api/capture/sessions/${captureSessionId}/status`,
+          { headers: authHeaders(), cache: "no-store" }
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === "ended") {
+          leaveBecauseEndedRef.current(true, data.training_session_id ?? null);
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    void tick();
+    const id = window.setInterval(tick, 2500);
+    return () => window.clearInterval(id);
+  }, [authHeaders, captureSessionId, lessonEnded]);
 
   const mm = String(Math.floor(elapsed / 60000)).padStart(2, "0");
   const ss = String(Math.floor((elapsed % 60000) / 1000)).padStart(2, "0");
@@ -988,8 +1183,28 @@ export function CaptureRoom({
     roomState === "connecting" ||
     roomState === "reconnecting";
 
+  if (lessonEnded) {
+    return (
+      <div className="space-y-4 rounded-xl border border-gold/20 bg-[#131C31] px-4 py-6 text-center">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gold">
+          Lesson ended
+        </p>
+        <p className="font-serif text-2xl text-cream">
+          {endedRemote
+            ? `${peerLabel} ended the lesson.`
+            : "This lesson is closed for everyone."}
+        </p>
+        <p className="text-sm text-cream/55">
+          {speaker === "rider"
+            ? "Opening your debrief…"
+            : "You can close this tab — thanks for coaching."}
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className={onEnd ? "space-y-4 pb-24" : "space-y-4"}>
+    <div className="space-y-4 pb-28">
       <audio ref={audioElRef} autoPlay playsInline className="hidden" />
       <audio
         ref={keepAliveAudioRef}
@@ -1017,8 +1232,8 @@ export function CaptureRoom({
         </p>
       </div>
 
-      {(networkOffline || pendingQueue > 0 || weakLink) && (
-        <div className="rounded-lg border border-gold/25 bg-gold/10 px-3 py-2 text-xs text-cream/80 space-y-1">
+      {(networkOffline || pendingQueue > 0 || weakLink || screenHint || roomError) && (
+        <div className="rounded-lg border border-gold/25 bg-gold/10 px-3 py-2 text-xs text-cream/80 space-y-2">
           {networkOffline ? (
             <p>Offline — cues stay on this phone and will sync when Wi‑Fi returns.</p>
           ) : pendingQueue > 0 ? (
@@ -1032,6 +1247,25 @@ export function CaptureRoom({
               Weak link — still in lesson. Move closer to the barn Wi‑Fi or keep
               this screen on.
             </p>
+          )}
+          {screenHint && (
+            <div className="space-y-1">
+              <p className="text-gold/90">
+                Tip: Settings → Display → Auto-Lock → Never while riding, so
+                Safari does not suspend the tab. Leave this message up while you
+                change the setting.
+              </p>
+              <button
+                type="button"
+                className="text-[11px] uppercase tracking-wider text-cream/50 underline"
+                onClick={() => setScreenHint(false)}
+              >
+                Got it
+              </button>
+            </div>
+          )}
+          {roomError && roomState !== "idle" && (
+            <p className="text-destructive">{roomError}</p>
           )}
         </div>
       )}
@@ -1120,8 +1354,8 @@ export function CaptureRoom({
             </p>
             {screenHint && (
               <p className="text-xs text-gold/80">
-                Tip: Settings → Display → Auto-Lock → Never while riding, so
-                Safari does not suspend the tab.
+                Tip: Settings → Display → Auto-Lock → Never while riding — this
+                tip stays until you dismiss it above.
               </p>
             )}
 
@@ -1231,29 +1465,30 @@ export function CaptureRoom({
         )}
       </div>
 
-      {onEnd && (
-        <div
-          className="fixed inset-x-0 bottom-0 z-[60] border-t border-gold/20 bg-navy/95 px-4 pt-3 backdrop-blur-md"
-          style={{
-            paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))",
-          }}
+      <div
+        className="fixed inset-x-0 bottom-0 z-[60] border-t border-gold/20 bg-navy/95 px-4 pt-3 backdrop-blur-md"
+        style={{
+          paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))",
+        }}
+      >
+        <button
+          type="button"
+          onClick={handleEnd}
+          disabled={ending || flushingEnd}
+          className="w-full rounded-lg bg-gold px-4 py-3.5 text-sm font-semibold text-navy hover:bg-gold-bright disabled:opacity-50"
         >
-          <button
-            type="button"
-            onClick={handleEnd}
-            disabled={ending || flushingEnd}
-            className="w-full rounded-lg bg-gold px-4 py-3.5 text-sm font-semibold text-navy hover:bg-gold-bright disabled:opacity-50"
-          >
-            {flushingEnd
-              ? pendingQueue > 0
-                ? `Saving cues (${pendingQueue})…`
-                : "Saving cues…"
-              : ending
-                ? "Saving lesson…"
-                : "End lesson"}
-          </button>
-        </div>
-      )}
+          {flushingEnd
+            ? pendingQueue > 0
+              ? `Saving cues (${pendingQueue})…`
+              : "Saving cues…"
+            : ending
+              ? "Saving lesson…"
+              : "End lesson"}
+        </button>
+        <p className="mt-2 text-center text-[10px] text-cream/40">
+          Ends the lesson for you and {peerLabel}
+        </p>
+      </div>
     </div>
   );
 }

@@ -47,7 +47,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         .maybeSingle();
 
       if (!capture || capture.status === "ended") {
-        return NextResponse.json({ error: "Session ended" }, { status: 410 });
+        return NextResponse.json(
+          {
+            error: "Session ended",
+            training_session_id: capture?.training_session_id ?? null,
+          },
+          { status: 410 }
+        );
       }
 
       const token = await mintLiveKitToken({
@@ -85,7 +91,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
     if (capture.status === "ended") {
-      return NextResponse.json({ error: "Session ended" }, { status: 410 });
+      return NextResponse.json(
+        {
+          error: "Session ended",
+          training_session_id: capture.training_session_id ?? null,
+        },
+        { status: 410 }
+      );
     }
 
     const token = await mintLiveKitToken({
