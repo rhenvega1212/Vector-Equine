@@ -8,7 +8,7 @@ import { DebriefShareActions } from "@/components/train/debrief-share-actions";
 import { CoachingNotesEditor } from "@/components/train/coaching-notes-editor";
 import { DebriefCaptureClient } from "@/components/train/debrief-capture-client";
 import { DebriefJournalBrief } from "@/components/train/debrief-journal-brief";
-import { VectorRideChat } from "@/components/train/vector-ride-chat";
+import { VectorRideChatLazy } from "@/components/train/vector-ride-chat-lazy";
 import { VECTOR_CONFIG } from "@/lib/vector/config";
 import { cueReelFromSegments } from "@/lib/capture/summary";
 import {
@@ -197,7 +197,7 @@ export default async function DebriefPage({ params }: SessionPageProps) {
             isComms={false}
           />
           {isOwner && (
-            <VectorRideChat
+            <VectorRideChatLazy
               sessionId={session.id}
               trainerName={trainerName}
             />

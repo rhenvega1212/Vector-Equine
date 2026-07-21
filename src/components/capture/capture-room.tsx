@@ -5,12 +5,18 @@ import {
   Room,
   RoomEvent,
   Track,
+  ConnectionQuality,
   createLocalAudioTrack,
   type LocalAudioTrack,
   type RemoteTrack,
 } from "livekit-client";
 import { formatOffset } from "@/lib/capture/summary";
 import { createKeepAwake, type KeepAwakeHandle } from "@/lib/capture/keep-awake";
+import {
+  createSegmentOutbox,
+  newClientId,
+  type SegmentOutbox,
+} from "@/lib/capture/segment-outbox";
 import { VoiceLevelMeter } from "@/components/capture/voice-level-meter";
 
 type LivekitCreds = {
@@ -158,7 +164,7 @@ export function CaptureRoom({
   joinCode?: string;
   joinUrl?: string;
   peerLabel: string;
-  onEnd?: () => void;
+  onEnd?: () => void | Promise<void>;
   ending?: boolean;
 }) {
   const [roomState, setRoomState] = useState<
@@ -180,6 +186,10 @@ export function CaptureRoom({
   const [speakerId, setSpeakerId] = useState<string>("");
   const [screenHint, setScreenHint] = useState(false);
   const [meterTrack, setMeterTrack] = useState<LocalAudioTrack | null>(null);
+  const [networkOffline, setNetworkOffline] = useState(false);
+  const [pendingQueue, setPendingQueue] = useState(0);
+  const [weakLink, setWeakLink] = useState(false);
+  const [flushingEnd, setFlushingEnd] = useState(false);
 
   const roomRef = useRef<Room | null>(null);
   const localMicRef = useRef<LocalAudioTrack | null>(null);
@@ -196,6 +206,8 @@ export function CaptureRoom({
   const connectCallRef = useRef<(opts?: { reconnect?: boolean }) => Promise<void>>(
     async () => undefined
   );
+  const outboxRef = useRef<SegmentOutbox | null>(null);
+  const segmentsRef = useRef<Segment[]>([]);
   const livekitRef = useRef(livekitProp);
   const micIdRef = useRef(micId);
   const speakerIdRef = useRef(speakerId);
@@ -204,6 +216,7 @@ export function CaptureRoom({
   livekitRef.current = livekitProp;
   micIdRef.current = micId;
   speakerIdRef.current = speakerId;
+  segmentsRef.current = segments;
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -413,6 +426,14 @@ export function CaptureRoom({
           reconnectAttemptRef.current = 0;
           void playKeepAliveAudio();
           void startKeepAwake();
+          outboxRef.current?.kick();
+        });
+        room.on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
+          if (participant !== room.localParticipant) return;
+          setWeakLink(
+            quality === ConnectionQuality.Poor ||
+              quality === ConnectionQuality.Lost
+          );
         });
         room.on(RoomEvent.Disconnected, () => {
           setPeerConnected(false);
@@ -518,10 +539,44 @@ export function CaptureRoom({
         /* ignore */
       }
       keepAliveAudioRef.current?.pause();
+      outboxRef.current?.destroy();
+      outboxRef.current = null;
       stopKeepAwake();
       teardownRoom();
     };
   }, [stopKeepAwake, teardownRoom]);
+
+  // Barn WiFi: reconnect immediately when radio returns; surface offline state
+  useEffect(() => {
+    const syncOnline = () => {
+      const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+      setNetworkOffline(offline);
+      if (!offline) {
+        reconnectAttemptRef.current = 0;
+        if (reconnectTimerRef.current != null) {
+          window.clearTimeout(reconnectTimerRef.current);
+          reconnectTimerRef.current = null;
+        }
+        outboxRef.current?.kick();
+        if (
+          callDesiredRef.current &&
+          !intentionalEndRef.current &&
+          (!roomRef.current || roomRef.current.state !== "connected")
+        ) {
+          void connectCallRef.current({ reconnect: true });
+        }
+      }
+    };
+    setNetworkOffline(
+      typeof navigator !== "undefined" && navigator.onLine === false
+    );
+    window.addEventListener("online", syncOnline);
+    window.addEventListener("offline", syncOnline);
+    return () => {
+      window.removeEventListener("online", syncOnline);
+      window.removeEventListener("offline", syncOnline);
+    };
+  }, []);
 
   useEffect(() => {
     if (roomState === "connected" && speakerId) {
@@ -649,10 +704,83 @@ export function CaptureRoom({
     []
   );
 
+  // Durable segment outbox (survives brief barn WiFi drops)
+  useEffect(() => {
+    const outbox = createSegmentOutbox({
+      captureSessionId,
+      onQueueChange: setPendingQueue,
+      onSaved: (saved) => {
+        setSegments((prev) =>
+          mergeSegments(
+            prev,
+            saved.map((s) => ({
+              id: s.id,
+              offset_ms: s.offset_ms,
+              speaker: s.speaker,
+              text: s.text,
+            }))
+          )
+        );
+        for (const s of saved) {
+          broadcastSegment({
+            id: s.id,
+            offset_ms: s.offset_ms,
+            speaker: s.speaker,
+            text: s.text,
+          });
+        }
+      },
+      post: async (batch) => {
+        try {
+          const res = await fetch(
+            `/api/capture/sessions/${captureSessionId}/segments`,
+            {
+              method: "POST",
+              headers: authHeaders(),
+              body: JSON.stringify({ segments: batch }),
+              keepalive: true,
+            }
+          );
+          if (!res.ok) return { ok: false };
+          const data = await res.json();
+          const rows = (data.segments || []) as {
+            id?: string;
+            client_id?: string | null;
+            offset_ms: number;
+            speaker: Segment["speaker"];
+            text: string;
+          }[];
+          const withClient = rows.map((r, i) => ({
+            ...r,
+            client_id: r.client_id || batch[i]?.client_id || null,
+          }));
+          return { ok: true, segments: withClient };
+        } catch {
+          return { ok: false };
+        }
+      },
+    });
+    outboxRef.current = outbox;
+    return () => {
+      outbox.destroy();
+      if (outboxRef.current === outbox) outboxRef.current = null;
+    };
+  }, [authHeaders, broadcastSegment, captureSessionId]);
+
   const pullSegments = useCallback(async () => {
     try {
+      const known = segmentsRef.current;
+      const maxOffset =
+        known.length > 0
+          ? Math.max(...known.map((s) => s.offset_ms))
+          : -1;
+      // First pull is full; later pulls are incremental to save barn bandwidth
+      const qs =
+        maxOffset >= 0
+          ? `?after_offset_ms=${encodeURIComponent(String(maxOffset))}`
+          : "";
       const res = await fetch(
-        `/api/capture/sessions/${captureSessionId}/segments`,
+        `/api/capture/sessions/${captureSessionId}/segments${qs}`,
         { headers: authHeaders(), cache: "no-store" }
       );
       if (!res.ok) return;
@@ -665,57 +793,35 @@ export function CaptureRoom({
     }
   }, [authHeaders, captureSessionId]);
 
-  async function postSegment(text: string, confidence?: number) {
+  function postSegment(text: string, confidence?: number) {
     const offset_ms = Math.max(0, Date.now() - t0Ms.current);
+    const client_id = newClientId();
     const localSeg: Segment = { offset_ms, speaker, text };
-    // Optimistic local + instant peer sync
     setSegments((prev) => mergeSegments(prev, [localSeg]));
     broadcastSegment(localSeg);
 
-    const payload = {
-      segments: [
-        {
-          offset_ms,
-          speaker,
-          text,
-          confidence: confidence ?? null,
-        },
-      ],
-    };
-
-    const res = await fetch(
-      `/api/capture/sessions/${captureSessionId}/segments`,
-      {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify(payload),
-        keepalive: true,
-      }
-    );
-    if (res.ok) {
-      const data = await res.json();
-      const saved = data.segments?.[0] as Segment | undefined;
-      if (saved) {
-        setSegments((prev) => mergeSegments(prev, [saved]));
-        broadcastSegment({
-          id: saved.id,
-          offset_ms: saved.offset_ms ?? offset_ms,
-          speaker: saved.speaker ?? speaker,
-          text: saved.text ?? text,
-        });
-      }
-    }
+    outboxRef.current?.enqueue({
+      client_id,
+      offset_ms,
+      speaker,
+      text,
+      confidence: confidence ?? null,
+    });
   }
 
-  // Shared conversation timeline — rider + trainer both see each other
+  // Shared conversation timeline — adaptive poll (faster while recovering)
   useEffect(() => {
     if (roomState !== "connected" && roomState !== "reconnecting") return;
     void pullSegments();
+    const intervalMs =
+      roomState === "reconnecting" || networkOffline || pendingQueue > 0
+        ? 1200
+        : 4000;
     const id = window.setInterval(() => {
       void pullSegments();
-    }, 1500);
+    }, intervalMs);
     return () => window.clearInterval(id);
-  }, [roomState, pullSegments]);
+  }, [roomState, pullSegments, networkOffline, pendingQueue]);
 
   useEffect(() => {
     if (roomState !== "connected") {
@@ -861,7 +967,18 @@ export function CaptureRoom({
     stopKeepAwake();
     teardownRoom();
     unlockSafariScroll();
-    onEnd?.();
+
+    void (async () => {
+      setFlushingEnd(true);
+      try {
+        await outboxRef.current?.flush({ timeoutMs: 10000 });
+      } catch {
+        /* still attempt end — journal uses whatever landed in DB */
+      } finally {
+        setFlushingEnd(false);
+      }
+      await onEnd?.();
+    })();
   }
 
   const mm = String(Math.floor(elapsed / 60000)).padStart(2, "0");
@@ -900,6 +1017,25 @@ export function CaptureRoom({
         </p>
       </div>
 
+      {(networkOffline || pendingQueue > 0 || weakLink) && (
+        <div className="rounded-lg border border-gold/25 bg-gold/10 px-3 py-2 text-xs text-cream/80 space-y-1">
+          {networkOffline ? (
+            <p>Offline — cues stay on this phone and will sync when Wi‑Fi returns.</p>
+          ) : pendingQueue > 0 ? (
+            <p>
+              Syncing timeline ({pendingQueue} cue
+              {pendingQueue === 1 ? "" : "s"} queued)…
+            </p>
+          ) : null}
+          {weakLink && !networkOffline && (
+            <p>
+              Weak link — still in lesson. Move closer to the barn Wi‑Fi or keep
+              this screen on.
+            </p>
+          )}
+        </div>
+      )}
+
       {joinCode && joinUrl && (
         <div className="rounded-xl border border-gold/20 bg-[#131C31] p-4 space-y-3 text-center">
           <p className="text-[10px] uppercase tracking-[0.18em] text-cream/40">
@@ -929,8 +1065,9 @@ export function CaptureRoom({
           <div className="space-y-2">
             <p className="text-sm text-cream/80">
               Start once — Vector keeps the lesson open and reconnects if the
-              phone sleeps. For the most reliable ride, leave this screen on
-              (Auto-Lock: Never) with the phone mounted.
+              phone sleeps or barn Wi‑Fi dips. For the most reliable ride, leave
+              this screen on (Auto-Lock: Never) with the phone mounted. Cues
+              queue on-device if the network drops, then sync when it returns.
             </p>
             {roomError && (
               <p className="text-sm text-destructive">{roomError}</p>
@@ -978,7 +1115,8 @@ export function CaptureRoom({
             </p>
             <p className="text-xs text-cream/40">
               Timeline syncs both sides — you should see {peerLabel}&apos;s cues
-              here too.
+              here too. On weak barn Wi‑Fi the call may dip; your cues still
+              queue locally until they sync.
             </p>
             {screenHint && (
               <p className="text-xs text-gold/80">
@@ -1103,10 +1241,16 @@ export function CaptureRoom({
           <button
             type="button"
             onClick={handleEnd}
-            disabled={ending}
+            disabled={ending || flushingEnd}
             className="w-full rounded-lg bg-gold px-4 py-3.5 text-sm font-semibold text-navy hover:bg-gold-bright disabled:opacity-50"
           >
-            {ending ? "Saving…" : "End lesson"}
+            {flushingEnd
+              ? pendingQueue > 0
+                ? `Saving cues (${pendingQueue})…`
+                : "Saving cues…"
+              : ending
+                ? "Saving lesson…"
+                : "End lesson"}
           </button>
         </div>
       )}

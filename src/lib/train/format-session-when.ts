@@ -30,20 +30,32 @@ export function formatSessionWhen(
   return dayLabel;
 }
 
-/** Short list title (drop embedded datetime stamp from capture titles). */
+/** Short list title (drop legacy “Capture lesson · datetime” stamps). */
 export function sessionDisplayTitle(
   title: string | null | undefined,
   fallback: string
 ): string {
   const t = title?.trim();
   if (!t) return fallback;
-  if (t.startsWith("Capture lesson")) return "Capture lesson";
+  // Legacy capture stamps — date/time already shown beside the card
+  if (/^Capture lesson\b/i.test(t)) return "Lesson";
   return t;
 }
 
-/** Title stamp used when ending a Capture Live lesson. */
+/**
+ * @deprecated Prefer summarizeCaptureTranscript().title — kept for any leftover callers.
+ */
 export function captureLessonTitle(t0Iso: string, now = new Date()): string {
   const start = new Date(t0Iso);
   const when = isValid(start) ? start : now;
-  return `Capture lesson · ${format(when, "MMM d, yyyy · h:mm a")}`;
+  const h = when.getHours();
+  const daypart =
+    h < 11
+      ? "Morning schooling"
+      : h < 15
+        ? "Midday schooling"
+        : h < 19
+          ? "Afternoon schooling"
+          : "Evening schooling";
+  return daypart;
 }

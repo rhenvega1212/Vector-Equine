@@ -19,9 +19,9 @@ Turns a lesson into a **timestamped transcript + customer journal**, with schema
 
 ## Schema
 
-Apply [`supabase/migrations/20260721000000_capture_pipeline.sql`](../supabase/migrations/20260721000000_capture_pipeline.sql) or manual [`apply_capture_pipeline_dev.sql`](../supabase/manual/apply_capture_pipeline_dev.sql).
+Apply [`supabase/migrations/20260721000000_capture_pipeline.sql`](../supabase/migrations/20260721000000_capture_pipeline.sql) or manual [`apply_capture_pipeline_dev.sql`](../supabase/manual/apply_capture_pipeline_dev.sql). For barn-WiFi idempotent retries, also apply [`apply_transcript_client_id_dev.sql`](../supabase/manual/apply_transcript_client_id_dev.sql).
 
-Tables: `capture_sessions`, `session_transcript_segments`, `session_media_assets`.
+Tables: `capture_sessions`, `session_transcript_segments` (optional `client_id`), `session_media_assets`.
 
 ## Env
 
@@ -39,6 +39,20 @@ SUPABASE_SERVICE_ROLE_KEY= # required for guest join
 Restart `npm run dev` after setting these. On Live / Join, tap **Start headset call** (mic + headphones, echo cancel on).
 
 Without LiveKit, join + transcript still work; call button explains missing env.
+
+## Barn WiFi (web stage)
+
+Capture Live is built for flaky barn networks:
+
+- **Call** auto-reconnects (fresh LiveKit token) when the radio drops or the phone sleeps
+- **Transcript cues** queue on-device (`sessionStorage` outbox + `client_id` idempotency) and flush when online / after reconnect
+- **End lesson** flushes the outbox, then retries `POST /end` so the journal is not silently empty
+- Timeline poll uses `?after_offset_ms=` once the client has data (less bandwidth on long lessons)
+- UI shows offline / queued / weak-link tips — not a dead screen
+
+Apply [`apply_transcript_client_id_dev.sql`](../supabase/manual/apply_transcript_client_id_dev.sql) (or migration `20260721010000_transcript_client_id.sql`) so retries stay duplicate-safe.
+
+This is **not** full offline WebRTC. Keep the screen on when possible; speech recognition still pauses when the tab is backgrounded.
 
 ## Dean clean slate
 

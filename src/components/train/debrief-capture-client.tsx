@@ -7,7 +7,7 @@ import {
   DebriefJournalBrief,
   type BriefCue,
 } from "@/components/train/debrief-journal-brief";
-import { VectorRideChat } from "@/components/train/vector-ride-chat";
+import { VectorRideChatLazy as VectorRideChat } from "@/components/train/vector-ride-chat-lazy";
 
 export type TimelineSegment = {
   id: string;

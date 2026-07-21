@@ -101,21 +101,35 @@ function CaptureLiveInner() {
   async function endLesson() {
     if (!capture) return;
     setEnding(true);
-    try {
-      const res = await fetch(`/api/capture/sessions/${capture.id}/end`, {
-        method: "POST",
-      });
-      const data = await res.json();
-      if (res.ok && data.training_session_id) {
-        router.push(`/train/sessions/${data.training_session_id}`);
-        return;
+    setError(null);
+
+    const maxAttempts = 3;
+    let lastError = "Could not end lesson";
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const res = await fetch(`/api/capture/sessions/${capture.id}/end`, {
+          method: "POST",
+          keepalive: attempt === maxAttempts - 1,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.training_session_id) {
+          router.push(`/train/sessions/${data.training_session_id}`);
+          return;
+        }
+        lastError = data.error || "Could not end lesson";
+        // Don't retry auth / hard client errors
+        if (res.status === 401 || res.status === 404) break;
+      } catch {
+        lastError = "Could not end lesson — check barn Wi‑Fi and try again";
       }
-      setError(data.error || "Could not end lesson");
-    } catch {
-      setError("Could not end lesson");
-    } finally {
-      setEnding(false);
+      if (attempt < maxAttempts - 1) {
+        await new Promise((r) => setTimeout(r, 800 * Math.pow(2, attempt)));
+      }
     }
+
+    setError(lastError);
+    setEnding(false);
   }
 
   return (
@@ -127,7 +141,7 @@ function CaptureLiveInner() {
           </Link>
         </Button>
         <span className="text-[10px] uppercase tracking-[0.18em] text-cream/40">
-          Capture lesson
+          Live lesson
         </span>
       </div>
 

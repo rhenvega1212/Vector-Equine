@@ -938,6 +938,7 @@ export type Database = {
           speaker: "rider" | "trainer" | "system";
           text: string;
           confidence: number | null;
+          client_id: string | null;
           raw_json: Json | null;
           created_at: string;
         };
@@ -949,6 +950,7 @@ export type Database = {
           speaker: "rider" | "trainer" | "system";
           text: string;
           confidence?: number | null;
+          client_id?: string | null;
           raw_json?: Json | null;
           created_at?: string;
         };
@@ -960,6 +962,7 @@ export type Database = {
           speaker?: "rider" | "trainer" | "system";
           text?: string;
           confidence?: number | null;
+          client_id?: string | null;
           raw_json?: Json | null;
           created_at?: string;
         };

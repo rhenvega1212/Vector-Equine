@@ -20,15 +20,16 @@ export function VectorRideChat({
   trainerName: string | null;
 }) {
   const [input, setInput] = useState("");
+  const api = `/api/train/sessions/${sessionId}/chat`;
   const transport = useMemo(
-    () =>
-      new DefaultChatTransport({
-        api: `/api/train/sessions/${sessionId}/chat`,
-      }),
-    [sessionId]
+    () => new DefaultChatTransport({ api }),
+    [api]
   );
 
-  const { messages, sendMessage, status, error } = useChat({ transport });
+  const { messages, sendMessage, status, error } = useChat({
+    id: `vector-ride-${sessionId}`,
+    transport,
+  });
   const busy = status === "submitted" || status === "streaming";
 
   async function onSubmit(e: React.FormEvent) {
@@ -36,12 +37,20 @@ export function VectorRideChat({
     const text = input.trim();
     if (!text || busy) return;
     setInput("");
-    await sendMessage({ text });
+    try {
+      await sendMessage({ text });
+    } catch {
+      /* surfaced via useChat error */
+    }
   }
 
   async function ask(text: string) {
     if (busy) return;
-    await sendMessage({ text });
+    try {
+      await sendMessage({ text });
+    } catch {
+      /* surfaced via useChat error */
+    }
   }
 
   return (

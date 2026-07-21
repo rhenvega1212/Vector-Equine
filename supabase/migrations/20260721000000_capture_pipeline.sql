@@ -33,11 +33,16 @@ CREATE TABLE IF NOT EXISTS session_transcript_segments (
   text TEXT NOT NULL,
   confidence REAL,
   raw_json JSONB,
+  client_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_transcript_segments_capture
   ON session_transcript_segments(capture_session_id, offset_ms);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_transcript_segments_client_id
+  ON session_transcript_segments (capture_session_id, client_id)
+  WHERE client_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS session_media_assets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

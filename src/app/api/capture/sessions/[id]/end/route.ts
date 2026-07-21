@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { summarizeCaptureTranscript } from "@/lib/capture/summary";
-import { captureLessonTitle } from "@/lib/train/format-session-when";
 import { format } from "date-fns";
 
 interface RouteParams {
@@ -58,18 +57,26 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       horseFocus = horse?.current_focus ?? null;
     }
 
-    const { summary, homework, exercises, focus } = summarizeCaptureTranscript(
-      list,
-      {
-        horseFocus,
-        trainerName: capture.trainer_display_name,
-      }
-    );
-
-    const started = new Date(capture.t0).getTime();
-    const ended = Date.now();
-    const durationMinutes = Math.max(1, Math.round((ended - started) / 60000));
     const startedAt = new Date(capture.t0);
+    const {
+      title,
+      summary,
+      homework,
+      exercises,
+      focus,
+    } = summarizeCaptureTranscript(list, {
+      horseFocus,
+      trainerName: capture.trainer_display_name,
+      horseName,
+      startedAt,
+    });
+
+    const started = startedAt.getTime();
+    const ended = Date.now();
+    const durationMinutes = Math.max(
+      1,
+      Math.round((ended - (Number.isNaN(started) ? ended : started)) / 60000)
+    );
     const sessionDate = Number.isNaN(startedAt.getTime())
       ? format(new Date(), "yyyy-MM-dd")
       : format(startedAt, "yyyy-MM-dd");
@@ -82,7 +89,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       session_type: "lesson",
       overall_feel: 5,
       session_source: "comms",
-      session_title: captureLessonTitle(capture.t0),
+      session_title: title,
       summary: focus ? `${focus}\n\n${summary}` : summary,
       homework,
       exercises,
