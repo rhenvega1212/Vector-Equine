@@ -432,7 +432,6 @@ export function CaptureRoom({
     ]
   );
 
-  const connectCallRef = useRef(connectCall);
   connectCallRef.current = connectCall;
 
   useEffect(() => {
