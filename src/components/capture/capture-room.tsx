@@ -1081,19 +1081,33 @@ export function CaptureRoom({
     training_session_id?: string;
     ended_by?: string;
   } | null> {
-    const res = await fetch(`/api/capture/sessions/${captureSessionId}/end`, {
-      method: "POST",
-      headers: authHeaders(),
-      keepalive: true,
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.error || "Could not end lesson");
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 25000);
+    try {
+      const res = await fetch(`/api/capture/sessions/${captureSessionId}/end`, {
+        method: "POST",
+        headers: authHeaders(),
+        signal: controller.signal,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          typeof data.error === "string"
+            ? data.error
+            : "Could not end lesson"
+        );
+      }
+      return data;
+    } finally {
+      window.clearTimeout(timer);
     }
-    return data;
   }
 
+  const endingInFlightRef = useRef(false);
+
   function handleEnd() {
+    if (endingInFlightRef.current || lessonEnded) return;
+    endingInFlightRef.current = true;
     intentionalEndRef.current = true;
     callDesiredRef.current = false;
     if (reconnectTimerRef.current != null) {
@@ -1104,31 +1118,48 @@ export function CaptureRoom({
     void (async () => {
       setFlushingEnd(true);
       setRoomError(null);
-      try {
-        await outboxRef.current?.flush({ timeoutMs: 10000 });
-      } catch {
-        /* still attempt end */
-      }
 
-      // Tell the other phone immediately (before we tear down LiveKit)
+      // Tell the other phone immediately — don't wait on network flush/Claude
       broadcastSessionEnded(null);
+
+      // Best-effort cue flush (short) — never block End on barn Wi‑Fi
+      try {
+        await Promise.race([
+          outboxRef.current?.flush({ timeoutMs: 2500 }) ?? Promise.resolve(),
+          new Promise((r) => setTimeout(r, 2500)),
+        ]);
+      } catch {
+        /* ignore */
+      }
 
       let result: { training_session_id?: string; ended_by?: string } | null =
         null;
       try {
         result = await endSessionOnServer();
-        // Re-broadcast with journal id if we have it
         if (result?.training_session_id) {
           broadcastSessionEnded(result.training_session_id);
         }
+        // Fire-and-forget Claude polish — never blocks leaving the call
+        if (result && (result as { polish?: boolean }).polish !== false) {
+          void fetch(`/api/capture/sessions/${captureSessionId}/polish`, {
+            method: "POST",
+            headers: authHeaders(),
+          }).catch(() => undefined);
+        }
       } catch (e) {
-        setFlushingEnd(false);
-        setRoomError(
-          e instanceof Error ? e.message : "Could not end lesson — try again"
-        );
-        // Allow retry
+        endingInFlightRef.current = false;
         intentionalEndRef.current = false;
         callDesiredRef.current = roomRef.current?.state === "connected";
+        setFlushingEnd(false);
+        const aborted =
+          e instanceof DOMException && e.name === "AbortError";
+        setRoomError(
+          aborted
+            ? "End timed out — check Wi‑Fi and tap End lesson again."
+            : e instanceof Error
+              ? e.message
+              : "Could not end lesson — try again"
+        );
         return;
       } finally {
         setFlushingEnd(false);
@@ -1478,11 +1509,9 @@ export function CaptureRoom({
           className="w-full rounded-lg bg-gold px-4 py-3.5 text-sm font-semibold text-navy hover:bg-gold-bright disabled:opacity-50"
         >
           {flushingEnd
-            ? pendingQueue > 0
-              ? `Saving cues (${pendingQueue})…`
-              : "Saving cues…"
+            ? "Ending lesson…"
             : ending
-              ? "Saving lesson…"
+              ? "Opening debrief…"
               : "End lesson"}
         </button>
         <p className="mt-2 text-center text-[10px] text-cream/40">

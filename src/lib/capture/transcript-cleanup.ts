@@ -92,6 +92,7 @@ export async function cleanupTranscriptForJournal(
     horseName?: string | null;
     horseFocus?: string | null;
     trainerName?: string | null;
+    timeoutMs?: number;
   }
 ): Promise<TranscriptCleanupResult> {
   if (segments.length === 0) {
@@ -113,7 +114,7 @@ export async function cleanupTranscriptForJournal(
 
   try {
     const anthropic = createAnthropic({ apiKey });
-    const { object } = await generateObject({
+    const cleanupPromise = generateObject({
       model: anthropic("claude-sonnet-4-5"),
       schema: briefSchema,
       temperature: 0.2,
@@ -139,6 +140,20 @@ Trainer: ${opts.trainerName || "not recorded"}
 RAW TRANSCRIPT (index|speaker|mm:ss|text):
 ${lines}`,
     });
+
+    const timed = await Promise.race([
+      cleanupPromise,
+      new Promise<"timeout">((resolve) =>
+        setTimeout(() => resolve("timeout"), opts.timeoutMs ?? 20000)
+      ),
+    ]);
+
+    if (timed === "timeout") {
+      console.error("transcript cleanup timed out");
+      return { cleaned: segments, brief: null, usedClaude: false };
+    }
+
+    const { object } = timed;
 
     const byIndex = new Map(object.segments.map((s) => [s.i, s.text.trim()]));
     const featuredIndexes = new Set(

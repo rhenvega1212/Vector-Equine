@@ -20,9 +20,12 @@ type CaptureRow = {
   training_session_id: string | null;
 };
 
+type DbClient = ReturnType<typeof createAdminClient>;
+
 /**
  * End lesson for everyone — rider (cookie) or trainer (guest Bearer).
- * Marks capture ended, builds journal, peers discover via LiveKit + status poll.
+ * Fast path: mark ended + heuristic journal. Claude polish is kicked off
+ * by the client afterward so End never freezes.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
@@ -80,13 +83,28 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         training_session_id: capture.training_session_id,
         capture_session_id: capture.id,
         already_ended: true,
+        polish: true,
       });
     }
 
     const admin = process.env.SUPABASE_SERVICE_ROLE_KEY
       ? createAdminClient()
       : null;
-    const db = admin || (await createClient());
+    const db = (admin || (await createClient())) as DbClient;
+
+    // Close live session first so peers stop reconnecting immediately
+    if (capture.status !== "ended") {
+      const { error: closeErr } = await db
+        .from("capture_sessions")
+        .update({
+          status: "ended",
+          ended_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      if (closeErr) {
+        return NextResponse.json({ error: closeErr.message }, { status: 400 });
+      }
+    }
 
     const { data: segments } = await db
       .from("session_transcript_segments")
@@ -114,63 +132,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       horseFocus = horse?.current_focus ?? null;
     }
 
-    const { cleaned, brief: claudeBrief, usedClaude } =
-      await cleanupTranscriptForJournal(list, {
-        horseName,
-        horseFocus,
-        trainerName: capture.trainer_display_name,
-      });
-
-    const toPersist = cleaned.filter(
-      (s) =>
-        s.id &&
-        s.raw_json &&
-        ((s.raw_json as { cleaned?: boolean }).cleaned ||
-          (s.raw_json as { featured_quote?: boolean }).featured_quote)
-    );
-    if (usedClaude && toPersist.length > 0) {
-      await Promise.all(
-        toPersist.map((s) =>
-          db
-            .from("session_transcript_segments")
-            .update({
-              text: s.text,
-              raw_json: s.raw_json,
-            })
-            .eq("id", s.id!)
-            .eq("capture_session_id", id)
-        )
-      );
-    }
-
     const startedAt = new Date(capture.t0);
-    const heuristic = summarizeCaptureTranscript(cleaned, {
+    const heuristic = summarizeCaptureTranscript(list, {
       horseFocus,
       trainerName: capture.trainer_display_name,
       horseName,
       startedAt,
     });
 
-    const title = claudeBrief?.title || heuristic.title;
-    const focus = claudeBrief?.focus || heuristic.focus;
-    let summary = claudeBrief?.summary || heuristic.summary;
-    const homework = claudeBrief?.homework || heuristic.homework;
-    const exercises = claudeBrief?.exercises || heuristic.exercises;
-
-    if (claudeBrief?.quotes?.length) {
-      const quoteBlock = claudeBrief.quotes
-        .map((q) => `“${q.text}”`)
-        .join("\n\n");
-      if (!summary.includes("“")) {
-        summary = `${summary}\n\n${quoteBlock}`;
-      }
-    }
-
     const started = startedAt.getTime();
-    const ended = Date.now();
+    const endedMs = Date.now();
     const durationMinutes = Math.max(
       1,
-      Math.round((ended - (Number.isNaN(started) ? ended : started)) / 60000)
+      Math.round((endedMs - (Number.isNaN(started) ? endedMs : started)) / 60000)
     );
     const sessionDate = Number.isNaN(startedAt.getTime())
       ? format(new Date(), "yyyy-MM-dd")
@@ -183,10 +157,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       session_type: "lesson",
       overall_feel: 5,
       session_source: "comms",
-      session_title: title,
-      summary: focus ? `${focus}\n\n${summary}` : summary,
-      homework,
-      exercises,
+      session_title: heuristic.title,
+      summary: heuristic.focus
+        ? `${heuristic.focus}\n\n${heuristic.summary}`
+        : heuristic.summary,
+      homework: heuristic.homework,
+      exercises: heuristic.exercises,
       duration_minutes: durationMinutes,
       notes: capture.trainer_display_name
         ? `With ${capture.trainer_display_name}`
@@ -197,7 +173,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let journal: { id: string } | null = null;
     let journalError: { message: string } | null = null;
 
-    // Guest end always uses admin; rider prefers user client then admin fallback
     if (asGuest || admin) {
       const writer = admin || db;
       const insert = await writer
@@ -234,29 +209,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { error: updateError } = await db
+    await db
       .from("capture_sessions")
-      .update({
-        status: "ended",
-        ended_at: new Date().toISOString(),
-        training_session_id: journal.id,
-      })
+      .update({ training_session_id: journal.id })
       .eq("id", id);
-
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 400 });
-    }
 
     return NextResponse.json({
       training_session_id: journal.id,
       capture_session_id: id,
-      summary,
-      homework,
+      summary: heuristic.summary,
+      homework: heuristic.homework,
       segment_count: list.length,
-      cleaned: usedClaude,
+      cleaned: false,
+      polish: true,
       ended_by: asGuest ? "trainer" : "rider",
     });
-  } catch {
+  } catch (e) {
+    console.error("end lesson error", e);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
