@@ -241,11 +241,44 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    if (journalError?.message && /feel_/i.test(journalError.message)) {
+      delete payload.feel_scale;
+      delete payload.feel_asked_at;
+      delete payload.feel_answered_at;
+      delete payload.feel_deferrals;
+      if (asGuest || admin) {
+        const writer = admin || db;
+        const retry = await writer
+          .from("training_sessions")
+          .insert(payload)
+          .select("id")
+          .single();
+        journal = retry.data;
+        journalError = retry.error;
+      } else {
+        const supabase = await createClient();
+        const retry = await supabase
+          .from("training_sessions")
+          .insert(payload)
+          .select("id")
+          .single();
+        journal = retry.data;
+        journalError = retry.error;
+      }
+    }
+
     if (journalError || !journal) {
-      return NextResponse.json(
-        { error: journalError?.message || "Could not create journal entry" },
-        { status: 400 }
-      );
+      // Capture is already ended — still let the phones leave (don't 400-trap them)
+      console.error("end lesson journal", journalError);
+      return NextResponse.json({
+        training_session_id: null,
+        capture_session_id: id,
+        capture_ended: true,
+        polish: false,
+        brief_pending: false,
+        ended_by: asGuest ? "trainer" : "rider",
+        warning: journalError?.message || "Journal stub failed",
+      });
     }
 
     await db

@@ -126,6 +126,16 @@ export async function POST(request: NextRequest) {
     const existing = existingRow;
 
     if (existing) {
+      // Apply the mode they just chose (solo vs trainer) onto the resumed room
+      if (parsed.ride_mode) {
+        const { error: modeErr } = await supabase
+          .from("capture_sessions")
+          .update({ ride_mode: parsed.ride_mode })
+          .eq("id", existing.id);
+        if (!modeErr) {
+          (existing as { ride_mode?: string }).ride_mode = parsed.ride_mode;
+        }
+      }
       const origin =
         request.headers.get("origin") ||
         process.env.NEXT_PUBLIC_APP_URL ||
@@ -139,6 +149,8 @@ export async function POST(request: NextRequest) {
       });
       return NextResponse.json({
         ...existing,
+        ride_mode:
+          (existing as { ride_mode?: string }).ride_mode || rideMode,
         join_url: joinUrl,
         resumed: true,
         edge: {

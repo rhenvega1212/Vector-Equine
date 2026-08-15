@@ -1563,7 +1563,7 @@ export function CaptureRoom({
     ended_by?: string;
   } | null> {
     const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 25000);
+    const timer = window.setTimeout(() => controller.abort(), 15000);
     try {
       const res = await fetch(`/api/capture/sessions/${captureSessionId}/end`, {
         method: "POST",
@@ -1607,7 +1607,7 @@ export function CaptureRoom({
       try {
         await Promise.race([
           stopLessonRecorderAndFlushRef.current(),
-          new Promise((r) => setTimeout(r, 22000)),
+          new Promise((r) => setTimeout(r, 8000)),
         ]);
       } catch {
         /* ignore */
@@ -1616,15 +1616,18 @@ export function CaptureRoom({
       // Best-effort cue flush (short) — never block End on barn Wi‑Fi
       try {
         await Promise.race([
-          outboxRef.current?.flush({ timeoutMs: 2500 }) ?? Promise.resolve(),
-          new Promise((r) => setTimeout(r, 2500)),
+          outboxRef.current?.flush({ timeoutMs: 2000 }) ?? Promise.resolve(),
+          new Promise((r) => setTimeout(r, 2000)),
         ]);
       } catch {
         /* ignore */
       }
 
-      let result: { training_session_id?: string; ended_by?: string } | null =
-        null;
+      let result: {
+        training_session_id?: string | null;
+        ended_by?: string;
+        capture_ended?: boolean;
+      } | null = null;
       try {
         result = await endSessionOnServer();
         if (result?.training_session_id) {
@@ -1632,7 +1635,6 @@ export function CaptureRoom({
         }
         // Fire-and-forget polish (Whisper + coach card) — never blocks leaving
         if (result && (result as { polish?: boolean }).polish !== false) {
-          // Brief delay so the peer can finish uploading their mic chunk
           window.setTimeout(() => {
             void fetch(`/api/capture/sessions/${captureSessionId}/polish`, {
               method: "POST",
@@ -1641,27 +1643,60 @@ export function CaptureRoom({
           }, 4000);
         }
       } catch (e) {
-        endingInFlightRef.current = false;
-        intentionalEndRef.current = false;
-        callDesiredRef.current = roomRef.current?.state === "connected";
-        setFlushingEnd(false);
-        const aborted =
-          e instanceof DOMException && e.name === "AbortError";
-        setRoomError(
-          aborted
-            ? "End timed out — check Wi‑Fi and tap End lesson again."
-            : e instanceof Error
-              ? e.message
-              : "Could not end lesson — try again"
-        );
-        return;
+        // Server may have closed the capture already — confirm and leave anyway
+        let recovered: {
+          training_session_id?: string | null;
+          status?: string;
+        } | null = null;
+        try {
+          const st = await fetch(
+            `/api/capture/sessions/${captureSessionId}/status`,
+            { headers: authHeaders(), cache: "no-store" }
+          );
+          if (st.ok) {
+            recovered = (await st.json()) as {
+              training_session_id?: string | null;
+              status?: string;
+            };
+          }
+        } catch {
+          /* ignore */
+        }
+        if (
+          recovered?.status === "ended" ||
+          recovered?.training_session_id
+        ) {
+          result = {
+            training_session_id: recovered.training_session_id ?? null,
+            capture_ended: true,
+          };
+        } else {
+          endingInFlightRef.current = false;
+          intentionalEndRef.current = false;
+          callDesiredRef.current = roomRef.current?.state === "connected";
+          setFlushingEnd(false);
+          const aborted =
+            e instanceof DOMException && e.name === "AbortError";
+          setRoomError(
+            aborted
+              ? "End timed out — check Wi‑Fi and tap End lesson again."
+              : e instanceof Error
+                ? e.message
+                : "Could not end lesson — try again"
+          );
+          return;
+        }
       } finally {
         setFlushingEnd(false);
       }
 
       stopKeepAwake();
+      // Close bookend must never trap End — TTS/network can hang
       try {
-        await playCloseBookend();
+        await Promise.race([
+          playCloseBookend(),
+          new Promise((r) => setTimeout(r, 3500)),
+        ]);
       } catch {
         /* ignore */
       }
@@ -1671,7 +1706,10 @@ export function CaptureRoom({
       setEndedRemote(false);
 
       try {
-        await onEnd?.(result || {});
+        await onEnd?.({
+          training_session_id: result?.training_session_id || undefined,
+          ended_by: result?.ended_by,
+        });
       } catch {
         /* navigation errors */
       }
@@ -2124,7 +2162,9 @@ export function CaptureRoom({
               : "End lesson"}
         </button>
         <p className="mt-2 text-center text-[10px] text-cream/40">
-          Ends the lesson for you and {peerLabel}
+          {isSolo
+            ? "Ends capture for this solo ride"
+            : `Ends the lesson for you and ${peerLabel}`}
         </p>
       </div>
     </div>

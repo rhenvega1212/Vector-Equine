@@ -162,8 +162,11 @@ function CaptureLiveInner() {
       router.push(`/train/sessions/${result.training_session_id}`);
       return;
     }
-    // Fallback if CaptureRoom already ended remotely without an id yet
-    if (!capture) return;
+    // Ended without a journal row — leave the live surface cleanly
+    if (!capture) {
+      router.push(isTestLesson ? "/train/lab" : "/train");
+      return;
+    }
     setEnding(true);
     setError(null);
     try {
@@ -178,7 +181,7 @@ function CaptureLiveInner() {
     } catch {
       /* ignore */
     }
-    setEnding(false);
+    router.push(isTestLesson ? "/train/lab" : "/train");
   }
 
   const effectiveMode =
