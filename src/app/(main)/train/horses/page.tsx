@@ -18,7 +18,8 @@ export default async function TrainHorsesPage() {
   const { data: sessionCounts } = await supabase
     .from("training_sessions")
     .select("horse_id")
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .eq("is_test", false);
 
   const countByHorse = (sessionCounts || []).reduce<Record<string, number>>((acc, row) => {
     const id = row.horse_id as string | null;

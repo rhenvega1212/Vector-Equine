@@ -200,11 +200,12 @@ export default async function VectorHomePage({ searchParams }: VectorHomeProps) 
   }
 
   const { data: sessions } = await supabase
-    .from("training_sessions")
-    .select(
-      "id, session_date, created_at, overall_feel, horse, horse_id, session_type, session_title, summary, homework, notes"
-    )
-    .eq("user_id", user.id)
+      .from("training_sessions")
+      .select(
+        "id, session_date, created_at, overall_feel, horse, horse_id, session_type, session_title, summary, homework, notes"
+      )
+      .eq("user_id", user.id)
+      .eq("is_test", false)
     .order("session_date", { ascending: false })
     .order("created_at", { ascending: false });
 

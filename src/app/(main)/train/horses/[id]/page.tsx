@@ -33,6 +33,7 @@ export default async function HorseDetailPage({ params }: HorseDetailPageProps) 
     .from("training_sessions")
     .select("id, session_date, session_title, session_type, duration_minutes, overall_feel, video_link_url, video_upload_path")
     .eq("horse_id", id)
+    .eq("is_test", false)
     .order("session_date", { ascending: false })
     .limit(50);
 

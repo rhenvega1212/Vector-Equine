@@ -8,6 +8,8 @@ import { z } from "zod";
 
 const startSchema = z.object({
   horse_id: z.string().uuid().optional().nullable(),
+  /** Admin-only Lab test lesson — excluded from product rides lists. */
+  is_test: z.boolean().optional(),
 });
 
 export async function GET() {
@@ -61,6 +63,21 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}));
     const parsed = startSchema.parse(body);
+    const wantTest = parsed.is_test === true;
+
+    if (wantTest) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profile?.role !== "admin") {
+        return NextResponse.json(
+          { error: "Test lessons are admin-only" },
+          { status: 403 }
+        );
+      }
+    }
 
     if (parsed.horse_id) {
       const { data: horse } = await supabase
@@ -75,14 +92,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Resume an open lesson instead of killing it (phone lock / remount / refresh)
-    const { data: existing } = await supabase
+    // Only resume when test/prod mode matches — don't fold a real lesson into a test.
+    let existingQuery = supabase
       .from("capture_sessions")
       .select("*")
       .eq("rider_id", user.id)
       .in("status", ["waiting", "live"])
       .order("started_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
+
+    // is_test column may be missing until migration — filter in JS if needed
+    const { data: existingRow } = await existingQuery.maybeSingle();
+    if (existingRow) {
+      const existingIsTest = Boolean(
+        (existingRow as { is_test?: boolean }).is_test
+      );
+      if (existingIsTest !== wantTest) {
+        return NextResponse.json(
+          {
+            error: existingIsTest
+              ? "End your open test lesson in Lab before starting a real one."
+              : "End your open Live lesson before starting a test.",
+            open_capture_id: existingRow.id,
+            open_is_test: existingIsTest,
+          },
+          { status: 409 }
+        );
+      }
+    }
+    const existing = existingRow;
 
     if (existing) {
       const origin =
@@ -123,9 +161,56 @@ export async function POST(request: NextRequest) {
           join_code: joinCode,
           livekit_room: roomName,
           status: "waiting",
+          is_test: wantTest,
         })
         .select("*")
         .single();
+
+      if (error && /is_test/i.test(error.message || "")) {
+        // Migration not applied yet — create without the column.
+        const retry = await supabase
+          .from("capture_sessions")
+          .insert({
+            rider_id: user.id,
+            horse_id: parsed.horse_id || null,
+            join_code: joinCode,
+            livekit_room: roomName,
+            status: "waiting",
+          })
+          .select("*")
+          .single();
+        if (!retry.error && retry.data) {
+          const created = retry.data;
+          const origin =
+            request.headers.get("origin") ||
+            process.env.NEXT_PUBLIC_APP_URL ||
+            "http://localhost:3000";
+          const joinUrl = `${origin.replace(/\/$/, "")}/join/${created.join_code}`;
+          const token = await mintLiveKitToken({
+            roomName: created.livekit_room,
+            identity: `rider_${user.id}`,
+            name: "Rider",
+            canPublish: true,
+          });
+          return NextResponse.json(
+            {
+              ...created,
+              is_test: wantTest,
+              join_url: joinUrl,
+              edge: {
+                attach: "/api/edge/sessions/attach",
+                note: "Jetson: attach after Start to share this session t0",
+              },
+              livekit: {
+                configured: isLiveKitConfigured(),
+                url: getLiveKitUrl(),
+                token,
+              },
+            },
+            { status: 201 }
+          );
+        }
+      }
 
       if (!error && created) {
         const origin =

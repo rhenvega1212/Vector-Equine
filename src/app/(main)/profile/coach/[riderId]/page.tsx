@@ -48,6 +48,7 @@ export default async function CoachRiderPage({ params }: CoachRiderPageProps) {
       "id, session_date, session_title, overall_feel, horse, horse_id, summary, homework"
     )
     .eq("user_id", riderId)
+    .eq("is_test", false)
     .order("session_date", { ascending: false })
     .limit(40);
 

@@ -29,6 +29,7 @@ function CaptureLiveInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const horseIdParam = searchParams.get("horseId");
+  const isTestLesson = searchParams.get("test") === "1";
 
   const [horseId, setHorseId] = useState<string | null>(horseIdParam);
   const [horseName, setHorseName] = useState("Horse");
@@ -85,7 +86,10 @@ function CaptureLiveInner() {
         const res = await fetch("/api/capture/sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ horse_id: horseId || null }),
+          body: JSON.stringify({
+            horse_id: horseId || null,
+            is_test: isTestLesson,
+          }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -103,7 +107,7 @@ function CaptureLiveInner() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [horsesReady]);
+  }, [horsesReady, horseId, isTestLesson]);
 
   const planHref = horseId
     ? `/train/ride/plan?horseId=${horseId}`
@@ -158,7 +162,7 @@ function CaptureLiveInner() {
           </Link>
         </Button>
         <span className="text-[10px] uppercase tracking-[0.18em] text-cream/40">
-          Live lesson
+          {isTestLesson ? "Test lesson" : "Live lesson"}
         </span>
       </div>
 

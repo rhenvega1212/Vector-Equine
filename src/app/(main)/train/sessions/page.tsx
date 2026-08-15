@@ -38,6 +38,7 @@ export default async function TrainSessionsPage({
       "id, session_date, created_at, session_title, session_type, duration_minutes, horse, horse_id, notes, session_source"
     )
     .eq("user_id", user.id)
+    .eq("is_test", false)
     .order("session_date", { ascending: false })
     .order("created_at", { ascending: false });
 

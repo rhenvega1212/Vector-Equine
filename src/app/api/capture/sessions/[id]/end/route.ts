@@ -17,6 +17,7 @@ type CaptureRow = {
   t0: string;
   trainer_display_name: string | null;
   training_session_id: string | null;
+  is_test?: boolean | null;
 };
 
 type DbClient = ReturnType<typeof createAdminClient>;
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const { data } = await admin
         .from("capture_sessions")
         .select(
-          "id, rider_id, horse_id, status, t0, trainer_display_name, training_session_id"
+          "id, rider_id, horse_id, status, t0, trainer_display_name, training_session_id, is_test"
         )
         .eq("id", id)
         .maybeSingle();
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const { data } = await supabase
         .from("capture_sessions")
         .select(
-          "id, rider_id, horse_id, status, t0, trainer_display_name, training_session_id"
+          "id, rider_id, horse_id, status, t0, trainer_display_name, training_session_id, is_test"
         )
         .eq("id", id)
         .eq("rider_id", user.id)
@@ -170,6 +171,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       feel_asked_at: askedAt,
       feel_answered_at: null,
       feel_deferrals: 0,
+      is_test: Boolean(capture.is_test),
       session_source: sessionSource,
       session_title: stub.title,
       summary: stub.focus
@@ -214,6 +216,29 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
       journal = userInsert.data;
       journalError = userInsert.error;
+    }
+
+    if (journalError?.message && /is_test/i.test(journalError.message)) {
+      delete payload.is_test;
+      if (asGuest || admin) {
+        const writer = admin || db;
+        const retry = await writer
+          .from("training_sessions")
+          .insert(payload)
+          .select("id")
+          .single();
+        journal = retry.data;
+        journalError = retry.error;
+      } else {
+        const supabase = await createClient();
+        const retry = await supabase
+          .from("training_sessions")
+          .insert(payload)
+          .select("id")
+          .single();
+        journal = retry.data;
+        journalError = retry.error;
+      }
     }
 
     if (journalError || !journal) {

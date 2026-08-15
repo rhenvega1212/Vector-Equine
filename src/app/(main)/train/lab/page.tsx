@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { formatInHomeTz } from "@/lib/timezone";
 import { LabExportButton } from "@/components/capture/lab-export-button";
 import { LabEdgePair } from "@/components/capture/lab-edge-pair";
+import { LabStartTestLesson } from "@/components/capture/lab-start-test-lesson";
+import { getCurrentProfile } from "@/lib/auth/current-profile";
 
 interface LabPageProps {
   searchParams: Promise<{ capture?: string }>;
@@ -17,16 +19,24 @@ export default async function CaptureLabPage({ searchParams }: LabPageProps) {
   }
 
   const { capture: highlightId } = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getCurrentProfile();
   if (!user) return null;
+
+  const supabase = await createClient();
+  const isAdmin = profile?.role === "admin";
+
+  const { data: horses } = await supabase
+    .from("horse_profiles")
+    .select("id")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: true })
+    .limit(1);
+  const defaultHorseId = horses?.[0]?.id ?? null;
 
   const { data: captures } = await supabase
     .from("capture_sessions")
     .select(
-      "id, join_code, status, t0, ended_at, horse_id, training_session_id, trainer_display_name"
+      "id, join_code, status, t0, ended_at, horse_id, training_session_id, trainer_display_name, is_test"
     )
     .eq("rider_id", user.id)
     .order("started_at", { ascending: false })
@@ -46,6 +56,8 @@ export default async function CaptureLabPage({ searchParams }: LabPageProps) {
           Debrief.
         </p>
       </header>
+
+      {isAdmin ? <LabStartTestLesson horseId={defaultHorseId} /> : null}
 
       <LabEdgePair />
 
@@ -83,6 +95,11 @@ export default async function CaptureLabPage({ searchParams }: LabPageProps) {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="font-serif text-lg text-cream">
+                    {c.is_test ? (
+                      <span className="mr-2 text-[10px] uppercase tracking-[0.2em] text-gold">
+                        Test
+                      </span>
+                    ) : null}
                     {c.status === "ended" ? "Ended" : c.status} · {c.join_code}
                   </p>
                   <p className="text-xs text-cream/45">
@@ -94,6 +111,17 @@ export default async function CaptureLabPage({ searchParams }: LabPageProps) {
                       ? ` · trainer ${c.trainer_display_name}`
                       : ""}
                   </p>
+                  {!c.ended_at && c.join_code ? (
+                    <p className="mt-1 text-xs text-cream/50">
+                      Join on second phone:{" "}
+                      <Link
+                        href={`/join/${c.join_code}`}
+                        className="text-gold underline"
+                      >
+                        /join/{c.join_code}
+                      </Link>
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <LabExportButton captureId={c.id} />

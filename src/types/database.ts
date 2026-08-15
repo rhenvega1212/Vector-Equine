@@ -827,6 +827,7 @@ export type Database = {
           trainer_id: string | null;
           summary: string | null;
           homework: string | null;
+          is_test: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -857,6 +858,7 @@ export type Database = {
           trainer_id?: string | null;
           summary?: string | null;
           homework?: string | null;
+          is_test?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -887,6 +889,7 @@ export type Database = {
           trainer_id?: string | null;
           summary?: string | null;
           homework?: string | null;
+          is_test?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -907,6 +910,7 @@ export type Database = {
           trainer_display_name: string | null;
           trainer_participant_id: string | null;
           trainer_id: string | null;
+          is_test: boolean;
           claim_token: string | null;
           claim_expires_at: string | null;
           claimed_at: string | null;
@@ -928,6 +932,7 @@ export type Database = {
           trainer_display_name?: string | null;
           trainer_participant_id?: string | null;
           trainer_id?: string | null;
+          is_test?: boolean;
           claim_token?: string | null;
           claim_expires_at?: string | null;
           claimed_at?: string | null;
@@ -949,6 +954,7 @@ export type Database = {
           trainer_display_name?: string | null;
           trainer_participant_id?: string | null;
           trainer_id?: string | null;
+          is_test?: boolean;
           claim_token?: string | null;
           claim_expires_at?: string | null;
           claimed_at?: string | null;

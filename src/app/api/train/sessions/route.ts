@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
       .from("training_sessions")
       .select("*")
       .eq("user_id", user.id)
+      .eq("is_test", false)
       .gte("session_date", fromStr)
       .order("session_date", { ascending: false })
       .order("created_at", { ascending: false })

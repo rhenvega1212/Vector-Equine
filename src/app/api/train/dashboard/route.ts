@@ -26,6 +26,7 @@ export async function GET() {
       .from("training_sessions")
       .select("id, session_date, overall_feel")
       .eq("user_id", user.id)
+      .eq("is_test", false)
       .order("session_date", { ascending: false });
 
     const sessions = allSessions || [];
@@ -59,6 +60,7 @@ export async function GET() {
       .from("training_sessions")
       .select("*")
       .eq("user_id", user.id)
+      .eq("is_test", false)
       .order("session_date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(5);
