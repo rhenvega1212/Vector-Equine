@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AtmosphereScreen } from "@/components/train/atmosphere-screen";
 import { groupRidesByDate } from "@/lib/train/group-rides";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ export function RidesListClient({
   horseLabel: string;
   rides: RidesListItem[];
 }) {
+  const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -33,6 +35,17 @@ export function RidesListClient({
   }, [rides, query]);
 
   const groups = useMemo(() => groupRidesByDate(filtered), [filtered]);
+
+  // Warm the first few rides so tap → detail feels instant
+  useEffect(() => {
+    for (const r of rides.slice(0, 8)) {
+      try {
+        router.prefetch(`/train/sessions/${r.id}`);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [rides, router]);
 
   return (
     <AtmosphereScreen className="min-h-[70vh] -mx-3 sm:-mx-4 px-0">
@@ -93,10 +106,7 @@ export function RidesListClient({
       ) : (
         <div className="px-[26px] pb-24">
           {groups.map((g, gi) => (
-            <div
-              key={g.label}
-              className={cn(gi > 0 && "mt-9")}
-            >
+            <div key={g.label} className={cn(gi > 0 && "mt-9")}>
               <p className="mb-0.5 text-[10px] uppercase tracking-[0.28em] text-gold">
                 {g.label}
               </p>
@@ -105,6 +115,21 @@ export function RidesListClient({
                   <hr className="m-0 h-px border-0 bg-[var(--line)]" />
                   <Link
                     href={`/train/sessions/${r.id}`}
+                    prefetch
+                    onMouseEnter={() => {
+                      try {
+                        router.prefetch(`/train/sessions/${r.id}`);
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                    onTouchStart={() => {
+                      try {
+                        router.prefetch(`/train/sessions/${r.id}`);
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
                     className="flex items-start gap-4 py-5 transition-opacity hover:opacity-[0.66]"
                   >
                     <div className="min-w-0 flex-1">
@@ -115,7 +140,6 @@ export function RidesListClient({
                         {r.title}
                       </p>
                     </div>
-                    {/* Sensor readout column — reserved; empty until sensors ship */}
                     <span
                       className="w-10 shrink-0 pt-0.5 text-right font-[Georgia,'Times_New_Roman',serif] text-[18px] text-gold"
                       aria-hidden={!r.sensorValue}

@@ -17,6 +17,7 @@ export function RideDetailClient({
   whoLine,
   carryIn,
   moments,
+  storyParagraphs = [],
   transcript,
   trainerFirstName,
   riderNote,
@@ -33,6 +34,8 @@ export function RideDetailClient({
   whoLine: string;
   carryIn: CarryIn | null;
   moments: RideMoment[];
+  /** Fallback when polish wrote narrative but no timed cues */
+  storyParagraphs?: string[];
   transcript: TranscriptLine[];
   trainerFirstName: string | null;
   riderNote: string | null;
@@ -241,6 +244,29 @@ export function RideDetailClient({
                   </div>
                 );
               })}
+              <div className="h-10" />
+              <hr
+                className="m-0 h-px border-0"
+                style={{ background: "rgba(26,33,51,.1)" }}
+              />
+            </>
+          ) : storyParagraphs.length > 0 ? (
+            <>
+              <p
+                className="text-[10px] uppercase tracking-[0.28em]"
+                style={{ color: "#8A6D2F" }}
+              >
+                What happened
+              </p>
+              {storyParagraphs.map((p, i) => (
+                <p
+                  key={i}
+                  className="mt-[34px] font-[Georgia,'Times_New_Roman',serif] text-[19.5px] leading-[1.46]"
+                  style={{ color: "#1A2133" }}
+                >
+                  {p}
+                </p>
+              ))}
               <div className="h-10" />
               <hr
                 className="m-0 h-px border-0"

@@ -1,10 +1,21 @@
 # Wake-word arena spike (Brief 14 Phase 1)
 
-Throwaway harness — **not product code**. Measure go/no-go before building called turns.
+Throwaway harness for the original go/no-go. **Product called turns now live in CaptureRoom**
+via the lesson ASR stream (`src/lib/capture/wake-word.ts` + `called-turn-runtime.ts`).
 
-## Goal
+## Goal (historical)
 
 Custom on-device “Hey Vector” (Porcupine or equivalent) on a phone in a pocket, in an arena, on a horse.
+
+## Product path (current)
+
+- Wake phrase detection on the local SpeechRecognition finals already used for the transcript
+  (no separate cloud wake API).
+- Earcon → collect to 1.2s silence / 12s cap → `/vector/turn` → shared mix + both screens.
+- `VECTOR · ON/OFF` disarms wake only (bookends still play).
+
+Porcupine remains optional hardening if a custom `.ppn` + access key are provisioned later —
+do not block called turns on it once the arena gate is go.
 
 ## Metrics (record all three)
 
@@ -14,19 +25,11 @@ Custom on-device “Hey Vector” (Porcupine or equivalent) on a phone in a pock
 | Misses / 20 deliberate | Call at walk, trot, canter |
 | Gait notes | Behaviour at each |
 
-## Gate
-
-Go/no-go on wake as primary input. **No-go → reopen §5 (headset); ship bookends + feel with no-wake UI (no strip / no ON-OFF).**
-
-## Suggested local setup
+## Suggested local setup (optional Porcupine)
 
 ```bash
 # Example with Picovoice Porcupine (bring your own access key + custom keyword)
 npm i @picovoice/porcupine-web @picovoice/web-voice-processor
 ```
 
-Use `scripts/wake-spike/harness.html` in a phone browser over HTTPS (or localhost tunnels). Do not wire this into CaptureRoom until the spike passes.
-
-## Same trip as Phase 4
-
-Record mixed-channel VAD / barge-in on the same arena day when possible.
+Use `scripts/wake-spike/harness.html` only for counter logs on an arena day.

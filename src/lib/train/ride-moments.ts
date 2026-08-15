@@ -115,6 +115,14 @@ export function deriveRideMoments(opts: {
       atSec: firstGood.atSec,
       label: "THE ONE THAT WORKED",
     };
+  } else if (parsed.focus?.trim()) {
+    // Theme-only brief (claim teaser has focus; rider debrief was blank)
+    carryIn = {
+      text: parsed.focus.trim(),
+      speaker: trainerFirst,
+      atSec: 0,
+      label: "CARRY THIS IN",
+    };
   } else if (opts.riderNote?.trim()) {
     carryIn = {
       text: opts.riderNote.trim(),

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { waitUntil } from "@vercel/functions";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyGuestCaptureToken } from "@/lib/capture/guest-token";
+import { applyWhisperChunk } from "@/lib/capture/apply-whisper-chunk";
+import { isWhisperConfigured } from "@/lib/capture/whisper";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -135,6 +138,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: insErr.message }, { status: 400 });
       }
       assetId = inserted.id;
+    }
+
+    // Correct the live timeline with Whisper after this chunk lands
+    if (isWhisperConfigured()) {
+      waitUntil(
+        applyWhisperChunk({
+          captureSessionId: id,
+          storagePath: path,
+          speaker,
+          syncOffsetMs,
+          windowMs: 50_000,
+        }).catch((e) => console.error("whisper chunk after", e))
+      );
     }
 
     return NextResponse.json({

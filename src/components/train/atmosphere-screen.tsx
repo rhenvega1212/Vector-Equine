@@ -22,6 +22,8 @@ export function AtmosphereScreen({
           <img
             src={heroImageUrl}
             alt=""
+            decoding="async"
+            fetchPriority="low"
             className="absolute inset-0 h-full w-full object-cover object-[center_28%] opacity-[0.38]"
           />
           <div

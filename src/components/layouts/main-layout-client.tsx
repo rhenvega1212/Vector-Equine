@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { UserX, Loader2 } from "lucide-react";
@@ -10,16 +9,9 @@ import { FeelRatingSheet } from "@/components/train/feel-rating-sheet";
 import { FeatureFlagsProvider } from "@/lib/flags/context";
 import { allFlagsOff, type EvaluatedFlags } from "@/lib/flags/registry";
 import { CurrentUserProvider } from "@/lib/auth/current-user-context";
+import { MainNav } from "@/components/shared/main-nav";
+import { MobileNav } from "@/components/shared/mobile-nav";
 import { cn } from "@/lib/utils";
-
-const MainNav = dynamic(
-  () => import("@/components/shared/main-nav").then((m) => ({ default: m.MainNav })),
-  { ssr: false }
-);
-const MobileNav = dynamic(
-  () => import("@/components/shared/mobile-nav").then((m) => ({ default: m.MobileNav })),
-  { ssr: false }
-);
 
 export function MainLayoutClient({
   children,

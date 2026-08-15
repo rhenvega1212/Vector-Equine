@@ -14,10 +14,13 @@ export default async function TrainLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireFeatureFlag("training_diary");
+  // Profile/flags are request-cached — shared with (main)/layout
+  const [profile, headerList, { user }] = await Promise.all([
+    requireFeatureFlag("training_diary"),
+    headers(),
+    getCurrentProfile(),
+  ]);
 
-  const { user, profile } = await getCurrentProfile();
-  const headerList = await headers();
   const pathname = headerList.get("x-pathname") || "";
   const onSetup = pathname.startsWith("/train/setup");
 

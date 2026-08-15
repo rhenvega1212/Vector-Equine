@@ -16,10 +16,14 @@ interface RouteParams {
 }
 
 const bodySchema = z.object({
-  kind: z.enum(["open", "close"]),
+  kind: z.enum(["open", "close", "turn"]),
   riderFirst: z.string().nullable().optional(),
   trainerFirst: z.string().nullable().optional(),
   offsetMs: z.number().int().min(0).optional(),
+  /** Peer replay — do not write another vector transcript row. */
+  persist: z.boolean().optional(),
+  /** Required for kind=turn (replay last exercise). */
+  text: z.string().min(1).max(4000).optional(),
 });
 
 /**
@@ -51,18 +55,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       if (!user || !profile) {
         return NextResponse.json({ error: "Authentication required" }, { status: 401 });
       }
-      const flagOn = await isFlagEnabled("vector_in_session", profile);
+      const supabase = await createClient();
+      const { data: captureRow } = await supabase
+        .from("capture_sessions")
+        .select("id, is_test, rider_id, trainer_id")
+        .eq("id", id)
+        .maybeSingle();
+      if (!captureRow) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const row = captureRow as {
+        is_test?: boolean;
+        rider_id: string;
+        trainer_id?: string | null;
+      };
+      const isParty =
+        row.rider_id === user.id || row.trainer_id === user.id;
+      if (!isParty) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const isTest = Boolean(row.is_test);
+      // Lab test lessons always speak; otherwise kill-switch flag.
+      const flagOn = isTest || (await isFlagEnabled("vector_in_session", profile));
       if (!flagOn) {
         return NextResponse.json({ error: "Not available" }, { status: 403 });
       }
-      const supabase = await createClient();
-      const { data } = await supabase
-        .from("capture_sessions")
-        .select("id")
-        .eq("id", id)
-        .eq("rider_id", user.id)
-        .maybeSingle();
-      allowed = Boolean(data);
+      allowed = true;
     }
 
     if (!allowed) {
@@ -72,23 +90,41 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const text =
       parsed.data.kind === "close"
         ? CLOSE_BOOKEND
-        : openBookendLine({
-            riderFirst: parsed.data.riderFirst ?? null,
-            trainerFirst: parsed.data.trainerFirst ?? null,
-          });
+        : parsed.data.kind === "turn"
+          ? (parsed.data.text || "").trim()
+          : openBookendLine({
+              riderFirst: parsed.data.riderFirst ?? null,
+              trainerFirst: parsed.data.trainerFirst ?? null,
+            });
+
+    if (!text) {
+      return NextResponse.json({ error: "Empty text" }, { status: 400 });
+    }
 
     const offsetMs = parsed.data.offsetMs ?? 0;
     const db = admin || (await createClient());
 
-    await db.from("session_transcript_segments").insert({
-      capture_session_id: id,
-      offset_ms: offsetMs,
-      speaker: "vector",
-      text,
-      client_id: `vector:${parsed.data.kind}:${offsetMs}`,
-      excluded_from_corpus: true,
-      raw_json: { kind: "bookend", bookend: parsed.data.kind },
-    });
+    if (parsed.data.persist !== false && parsed.data.kind !== "turn") {
+      await db.from("session_transcript_segments").insert({
+        capture_session_id: id,
+        offset_ms: offsetMs,
+        speaker: "vector",
+        text,
+        client_id: `vector:${parsed.data.kind}:${offsetMs}`,
+        excluded_from_corpus: true,
+        raw_json: { kind: "bookend", bookend: parsed.data.kind },
+      });
+    } else if (parsed.data.persist === true && parsed.data.kind === "turn") {
+      await db.from("session_transcript_segments").insert({
+        capture_session_id: id,
+        offset_ms: offsetMs,
+        speaker: "vector",
+        text,
+        client_id: `vector:replay:${offsetMs}:${Date.now()}`,
+        excluded_from_corpus: true,
+        raw_json: { kind: "called_turn_replay" },
+      });
+    }
 
     const audio = await synthesizeAskSpeech(text);
     if (!audio) {

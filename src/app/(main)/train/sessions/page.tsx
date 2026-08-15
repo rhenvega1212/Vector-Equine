@@ -3,6 +3,7 @@ import { SESSION_TYPE_LABELS } from "@/lib/validations/training-session";
 import { RidesListClient } from "@/components/train/rides-list-client";
 import { sessionDisplayTitle } from "@/lib/train/format-session-when";
 import { formatHomeCalendarDate } from "@/lib/timezone";
+import { getCurrentProfile } from "@/lib/auth/current-profile";
 
 interface SessionsPageProps {
   searchParams:
@@ -16,11 +17,10 @@ export default async function TrainSessionsPage({
   const resolved = await Promise.resolve(searchParams);
   const horseIdParam = resolved.horseId || resolved.horse_id || "";
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getCurrentProfile();
   if (!user) return null;
+  const supabase = await createClient();
+  const showTest = profile?.role === "admin";
 
   const { data: horseProfiles } = await supabase
     .from("horse_profiles")
@@ -35,12 +35,15 @@ export default async function TrainSessionsPage({
   let query = supabase
     .from("training_sessions")
     .select(
-      "id, session_date, created_at, session_title, session_type, duration_minutes, horse, horse_id, notes, session_source"
+      "id, session_date, created_at, session_title, session_type, duration_minutes, horse, horse_id, notes, session_source, is_test"
     )
     .eq("user_id", user.id)
-    .eq("is_test", false)
     .order("session_date", { ascending: false })
     .order("created_at", { ascending: false });
+
+  if (!showTest) {
+    query = query.eq("is_test", false);
+  }
 
   if (activeHorse) {
     query = query.eq("horse_id", activeHorse.id);
@@ -84,6 +87,7 @@ export default async function TrainSessionsPage({
       !!trainer;
     const datePart = formatHomeCalendarDate(s.session_date, "MMM d").toUpperCase();
     const metaParts = [datePart];
+    if ((s as { is_test?: boolean }).is_test) metaParts.push("TEST");
     if (isLesson) {
       metaParts.push("LESSON");
       if (trainer) metaParts.push(trainer.toUpperCase());
@@ -106,10 +110,5 @@ export default async function TrainSessionsPage({
     };
   });
 
-  return (
-    <RidesListClient
-      horseLabel={horseLabel}
-      rides={rides}
-    />
-  );
+  return <RidesListClient horseLabel={horseLabel} rides={rides} />;
 }

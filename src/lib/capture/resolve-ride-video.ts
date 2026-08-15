@@ -42,12 +42,17 @@ export async function resolveRideVideo(opts: {
           };
         }
       }
+      // Admin path ran cleanly with no asset — skip duplicate client query
+      if (link) {
+        return { url: link, kind: "external", syncOffsetMs: 0 };
+      }
+      return { url: null, kind: null, syncOffsetMs: 0 };
     } catch (e) {
       console.error("resolveRideVideo", e);
     }
   }
 
-  // Fallback: rider-scoped client (if RLS allows reading assets)
+  // No service role (or admin failed) — rider-scoped client
   if (opts.captureSessionId) {
     try {
       const supabase = await createClient();

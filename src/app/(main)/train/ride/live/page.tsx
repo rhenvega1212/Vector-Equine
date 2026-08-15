@@ -41,9 +41,13 @@ function CaptureLiveInner() {
   const [micReady, setMicReady] = useState(false);
   const [micHelp, setMicHelp] = useState<string | null>(null);
   const [micBusy, setMicBusy] = useState(false);
+  /** After mic works, directions collapse; ? reopens them. */
+  const [showMicDirections, setShowMicDirections] = useState(true);
 
   useEffect(() => {
-    setMicReady(isMicGrantedStored());
+    const granted = isMicGrantedStored();
+    setMicReady(granted);
+    if (granted) setShowMicDirections(false);
   }, []);
 
   useEffect(() => {
@@ -120,9 +124,11 @@ function CaptureLiveInner() {
     if (result.ok) {
       setMicReady(true);
       setMicHelp(null);
+      setShowMicDirections(false);
       return;
     }
     setMicHelp(result.message || MIC_BLOCKED_HELP);
+    setShowMicDirections(true);
   }
 
   async function endLesson(result?: {
@@ -168,11 +174,22 @@ function CaptureLiveInner() {
 
       <p className="text-center text-xs text-cream/50">{horseName}</p>
 
-      {!micReady && (
+      {!micReady || showMicDirections ? (
         <div className="rounded-xl border border-gold/30 bg-gold/10 px-4 py-3 space-y-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
-            Microphone access
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
+              Microphone access
+            </p>
+            {micReady ? (
+              <button
+                type="button"
+                onClick={() => setShowMicDirections(false)}
+                className="text-[10px] uppercase tracking-[0.2em] text-cream/45 hover:text-gold"
+              >
+                Hide
+              </button>
+            ) : null}
+          </div>
           <p className="text-sm text-cream/85">
             Vector needs the mic for your headset call and conversation
             timeline. Tap Allow now — before you start the call — so Safari
@@ -189,13 +206,29 @@ function CaptureLiveInner() {
           {micHelp && (
             <p className="text-sm text-destructive whitespace-pre-wrap">{micHelp}</p>
           )}
+          {!micReady ? (
+            <button
+              type="button"
+              disabled={micBusy}
+              onClick={() => void allowMic()}
+              className="w-full rounded-lg bg-gold px-4 py-3 text-sm font-semibold text-navy hover:bg-gold-bright disabled:opacity-50"
+            >
+              {micBusy ? "Asking Safari…" : "Allow microphone"}
+            </button>
+          ) : (
+            <p className="text-xs text-cream/55">Microphone is ready on this phone.</p>
+          )}
+        </div>
+      ) : (
+        <div className="flex justify-end">
           <button
             type="button"
-            disabled={micBusy}
-            onClick={() => void allowMic()}
-            className="w-full rounded-lg bg-gold px-4 py-3 text-sm font-semibold text-navy hover:bg-gold-bright disabled:opacity-50"
+            onClick={() => setShowMicDirections(true)}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-gold/25 text-[15px] font-serif text-gold hover:border-gold/50 hover:text-gold-bright"
+            aria-label="Microphone help"
+            title="Microphone help"
           >
-            {micBusy ? "Asking Safari…" : "Allow microphone"}
+            ?
           </button>
         </div>
       )}
@@ -226,6 +259,9 @@ function CaptureLiveInner() {
           onEnd={endLesson}
           ending={ending}
           autoStart={micReady}
+          isTestLesson={isTestLesson}
+          riderFirstName={null}
+          trainerFirstName={null}
           onLessonClosed={({ remote, training_session_id }) => {
             if (!remote) return;
             if (training_session_id) {

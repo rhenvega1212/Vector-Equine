@@ -1,19 +1,19 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { SESSION_TYPE_LABELS } from "@/lib/validations/training-session";
 import { HorseSwitcher } from "@/components/train/horse-switcher";
 import { AtmosphereScreen } from "@/components/train/atmosphere-screen";
 import { HomeStartDial } from "@/components/train/home-start-dial";
-import {
-  sessionDisplayTitle,
-} from "@/lib/train/format-session-when";
+import { sessionDisplayTitle } from "@/lib/train/format-session-when";
 import { formatInHomeTz } from "@/lib/timezone";
 import {
   isBriefPending,
   parseCoachCardSummary,
 } from "@/lib/capture/transcript-cleanup";
 import { CoachShareApproval } from "@/components/train/coach-share-approval";
+import { VECTOR_CONFIG } from "@/lib/vector/config";
+import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { createClient } from "@/lib/supabase/server";
 
 interface VectorHomeProps {
   searchParams: Promise<{ horseId?: string }>;
@@ -138,33 +138,46 @@ function workFromLastSession(sessions: SessionRow[]): {
 
 export default async function VectorHomePage({ searchParams }: VectorHomeProps) {
   const { horseId: horseIdParam } = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name, active_horse_id")
-    .eq("id", user.id)
-    .single();
+  const [{ user, profile }, supabase] = await Promise.all([
+    getCurrentProfile(),
+    createClient(),
+  ]);
+  if (!user || !profile) return null;
 
   const firstName =
-    profile?.display_name?.trim().split(/\s+/)[0] || "there";
+    profile.display_name?.trim().split(/\s+/)[0] || "there";
+  const showTest = profile.role === "admin";
 
-  const { data: horses, error: horsesError } = await supabase
-    .from("horse_profiles")
-    .select(
-      "id, name, barn_name, discipline, training_level, breed, age, profile_photo_url"
-    )
-    .eq("user_id", user.id)
-    .order("name");
+  // Horses + coach approvals don't depend on each other
+  const [horsesRes, pendingRes] = await Promise.all([
+    supabase
+      .from("horse_profiles")
+      .select(
+        "id, name, barn_name, discipline, training_level, breed, age, profile_photo_url"
+      )
+      .eq("user_id", profile.id)
+      .order("name"),
+    supabase
+      .from("coach_connections")
+      .select(
+        `
+      id,
+      created_at,
+      trainer:profiles!coach_connections_trainer_id_fkey (
+        display_name
+      )
+    `
+      )
+      .eq("rider_id", profile.id)
+      .eq("status", "pending")
+      .eq("initiated_by", "capture")
+      .order("created_at", { ascending: false }),
+  ]);
 
-  const horseList = horsesError ? [] : horses || [];
+  const horseList = horsesRes.error ? [] : horsesRes.data || [];
   const activeHorse =
     horseList.find((h) => h.id === horseIdParam) ||
-    horseList.find((h) => h.id === profile?.active_horse_id) ||
+    horseList.find((h) => h.id === profile.active_horse_id) ||
     horseList[0] ||
     null;
 
@@ -199,19 +212,25 @@ export default async function VectorHomePage({ searchParams }: VectorHomeProps) 
     );
   }
 
-  const { data: sessions } = await supabase
-      .from("training_sessions")
-      .select(
-        "id, session_date, created_at, overall_feel, horse, horse_id, session_type, session_title, summary, homework, notes"
-      )
-      .eq("user_id", user.id)
-      .eq("is_test", false)
+  // Only what the home surface needs — not the rider's entire history
+  let sessionsQuery = supabase
+    .from("training_sessions")
+    .select(
+      "id, session_date, created_at, overall_feel, horse, horse_id, session_type, session_title, summary, homework, notes, is_test"
+    )
+    .eq("user_id", profile.id)
+    .eq("horse_id", activeHorse.id)
     .order("session_date", { ascending: false })
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(16);
 
-  const list = (sessions || []).filter(
-    (s) => !s.horse_id || s.horse_id === activeHorse.id
-  ) as SessionRow[];
+  if (!showTest) {
+    sessionsQuery = sessionsQuery.eq("is_test", false);
+  }
+
+  const { data: sessions } = await sessionsQuery;
+
+  const list = (sessions || []) as SessionRow[];
   const recent = list.slice(0, 3);
 
   const work = workFromLastSession(list);
@@ -245,23 +264,7 @@ export default async function VectorHomePage({ searchParams }: VectorHomeProps) 
 
   const photoUrl = activeHorse.profile_photo_url?.trim() || null;
 
-  const { data: pendingConnections } = await supabase
-    .from("coach_connections")
-    .select(
-      `
-      id,
-      created_at,
-      trainer:profiles!coach_connections_trainer_id_fkey (
-        display_name
-      )
-    `
-    )
-    .eq("rider_id", user.id)
-    .eq("status", "pending")
-    .eq("initiated_by", "capture")
-    .order("created_at", { ascending: false });
-
-  const pendingApprovals = (pendingConnections || []).map((c) => {
+  const pendingApprovals = (pendingRes.data || []).map((c) => {
     const trainer = c.trainer as { display_name?: string } | null;
     const when = c.created_at
       ? `on ${formatInHomeTz(c.created_at, "MMM d")}`
@@ -277,10 +280,18 @@ export default async function VectorHomePage({ searchParams }: VectorHomeProps) 
     <AtmosphereScreen className="min-h-[70vh]" heroImageUrl={photoUrl}>
       <div className="px-7 pt-4 sm:pt-5">
         {/* Header — say it once */}
-        <div className="mb-10">
+        <div className="mb-10 flex items-baseline justify-between gap-4">
           <span className="text-[10px] uppercase tracking-[0.28em] text-gold">
             {dateLine}
           </span>
+          {VECTOR_CONFIG.CAPTURE_LAB && showTest ? (
+            <Link
+              href="/train/lab"
+              className="shrink-0 text-[10px] uppercase tracking-[0.28em] text-gold transition-colors hover:text-gold-bright"
+            >
+              Lab
+            </Link>
+          ) : null}
         </div>
 
         <h1

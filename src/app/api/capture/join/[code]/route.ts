@@ -267,6 +267,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       trainer_display_name: updated.trainer_display_name,
       guest_token: guestToken,
       claim_token: claimToken,
+      is_test: Boolean((updated as { is_test?: boolean }).is_test),
       livekit: {
         configured: isLiveKitConfigured(),
         url: getLiveKitUrl(),

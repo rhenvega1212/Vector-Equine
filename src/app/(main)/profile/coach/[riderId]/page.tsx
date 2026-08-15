@@ -45,16 +45,20 @@ export default async function CoachRiderPage({ params }: CoachRiderPageProps) {
   const { data: sessions } = await supabase
     .from("training_sessions")
     .select(
-      "id, session_date, session_title, overall_feel, horse, horse_id, summary, homework"
+      "id, session_date, session_title, overall_feel, horse, horse_id, summary, homework, is_test"
     )
     .eq("user_id", riderId)
-    .eq("is_test", false)
     .order("session_date", { ascending: false })
     .limit(40);
 
+  // Hide Lab test noise from coaches unless the row is a test (still show — they
+  // may have just claimed one). Prefer real rides first by sorting is_test last
+  // in the UI label only.
+  const sessionList = sessions || [];
+
   const horseIds = Array.from(
     new Set(
-      (sessions || [])
+      sessionList
         .map((s) => s.horse_id)
         .filter((id): id is string => typeof id === "string")
     )
@@ -112,18 +116,19 @@ export default async function CoachRiderPage({ params }: CoachRiderPageProps) {
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gold">
           Shared sessions
         </h2>
-        {!sessions?.length ? (
+        {!sessionList.length ? (
           <p className="text-sm text-cream/50">
             No shared sessions yet. When this rider shares a ride (or sets sharing to all
             rides), it will show up here.
           </p>
         ) : (
           <ul className="space-y-2">
-            {sessions.map((s) => {
+            {sessionList.map((s) => {
               const horse =
                 (s.horse_id && horseNameById.get(s.horse_id)) ||
                 s.horse?.trim() ||
                 "Horse";
+              const isTest = Boolean((s as { is_test?: boolean }).is_test);
               return (
                 <li key={s.id}>
                   <Link
@@ -133,6 +138,11 @@ export default async function CoachRiderPage({ params }: CoachRiderPageProps) {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-medium text-cream">
+                          {isTest ? (
+                            <span className="mr-2 text-[10px] uppercase tracking-[0.16em] text-gold">
+                              Test
+                            </span>
+                          ) : null}
                           {s.session_title?.trim() ||
                             formatHomeCalendarDate(s.session_date, "EEEE, MMM d")}
                         </p>

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { Pencil } from "lucide-react";
 import { SessionDeleteButton } from "@/components/train/session-delete-button";
 import { DebriefShareActions } from "@/components/train/debrief-share-actions";
@@ -8,6 +9,7 @@ import { RideFeelAsk } from "@/components/train/ride-feel-ask";
 import { CoachingNotesEditor } from "@/components/train/coaching-notes-editor";
 import { AtmosphereScreen } from "@/components/train/atmosphere-screen";
 import { RideDetailClient } from "@/components/train/ride-detail-client";
+import { BriefPendingRefresh } from "@/components/train/brief-pending-refresh";
 import { VECTOR_CONFIG } from "@/lib/vector/config";
 import { sessionDisplayTitle } from "@/lib/train/format-session-when";
 import {
@@ -18,6 +20,10 @@ import {
   deriveRideMoments,
   transcriptFromTimeline,
 } from "@/lib/train/ride-moments";
+import {
+  isBriefPending,
+  parseCoachCardSummary,
+} from "@/lib/capture/transcript-cleanup";
 import { resolveRideVideo } from "@/lib/capture/resolve-ride-video";
 
 interface SessionPageProps {
@@ -26,15 +32,17 @@ interface SessionPageProps {
 
 export default async function RidePage({ params }: SessionPageProps) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const [{ user }, supabase] = await Promise.all([
+    getCurrentProfile(),
+    createClient(),
+  ]);
   if (!user) return null;
 
   const { data: session, error } = await supabase
     .from("training_sessions")
-    .select("*")
+    .select(
+      "id, user_id, horse_id, horse, session_date, created_at, session_title, session_source, duration_minutes, notes, summary, homework, overall_feel, video_link_url"
+    )
     .eq("id", id)
     .single();
 
@@ -42,60 +50,68 @@ export default async function RidePage({ params }: SessionPageProps) {
 
   const isOwner = session.user_id === user.id;
 
-  const { data: riderProfile } = await supabase
-    .from("profiles")
-    .select("display_name")
-    .eq("id", session.user_id)
-    .single();
-  const riderFirstName = (riderProfile?.display_name || "Rider").split(" ")[0];
+  // Fan out independent lookups — was a 4–5 deep waterfall before
+  const [riderProfileRes, horseRes, captureRes] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", session.user_id)
+      .maybeSingle(),
+    session.horse_id
+      ? supabase
+          .from("horse_profiles")
+          .select("name, barn_name")
+          .eq("id", session.horse_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null as { name: string; barn_name: string | null } | null }),
+    supabase
+      .from("capture_sessions")
+      .select("id, trainer_display_name, t0")
+      .eq("training_session_id", id)
+      .maybeSingle(),
+  ]);
 
-  let horseShort = session.horse?.trim() || "Horse";
-  if (session.horse_id) {
-    const { data: horse } = await supabase
-      .from("horse_profiles")
-      .select("name, barn_name")
-      .eq("id", session.horse_id)
-      .maybeSingle();
-    if (horse) {
-      horseShort = horse.barn_name?.trim() || horse.name;
-    }
-  }
+  const riderFirstName = (
+    riderProfileRes.data?.display_name || "Rider"
+  ).split(" ")[0];
 
-  const { data: capture } = await supabase
-    .from("capture_sessions")
-    .select("id, trainer_display_name, t0")
-    .eq("training_session_id", id)
-    .maybeSingle();
+  const horse = horseRes.data;
+  const horseShort =
+    horse?.barn_name?.trim() ||
+    horse?.name ||
+    session.horse?.trim() ||
+    "Horse";
 
-  let timeline: {
-    id: string;
-    offset_ms: number;
-    ended_offset_ms: number | null;
-    speaker: string;
-    text: string;
-    rider_highlight?: boolean;
-    featured_quote?: boolean;
-  }[] = [];
+  const capture = captureRes.data;
 
-  if (capture?.id) {
-    const { data: segments } = await supabase
-      .from("session_transcript_segments")
-      .select("id, offset_ms, ended_offset_ms, speaker, text, raw_json")
-      .eq("capture_session_id", capture.id)
-      .order("offset_ms", { ascending: true });
-    timeline = (segments || []).map((s) => {
-      const raw = (s.raw_json || {}) as Record<string, unknown>;
-      return {
-        id: s.id,
-        offset_ms: s.offset_ms,
-        ended_offset_ms: s.ended_offset_ms,
-        speaker: s.speaker,
-        text: s.text,
-        rider_highlight: !!raw.rider_highlight,
-        featured_quote: !!raw.featured_quote,
-      };
-    });
-  }
+  const [segmentsRes, rideVideo] = await Promise.all([
+    capture?.id
+      ? supabase
+          .from("session_transcript_segments")
+          .select("id, offset_ms, ended_offset_ms, speaker, text, raw_json")
+          .eq("capture_session_id", capture.id)
+          .order("offset_ms", { ascending: true })
+          .limit(400)
+      : Promise.resolve({ data: null as null }),
+    resolveRideVideo({
+      captureSessionId: capture?.id,
+      videoLinkUrl: session.video_link_url,
+      riderId: session.user_id,
+    }),
+  ]);
+
+  const timeline = (segmentsRes.data || []).map((s) => {
+    const raw = (s.raw_json || {}) as Record<string, unknown>;
+    return {
+      id: s.id,
+      offset_ms: s.offset_ms,
+      ended_offset_ms: s.ended_offset_ms,
+      speaker: s.speaker,
+      text: s.text,
+      rider_highlight: !!raw.rider_highlight,
+      featured_quote: !!raw.featured_quote,
+    };
+  });
 
   const trainerName =
     capture?.trainer_display_name ||
@@ -104,7 +120,6 @@ export default async function RidePage({ params }: SessionPageProps) {
       : null);
   const trainerFirst = trainerName?.trim().split(/\s+/)[0] || null;
 
-  // Rider note: prefer notes that aren't the "With Trainer" stub
   const riderNoteRaw = session.notes?.trim() || null;
   const riderNote =
     riderNoteRaw && !/^With\s+/i.test(riderNoteRaw)
@@ -118,12 +133,19 @@ export default async function RidePage({ params }: SessionPageProps) {
     riderNote,
   });
 
+  const parsedCard = parseCoachCardSummary(session.summary);
+  const briefPending = isBriefPending(session.summary);
+  const storyParagraphs =
+    !briefPending && moments.length === 0 && parsedCard.story
+      ? parsedCard.story
+          .split(/\n\n+/)
+          .map((p) => p.trim())
+          .filter(Boolean)
+      : [];
+
   const transcript = transcriptFromTimeline(timeline, trainerName);
 
-  const title = sessionDisplayTitle(
-    session.session_title,
-    "Lesson"
-  );
+  const title = sessionDisplayTitle(session.session_title, "Lesson");
 
   const datePart = formatHomeCalendarDate(
     session.session_date,
@@ -146,15 +168,6 @@ export default async function RidePage({ params }: SessionPageProps) {
     ? `${horseShort} · Lesson with ${trainerName}`
     : `${horseShort} · ${isLesson ? "Lesson" : "Schooling"}`;
 
-  const rideVideo = await resolveRideVideo({
-    captureSessionId: capture?.id,
-    videoLinkUrl: session.video_link_url,
-    riderId: session.user_id,
-  });
-  const videoUrl = rideVideo.url;
-  const videoKind = rideVideo.kind;
-  const videoSyncOffsetMs = rideVideo.syncOffsetMs;
-
   const backHref = isOwner
     ? session.horse_id
       ? `/train/sessions?range=all&horseId=${session.horse_id}`
@@ -166,9 +179,7 @@ export default async function RidePage({ params }: SessionPageProps) {
     : "/train/ride/plan";
 
   const shareLine =
-    carryIn?.text ||
-    moments[0]?.text ||
-    "Lesson notes from this ride.";
+    carryIn?.text || moments[0]?.text || "Lesson notes from this ride.";
 
   const tools = (
     <>
@@ -223,19 +234,21 @@ export default async function RidePage({ params }: SessionPageProps) {
 
   return (
     <AtmosphereScreen className="min-h-[70vh] -mx-3 sm:-mx-4">
+      <BriefPendingRefresh sessionId={session.id} pending={briefPending} />
       <RideDetailClient
         backHref={backHref}
         metaLine={metaLine}
         title={title}
         whoLine={whoLine}
-        carryIn={carryIn}
-        moments={moments}
+        carryIn={briefPending ? null : carryIn}
+        moments={briefPending ? [] : moments}
+        storyParagraphs={storyParagraphs}
         transcript={transcript}
         trainerFirstName={trainerFirst}
         riderNote={riderNote}
-        videoUrl={videoUrl}
-        videoKind={videoKind}
-        videoSyncOffsetMs={videoSyncOffsetMs}
+        videoUrl={rideVideo.url}
+        videoKind={rideVideo.kind}
+        videoSyncOffsetMs={rideVideo.syncOffsetMs}
         planHref={planHref}
         askHref={`/train/sessions/${session.id}/ask`}
         tools={tools}

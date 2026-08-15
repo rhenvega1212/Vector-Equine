@@ -29,6 +29,7 @@ type Joined = {
   trainer_display_name: string;
   guest_token: string;
   claim_token?: string | null;
+  is_test?: boolean;
   livekit: {
     configured: boolean;
     url: string | null;
@@ -194,6 +195,14 @@ export default function GuestJoinPage() {
         /* ignore */
       }
       if (data.claim_token) setClaimToken(data.claim_token);
+      try {
+        const { unlockVectorAudio } = await import(
+          "@/lib/capture/play-vector-audio"
+        );
+        await unlockVectorAudio();
+      } catch {
+        /* ignore */
+      }
       setJoined(data);
     } catch {
       setError("Could not join");
@@ -361,6 +370,11 @@ export default function GuestJoinPage() {
           guestToken={joined.guest_token}
           peerLabel={joined.rider_name}
           autoStart
+          isTestLesson={Boolean(joined.is_test || preview?.is_test)}
+          riderFirstName={joined.rider_name?.split(/\s+/)[0] || null}
+          trainerFirstName={
+            joined.trainer_display_name?.split(/\s+/)[0] || null
+          }
           onLessonClosed={() => {
             try {
               sessionStorage.removeItem(storageKey(code));

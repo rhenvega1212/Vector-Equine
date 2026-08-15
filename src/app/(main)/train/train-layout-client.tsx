@@ -1,11 +1,12 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { href: "/train", label: "Ride", match: (p: string) => p === "/train" },
+  { href: "/train", label: "Train", match: (p: string) => p === "/train" },
   {
     href: "/train/sessions?range=all",
     label: "Rides",
@@ -36,6 +37,7 @@ export function TrainLayoutClient({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const hideLoopNav =
     pathname.startsWith("/train/setup") ||
     pathname.startsWith("/train/lab") ||
@@ -53,6 +55,17 @@ export function TrainLayoutClient({
     (/^\/train\/sessions\/[^/]+$/.test(pathname) &&
       !pathname.includes("/edit") &&
       !pathname.includes("/new"));
+
+  // Warm the tab destinations so Ride ↔ Rides ↔ Horse feels instant
+  useEffect(() => {
+    for (const item of NAV_ITEMS) {
+      try {
+        router.prefetch(item.href);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [router]);
 
   return (
     <div
@@ -81,6 +94,7 @@ export function TrainLayoutClient({
                 <Link
                   key={item.label}
                   href={item.href}
+                  prefetch
                   className={cn(
                     "flex min-h-11 min-w-[4.5rem] flex-col items-center justify-center gap-1.5 px-2",
                     active ? "text-gold" : "text-cream-dim"

@@ -22,7 +22,18 @@ import {
   pickRecorderMime,
 } from "@/lib/capture/lesson-recorder";
 import { VoiceLevelMeter } from "@/components/capture/voice-level-meter";
-import { playVectorAudio } from "@/lib/capture/play-vector-audio";
+import {
+  speakVectorIntoCall,
+  unlockVectorAudio,
+} from "@/lib/capture/play-vector-audio";
+import {
+  cleanAsrText,
+  pickBestAsrAlternative,
+} from "@/lib/capture/asr-cleanup";
+import {
+  createCalledTurnRuntime,
+  type CalledTurnRuntime,
+} from "@/lib/capture/called-turn-runtime";
 import { useFeatureFlag } from "@/lib/flags/context";
 
 type LivekitCreds = {
@@ -44,6 +55,7 @@ type SpeechRecognitionLike = {
   continuous: boolean;
   interimResults: boolean;
   lang: string;
+  maxAlternatives?: number;
   start: () => void;
   stop: () => void;
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
@@ -51,12 +63,20 @@ type SpeechRecognitionLike = {
   onend: (() => void) | null;
 };
 
+type SpeechRecognitionAlt = {
+  transcript: string;
+  confidence: number;
+};
+
+type SpeechRecognitionResultLike = {
+  isFinal: boolean;
+  length: number;
+  [index: number]: SpeechRecognitionAlt;
+};
+
 type SpeechRecognitionEventLike = {
   resultIndex: number;
-  results: ArrayLike<{
-    isFinal: boolean;
-    0: { transcript: string; confidence: number };
-  }>;
+  results: ArrayLike<SpeechRecognitionResultLike>;
 };
 
 declare global {
@@ -74,7 +94,7 @@ const CALL_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
 };
 
 /** Rotate mic chunks often enough to stay under Whisper's 25MB limit. */
-const WHISPER_CHUNK_MS = 90_000;
+const WHISPER_CHUNK_MS = 45_000;
 
 function mergeSegments(prev: Segment[], incoming: Segment[]): Segment[] {
   const softKey = (s: Segment) => `${s.speaker}:${s.offset_ms}:${s.text}`;
@@ -170,6 +190,8 @@ export function CaptureRoom({
   /** When false, no-wake escape: no strip hint / ON-OFF. Bookends still play if vectorInSession. */
   wakeArmed = true,
   vectorInSession: vectorInSessionProp,
+  /** Lab test lesson — force Vector bookends on for founders. */
+  isTestLesson = false,
 }: {
   captureSessionId: string;
   t0: string;
@@ -180,15 +202,12 @@ export function CaptureRoom({
   joinCode?: string;
   joinUrl?: string;
   peerLabel: string;
-  /** Rider: navigate to debrief after end API succeeds. */
   onEnd?: (result: {
     training_session_id?: string;
     ended_by?: string;
   }) => void | Promise<void>;
   ending?: boolean;
-  /** Start headset call automatically after mount (trainer join / mic already warm). */
   autoStart?: boolean;
-  /** Called when this phone leaves because someone ended (local or remote). */
   onLessonClosed?: (info: {
     remote: boolean;
     training_session_id?: string | null;
@@ -196,17 +215,15 @@ export function CaptureRoom({
   riderFirstName?: string | null;
   trainerFirstName?: string | null;
   wakeArmed?: boolean;
-  /** Override flag (guests). Rider defaults to feature flag. */
   vectorInSession?: boolean;
+  isTestLesson?: boolean;
 }) {
   const flagVector = useFeatureFlag("vector_in_session");
-  // Guests sit outside the main flag provider; bookends still run when they join a live room.
+  // Guests + Lab tests always run bookends; riders need the flag (or test mode).
   const vectorInSession =
     vectorInSessionProp !== undefined
       ? vectorInSessionProp
-      : guestToken
-        ? true
-        : flagVector;
+      : isTestLesson || Boolean(guestToken) || flagVector;
   const showWakeUi = vectorInSession && wakeArmed;
   const [roomState, setRoomState] = useState<
     "idle" | "connecting" | "connected" | "reconnecting" | "error"
@@ -226,6 +243,10 @@ export function CaptureRoom({
   const [micId, setMicId] = useState<string>("");
   const [speakerId, setSpeakerId] = useState<string>("");
   const [screenHint, setScreenHint] = useState(false);
+  /** Setup / join directions — collapse once the call works; ? reopens. */
+  const [showConnectHelp, setShowConnectHelp] = useState(true);
+  /** Lesson capture (recorder + ASR + open bookend) waits for both phones. */
+  const [captureLive, setCaptureLive] = useState(false);
   const [meterTrack, setMeterTrack] = useState<LocalAudioTrack | null>(null);
   const [networkOffline, setNetworkOffline] = useState(false);
   const [pendingQueue, setPendingQueue] = useState(0);
@@ -238,6 +259,7 @@ export function CaptureRoom({
   const roomRef = useRef<Room | null>(null);
   const localMicRef = useRef<LocalAudioTrack | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const remoteAudioElsRef = useRef<HTMLMediaElement[]>([]);
   const keepAliveAudioRef = useRef<HTMLAudioElement | null>(null);
   const keepAwakeRef = useRef<KeepAwakeHandle | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
@@ -265,6 +287,7 @@ export function CaptureRoom({
   const livekitRef = useRef(livekitProp);
   const micIdRef = useRef(micId);
   const speakerIdRef = useRef(speakerId);
+  const deafenedRef = useRef(deafened);
   const t0Ms = useRef(new Date(t0).getTime());
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recorderChunkStartRef = useRef(0);
@@ -272,16 +295,28 @@ export function CaptureRoom({
   const speakerRoleRef = useRef(speaker);
   const openBookendPlayedRef = useRef(false);
   const closeBookendPlayedRef = useRef(false);
+  /** Open already heard (or re-spoken) while a peer was in the room */
+  const openHeardOnCallRef = useRef(false);
+  const captureLiveRef = useRef(false);
+  const peerConnectedRef = useRef(false);
   const vectorInSessionRef = useRef(vectorInSession);
   const [vectorCalledOn, setVectorCalledOn] = useState(true);
   const [vectorStrip, setVectorStrip] = useState<"idle" | "turn">("idle");
+  const [bookendLine, setBookendLine] = useState<string | null>(null);
+  const lastBookendTextRef = useRef<string | null>(null);
+  const vectorCalledOnRef = useRef(true);
+  const calledTurnRef = useRef<CalledTurnRuntime | null>(null);
+  vectorCalledOnRef.current = vectorCalledOn;
 
   livekitRef.current = livekitProp;
   micIdRef.current = micId;
   speakerIdRef.current = speakerId;
+  deafenedRef.current = deafened;
   segmentsRef.current = segments;
   speakerRoleRef.current = speaker;
   vectorInSessionRef.current = vectorInSession;
+  captureLiveRef.current = captureLive;
+  peerConnectedRef.current = peerConnected;
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -315,26 +350,58 @@ export function CaptureRoom({
   }, []);
 
   const attachRemoteAudio = useCallback(async (track: RemoteTrack) => {
-    const el = audioElRef.current;
-    if (!el || track.kind !== Track.Kind.Audio) return;
-    track.attach(el);
-    el.muted = false;
+    if (track.kind !== Track.Kind.Audio) return;
+    // One element per track so mic + Vector can play together on the call
+    const el = track.attach();
+    el.autoplay = true;
+    el.setAttribute("playsinline", "true");
+    (el as HTMLAudioElement).muted = deafenedRef.current;
+    remoteAudioElsRef.current.push(el);
+    if (!el.parentElement) {
+      document.body.appendChild(el);
+    }
     try {
       await el.play();
     } catch {
       /* gesture already used on Start */
     }
+    const sinkId = speakerIdRef.current;
+    const withSink = el as HTMLMediaElement & {
+      setSinkId?: (id: string) => Promise<void>;
+    };
+    if (sinkId && typeof withSink.setSinkId === "function") {
+      try {
+        await withSink.setSinkId(sinkId);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, []);
+
+  const detachRemoteAudio = useCallback((track: RemoteTrack) => {
+    if (track.kind !== Track.Kind.Audio) return;
+    const attached = track.detach();
+    for (const el of attached) {
+      remoteAudioElsRef.current = remoteAudioElsRef.current.filter((x) => x !== el);
+      el.remove();
+    }
   }, []);
 
   const applySpeakerOutput = useCallback(async (deviceId: string) => {
-    const el = audioElRef.current as HTMLAudioElement & {
-      setSinkId?: (id: string) => Promise<void>;
-    } | null;
-    if (!el || !deviceId || typeof el.setSinkId !== "function") return;
-    try {
-      await el.setSinkId(deviceId);
-    } catch {
-      /* ignore */
+    if (!deviceId) return;
+    const els = [
+      audioElRef.current,
+      ...remoteAudioElsRef.current,
+    ].filter(Boolean) as Array<
+      HTMLMediaElement & { setSinkId?: (id: string) => Promise<void> }
+    >;
+    for (const el of els) {
+      if (typeof el.setSinkId !== "function") continue;
+      try {
+        await el.setSinkId(deviceId);
+      } catch {
+        /* ignore */
+      }
     }
   }, []);
 
@@ -386,6 +453,14 @@ export function CaptureRoom({
     localMicRef.current?.stop();
     localMicRef.current = null;
     setMeterTrack(null);
+    for (const el of remoteAudioElsRef.current) {
+      try {
+        el.remove();
+      } catch {
+        /* ignore */
+      }
+    }
+    remoteAudioElsRef.current = [];
     try {
       roomRef.current?.disconnect();
     } catch {
@@ -406,6 +481,7 @@ export function CaptureRoom({
       setRoomError(null);
 
       try {
+        await unlockVectorAudio();
         let creds = livekitRef.current;
         if (opts?.reconnect || !creds.token || !creds.url) {
           const fresh = await fetchFreshLivekit();
@@ -455,6 +531,9 @@ export function CaptureRoom({
         room.on(RoomEvent.TrackSubscribed, (track) => {
           void attachRemoteAudio(track as RemoteTrack);
         });
+        room.on(RoomEvent.TrackUnsubscribed, (track) => {
+          detachRemoteAudio(track as RemoteTrack);
+        });
         room.on(RoomEvent.ParticipantConnected, () => {
           syncPeers();
           // Catch peer up on cues they missed while alone in the room
@@ -473,6 +552,9 @@ export function CaptureRoom({
               );
               void room.localParticipant.publishData(bytes, { reliable: true });
             }
+            if (openBookendPlayedRef.current && lastBookendTextRef.current) {
+              broadcastVectorBookend("open", lastBookendTextRef.current);
+            }
           } catch {
             /* ignore */
           }
@@ -488,12 +570,39 @@ export function CaptureRoom({
               text?: string;
               interim?: boolean;
               training_session_id?: string;
+              kind?: string;
             };
             if (msg.type === "session_ended") {
               leaveBecauseEndedRef.current(
                 true,
                 msg.training_session_id ?? null
               );
+              return;
+            }
+            if (msg.type === "vector_bookend" && msg.text) {
+              const kind = msg.kind === "close" ? "close" : "open";
+              if (kind === "open" && openBookendPlayedRef.current) return;
+              if (kind === "close" && closeBookendPlayedRef.current) return;
+              if (kind === "open") openBookendPlayedRef.current = true;
+              if (kind === "close") closeBookendPlayedRef.current = true;
+              // Text on both screens; audio arrives on the LiveKit shared mix
+              setBookendLine(msg.text);
+              lastBookendTextRef.current = msg.text;
+              if (kind === "open") {
+                window.setTimeout(() => setBookendLine(null), 8000);
+              }
+              return;
+            }
+            if (msg.type === "vector_turn" && msg.text) {
+              calledTurnRef.current?.onRemoteTurn(msg.text);
+              return;
+            }
+            if (msg.type === "vector_stop") {
+              calledTurnRef.current?.onRemoteStop();
+              return;
+            }
+            if (msg.type === "vector_called_on" && typeof (msg as { on?: boolean }).on === "boolean") {
+              setVectorCalledOn(Boolean((msg as { on: boolean }).on));
               return;
             }
             if (msg.type !== "segment" || !msg.speaker) return;
@@ -582,34 +691,10 @@ export function CaptureRoom({
           source: Track.Source.Microphone,
         });
 
-        // Brief 14: open bookend before capture/recording and before wake arms
-        if (
-          vectorInSessionRef.current &&
-          !opts?.reconnect &&
-          !openBookendPlayedRef.current
-        ) {
-          openBookendPlayedRef.current = true;
-          try {
-            await playVectorAudio(
-              captureSessionId,
-              {
-                kind: "open",
-                riderFirst: riderFirstName,
-                trainerFirst: trainerFirstName,
-                offsetMs: Math.max(0, Date.now() - t0Ms.current),
-              },
-              () => {
-                const h: Record<string, string> = {};
-                if (guestToken) h.Authorization = `Bearer ${guestToken}`;
-                return h;
-              }
-            );
-          } catch {
-            /* disclosure best-effort */
-          }
+        // Brief 14: capture starts only when both phones are on the call
+        if (opts?.reconnect && captureLiveRef.current) {
+          startLessonRecorderRef.current(micTrack);
         }
-
-        startLessonRecorderRef.current(micTrack);
 
         if (speakerIdRef.current) {
           await applySpeakerOutput(speakerIdRef.current);
@@ -654,6 +739,7 @@ export function CaptureRoom({
     [
       applySpeakerOutput,
       attachRemoteAudio,
+      detachRemoteAudio,
       captureSessionId,
       fetchFreshLivekit,
       guestToken,
@@ -840,11 +926,81 @@ export function CaptureRoom({
     return headers;
   }, [guestToken]);
 
+  // Called turns — arm with capture; ON/OFF silences wake only
+  useEffect(() => {
+    if (!showWakeUi) {
+      calledTurnRef.current?.dispose();
+      calledTurnRef.current = null;
+      return;
+    }
+    const runtime = createCalledTurnRuntime({
+      getRoom: () => roomRef.current,
+      getCaptureSessionId: () => captureSessionId,
+      getAuthHeaders: authHeaders,
+      getAskedBy: () => speakerRoleRef.current,
+      getRiderFirst: () => riderFirstName,
+      getTrainerFirst: () => trainerFirstName,
+      getOffsetMs: () => Math.max(0, Date.now() - t0Ms.current),
+      isArmed: () =>
+        vectorCalledOnRef.current &&
+        captureLiveRef.current &&
+        vectorInSessionRef.current,
+      isCaptureLive: () => captureLiveRef.current,
+      onUi: (ui) => {
+        if (ui.strip) setVectorStrip(ui.strip);
+        if (ui.line !== undefined) {
+          setBookendLine(ui.line);
+          if (ui.line) lastBookendTextRef.current = ui.line;
+        }
+      },
+      broadcast: (msg) => {
+        const room = roomRef.current;
+        if (!room || room.state !== "connected") return;
+        try {
+          const bytes = new TextEncoder().encode(JSON.stringify(msg));
+          void room.localParticipant.publishData(bytes, { reliable: true });
+        } catch {
+          /* ignore */
+        }
+      },
+    });
+    calledTurnRef.current = runtime;
+    return () => {
+      runtime.dispose();
+      if (calledTurnRef.current === runtime) calledTurnRef.current = null;
+    };
+  }, [
+    showWakeUi,
+    captureSessionId,
+    authHeaders,
+    riderFirstName,
+    trainerFirstName,
+  ]);
+
+  function toggleVectorCalledOn() {
+    setVectorCalledOn((v) => {
+      const next = !v;
+      const room = roomRef.current;
+      if (room && room.state === "connected") {
+        try {
+          const bytes = new TextEncoder().encode(
+            JSON.stringify({ type: "vector_called_on", on: next })
+          );
+          void room.localParticipant.publishData(bytes, { reliable: true });
+        } catch {
+          /* ignore */
+        }
+      }
+      return next;
+    });
+  }
+
   async function playCloseBookend() {
     if (!vectorInSessionRef.current || closeBookendPlayedRef.current) return;
     closeBookendPlayedRef.current = true;
     try {
-      await playVectorAudio(
+      const result = await speakVectorIntoCall(
+        roomRef.current,
         captureSessionId,
         {
           kind: "close",
@@ -852,8 +1008,59 @@ export function CaptureRoom({
         },
         authHeaders
       );
+      if (result.text) {
+        setBookendLine(result.text);
+        lastBookendTextRef.current = result.text;
+        broadcastVectorBookend("close", result.text);
+      }
     } catch {
       /* ignore */
+    }
+  }
+
+  function broadcastVectorBookend(kind: "open" | "close", text: string) {
+    const room = roomRef.current;
+    if (!room || room.state !== "connected") return;
+    try {
+      const bytes = new TextEncoder().encode(
+        JSON.stringify({ type: "vector_bookend", kind, text })
+      );
+      void room.localParticipant.publishData(bytes, { reliable: true });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function runOpenBookend() {
+    if (!vectorInSessionRef.current || openBookendPlayedRef.current) return;
+    openBookendPlayedRef.current = true;
+    try {
+      const result = await speakVectorIntoCall(
+        roomRef.current,
+        captureSessionId,
+        {
+          kind: "open",
+          riderFirst: riderFirstName,
+          trainerFirst: trainerFirstName,
+          offsetMs: Math.max(0, Date.now() - t0Ms.current),
+        },
+        () => {
+          const h: Record<string, string> = {};
+          if (guestToken) h.Authorization = `Bearer ${guestToken}`;
+          return h;
+        }
+      );
+      if (result.text) {
+        setBookendLine(result.text);
+        lastBookendTextRef.current = result.text;
+        broadcastVectorBookend("open", result.text);
+        if (roomRef.current && roomRef.current.remoteParticipants.size > 0) {
+          openHeardOnCallRef.current = true;
+        }
+        window.setTimeout(() => setBookendLine(null), 8000);
+      }
+    } catch {
+      /* disclosure best-effort */
     }
   }
 
@@ -947,6 +1154,28 @@ export function CaptureRoom({
 
   startLessonRecorderRef.current = startLessonRecorder;
   stopLessonRecorderAndFlushRef.current = stopLessonRecorderAndFlush;
+
+  // Both phones on the call → open bookend, then recorder / transcript
+  useEffect(() => {
+    if (roomState !== "connected" || !peerConnected) return;
+    if (captureLiveRef.current) return;
+    captureLiveRef.current = true;
+    setCaptureLive(true);
+    setShowConnectHelp(false);
+    void (async () => {
+      try {
+        await runOpenBookend();
+        if (roomRef.current && roomRef.current.remoteParticipants.size > 0) {
+          openHeardOnCallRef.current = true;
+        }
+      } catch {
+        /* disclosure best-effort */
+      }
+      const track = localMicRef.current;
+      if (track) startLessonRecorderRef.current(track);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomState, peerConnected]);
 
   const broadcastSegment = useCallback(
     (seg: Segment & { interim?: boolean }) => {
@@ -1045,8 +1274,12 @@ export function CaptureRoom({
       if (!res.ok) return;
       const data = await res.json();
       const rows = (data.segments || []) as Segment[];
-      if (rows.length === 0) return;
-      setSegments((prev) => mergeSegments(prev, rows));
+      // Server is truth — drop rows Whisper replaced. Keep only local
+      // pending (no id yet) so barn Wi‑Fi lag doesn't flash lines away.
+      setSegments((prev) => {
+        const pending = prev.filter((s) => !s.id);
+        return mergeSegments(rows, pending);
+      });
     } catch {
       /* ignore */
     }
@@ -1055,9 +1288,11 @@ export function CaptureRoom({
   pullSegmentsRef.current = pullSegments;
 
   function postSegment(text: string, confidence?: number) {
+    const cleaned = cleanAsrText(text);
+    if (!cleaned) return;
     const offset_ms = Math.max(0, Date.now() - t0Ms.current);
     const client_id = newClientId();
-    const localSeg: Segment = { offset_ms, speaker, text };
+    const localSeg: Segment = { offset_ms, speaker, text: cleaned };
     setSegments((prev) => mergeSegments(prev, [localSeg]));
     broadcastSegment(localSeg);
 
@@ -1065,7 +1300,7 @@ export function CaptureRoom({
       client_id,
       offset_ms,
       speaker,
-      text,
+      text: cleaned,
       confidence: confidence ?? null,
     });
   }
@@ -1086,7 +1321,7 @@ export function CaptureRoom({
   }, [roomState, pullSegments, networkOffline, pendingQueue]);
 
   useEffect(() => {
-    if (roomState !== "connected") {
+    if (roomState !== "connected" || !captureLive) {
       wantListeningRef.current = false;
       return;
     }
@@ -1105,12 +1340,39 @@ export function CaptureRoom({
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = "en-US";
+    try {
+      recognition.maxAlternatives = 3;
+    } catch {
+      /* ignore */
+    }
+
+    // Safari degrades on long continuous sessions — soft restart
+    const restartEveryMs = 50_000;
+    const restartTimer = window.setInterval(() => {
+      if (!wantListeningRef.current || !recognitionRef.current) return;
+      try {
+        recognition.stop();
+      } catch {
+        /* onend will restart */
+      }
+    }, restartEveryMs);
 
     recognition.onresult = (event) => {
       let interimText = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
-        const transcript = result[0].transcript.trim();
+        const alts: Array<{ transcript: string; confidence?: number }> = [];
+        for (let a = 0; a < result.length; a++) {
+          alts.push({
+            transcript: result[a].transcript,
+            confidence: result[a].confidence,
+          });
+        }
+        const transcript = pickBestAsrAlternative(
+          alts.length
+            ? alts
+            : [{ transcript: result[0]?.transcript || "" }]
+        );
         if (!transcript) continue;
         if (result.isFinal) {
           setInterim("");
@@ -1120,13 +1382,16 @@ export function CaptureRoom({
             text: "",
             interim: true,
           });
-          void postSegment(transcript, result[0].confidence);
+          const cleanedFinal = cleanAsrText(transcript);
+          calledTurnRef.current?.onAsrFinal(cleanedFinal);
+          void postSegment(transcript, result[0]?.confidence);
         } else {
-          interimText += transcript;
+          interimText += cleanAsrText(transcript);
         }
       }
       if (interimText) {
         setInterim(interimText);
+        calledTurnRef.current?.onAsrInterim(interimText);
         broadcastSegment({
           offset_ms: Math.max(0, Date.now() - t0Ms.current),
           speaker,
@@ -1184,6 +1449,7 @@ export function CaptureRoom({
 
     return () => {
       wantListeningRef.current = false;
+      window.clearInterval(restartTimer);
       try {
         recognition.onresult = null;
         recognition.onend = null;
@@ -1197,7 +1463,7 @@ export function CaptureRoom({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [captureSessionId, speaker, guestToken, roomState]);
+  }, [captureSessionId, speaker, guestToken, roomState, captureLive]);
 
   async function toggleMute() {
     const track = localMicRef.current;
@@ -1213,9 +1479,12 @@ export function CaptureRoom({
   }
 
   function toggleDeafened() {
-    const el = audioElRef.current;
     const next = !deafened;
-    if (el) el.muted = next;
+    deafenedRef.current = next;
+    if (audioElRef.current) audioElRef.current.muted = next;
+    for (const el of remoteAudioElsRef.current) {
+      (el as HTMLAudioElement).muted = next;
+    }
     setDeafened(next);
   }
 
@@ -1493,13 +1762,31 @@ export function CaptureRoom({
           {speaker === "trainer" ? (
             <button
               type="button"
-              onClick={() => setVectorCalledOn((v) => !v)}
+              onClick={() => toggleVectorCalledOn()}
               className="text-[10px] uppercase tracking-[0.22em] text-gold"
             >
               VECTOR · {vectorCalledOn ? "ON" : "OFF"}
             </button>
           ) : null}
         </div>
+      ) : null}
+
+      {bookendLine ? (
+        <div className="rounded-xl border border-gold/30 bg-gold/10 px-4 py-3">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-gold">
+            Vector
+          </p>
+          <p className="mt-1 font-serif text-lg text-cream">{bookendLine}</p>
+          <p className="mt-2 text-[11px] text-cream/45">
+            On the call — both phones hear it through the headset mix.
+          </p>
+        </div>
+      ) : null}
+
+      {showWakeUi ? (
+        <p className="px-1 text-[11px] text-cream/40">
+          Armed while you ride — say Hey Vector, then the question in one breath.
+        </p>
       ) : null}
 
       {(networkOffline || pendingQueue > 0 || weakLink || screenHint || roomError) && (
@@ -1540,11 +1827,22 @@ export function CaptureRoom({
         </div>
       )}
 
-      {joinCode && joinUrl && (
+      {joinCode && joinUrl && (showConnectHelp || !peerConnected) ? (
         <div className="rounded-xl border border-gold/20 bg-[#131C31] p-4 space-y-3 text-center">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-cream/40">
-            Trainer join code
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-cream/40">
+              Trainer join code
+            </p>
+            {peerConnected ? (
+              <button
+                type="button"
+                onClick={() => setShowConnectHelp(false)}
+                className="text-[10px] uppercase tracking-[0.2em] text-cream/45 hover:text-gold"
+              >
+                Hide
+              </button>
+            ) : null}
+          </div>
           <p className="font-serif text-3xl tracking-[0.2em] text-gold">
             {joinCode}
           </p>
@@ -1552,14 +1850,39 @@ export function CaptureRoom({
           <p className="break-all text-xs text-cream/45">{joinUrl}</p>
           <p className="text-xs text-cream/50">
             Trainer opens the link on their phone — headset call, no account.
+            Capture starts when both of you are on the call.
           </p>
         </div>
-      )}
+      ) : joinCode && joinUrl && peerConnected ? (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowConnectHelp(true)}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-gold/25 text-[15px] font-serif text-gold hover:border-gold/50 hover:text-gold-bright"
+            aria-label="How to reconnect trainer"
+            title="How to reconnect trainer"
+          >
+            ?
+          </button>
+        </div>
+      ) : null}
 
       <div className="rounded-xl border border-gold/15 bg-[#131C31] px-4 py-3 space-y-3">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-cream/40">
-          Headset call
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-cream/40">
+            Headset call
+          </p>
+          {roomState === "connected" && !showConnectHelp ? (
+            <button
+              type="button"
+              onClick={() => setShowConnectHelp(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-gold/20 text-[13px] font-serif text-gold hover:border-gold/45"
+              aria-label="Call setup help"
+            >
+              ?
+            </button>
+          ) : null}
+        </div>
 
         {!livekitProp.configured && roomState === "idle" ? (
           <p className="text-sm text-cream/70">
@@ -1567,12 +1890,14 @@ export function CaptureRoom({
           </p>
         ) : roomState === "idle" || roomState === "error" ? (
           <div className="space-y-2">
-            <p className="text-sm text-cream/80">
-              Start once — Vector keeps the lesson open and reconnects if the
-              phone sleeps or barn Wi‑Fi dips. For the most reliable ride, leave
-              this screen on (Auto-Lock: Never) with the phone mounted. Cues
-              queue on-device if the network drops, then sync when it returns.
-            </p>
+            {showConnectHelp ? (
+              <p className="text-sm text-cream/80">
+                Start once — Vector keeps the lesson open and reconnects if the
+                phone sleeps or barn Wi‑Fi dips. For the most reliable ride, leave
+                this screen on (Auto-Lock: Never) with the phone mounted. Cues
+                queue on-device if the network drops, then sync when it returns.
+              </p>
+            ) : null}
             {roomError && (
               <p className="text-sm text-destructive">{roomError}</p>
             )}
@@ -1603,25 +1928,49 @@ export function CaptureRoom({
           <div className="space-y-2">
             <p className="text-sm text-cream/90">
               {peerConnected
-                ? `On call with ${peerLabel}`
+                ? captureLive
+                  ? `On call with ${peerLabel}`
+                  : `On call with ${peerLabel} — starting capture…`
                 : `In call — waiting for ${peerLabel}…`}
             </p>
+            {!peerConnected ? (
+              <p className="text-xs text-cream/50">
+                Timeline and recording stay off until {peerLabel} joins.
+              </p>
+            ) : null}
+            {showConnectHelp ? (
+              <p className="text-xs text-cream/45">
+                Tip: Settings → Display → Auto-Lock → Never while riding, so
+                Safari does not suspend the tab.
+                <button
+                  type="button"
+                  className="ml-2 uppercase tracking-wider text-gold underline"
+                  onClick={() => setShowConnectHelp(false)}
+                >
+                  Hide
+                </button>
+              </p>
+            ) : null}
 
             <VoiceLevelMeter track={meterTrack} muted={muted} />
 
             <p className="text-xs text-cream/45">
               Your transcript:{" "}
-              {speechUnsupported
-                ? "speech not available in this browser — try Safari/Chrome with mic allowed"
-                : listening
-                  ? "listening…"
-                  : "paused — will resume when this screen is open"}
+              {!captureLive
+                ? `waiting for ${peerLabel}`
+                : speechUnsupported
+                  ? "speech not available in this browser — try Safari/Chrome with mic allowed"
+                  : listening
+                    ? "listening…"
+                    : "paused — will resume when this screen is open"}
             </p>
-            <p className="text-xs text-cream/40">
-              Timeline syncs both sides — you should see {peerLabel}&apos;s cues
-              here too. On weak barn Wi‑Fi the call may dip; your cues still
-              queue locally until they sync.
-            </p>
+            {captureLive ? (
+              <p className="text-xs text-cream/40">
+                Timeline syncs both sides — you should see {peerLabel}&apos;s cues
+                here too. On weak barn Wi‑Fi the call may dip; your cues still
+                queue locally until they sync.
+              </p>
+            ) : null}
             {screenHint && (
               <p className="text-xs text-gold/80">
                 Tip: Settings → Display → Auto-Lock → Never while riding — this
@@ -1694,7 +2043,9 @@ export function CaptureRoom({
         </p>
         {segments.length === 0 && !interim && !peerInterim && (
           <p className="text-sm text-cream/40">
-            Rider and trainer speech will appear here with timestamps.
+            {!captureLive
+              ? `Waiting for ${peerLabel} — capture starts when both of you are on the call.`
+              : "Rider and trainer speech will appear here with timestamps."}
           </p>
         )}
         {segments.map((s, i) => {

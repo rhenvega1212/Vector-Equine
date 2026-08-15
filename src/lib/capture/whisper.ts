@@ -2,7 +2,11 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { transcribe } from "ai";
 
 const EQUINE_VOCAB_PROMPT =
-  "Equestrian riding lesson between a trainer and rider. Common words: walk, trot, canter, gallop, halt, half-halt, inside leg, outside rein, contact, collection, tempo, rhythm, circle, diagonal, transition, seat, hands, leg yield, shoulder-in, lengthen, shorten, balance, forward, straight, bend.";
+  "Equestrian riding lesson. Speakers may say Hey Vector or Vector. " +
+  "Vocabulary: walk, trot, canter, gallop, halt, half-halt, inside leg, outside rein, " +
+  "contact, collection, tempo, rhythm, circle, 20m, diagonal, transition, seat, hands, " +
+  "leg yield, shoulder-in, haunches-in, lengthen, shorten, balance, forward, straight, " +
+  "bend, flying change, counter-canter, pirouette, piaffe, passage, Vector Equine.";
 
 export type WhisperSeg = {
   text: string;
