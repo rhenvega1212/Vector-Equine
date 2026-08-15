@@ -761,13 +761,75 @@ export function CaptureRoom({
 
   connectCallRef.current = connectCall;
 
-  // Trainer join / warm mic: start the call without a second tap
+  // With a trainer: auto-join LiveKit. Solo: skip the call — mic + Vector arm locally.
   useEffect(() => {
     if (!autoStart || autoStartedRef.current) return;
+    if (isSolo) {
+      autoStartedRef.current = true;
+      return;
+    }
     if (!livekitProp.configured) return;
     autoStartedRef.current = true;
     void connectCallRef.current();
-  }, [autoStart, livekitProp.configured]);
+  }, [autoStart, livekitProp.configured, isSolo]);
+
+  // Solo ride: arm capture on this phone without waiting for LiveKit
+  useEffect(() => {
+    if (!isSolo || !autoStart) return;
+    if (captureLiveRef.current || intentionalEndRef.current) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        await unlockVectorAudio();
+        await startKeepAwake();
+        if (cancelled || intentionalEndRef.current) return;
+
+        let track = localMicRef.current;
+        if (!track) {
+          track = await createLocalAudioTrack({
+            ...CALL_AUDIO_CONSTRAINTS,
+            deviceId: micIdRef.current || undefined,
+          });
+          if (cancelled) {
+            track.stop();
+            return;
+          }
+          localMicRef.current = track;
+          setMeterTrack(track);
+        }
+
+        if (captureLiveRef.current) return;
+        captureLiveRef.current = true;
+        setCaptureLive(true);
+        setShowConnectHelp(false);
+        setRoomState((s) => (s === "idle" || s === "error" ? "idle" : s));
+
+        // Open disclosure — don't block wake/recorder on slow TTS
+        void (async () => {
+          try {
+            await Promise.race([
+              runOpenBookend(),
+              new Promise((r) => setTimeout(r, 2800)),
+            ]);
+          } catch {
+            /* ignore */
+          }
+        })();
+
+        startLessonRecorderRef.current(track);
+      } catch (e) {
+        if (!cancelled) {
+          setRoomError(micErrorMessage(e));
+          captureLiveRef.current = false;
+          setCaptureLive(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSolo, autoStart]);
 
   useEffect(() => {
     return () => {
@@ -1160,8 +1222,10 @@ export function CaptureRoom({
   startLessonRecorderRef.current = startLessonRecorder;
   stopLessonRecorderAndFlushRef.current = stopLessonRecorderAndFlush;
 
-  // Solo → capture when on the call. With trainer → wait for both phones.
+  // With trainer: both phones on the call → open bookend, then recorder / transcript.
+  // Solo arms in its own effect (no LiveKit wait).
   useEffect(() => {
+    if (isSolo) return;
     if (roomState !== "connected" || !peerReady) return;
     if (captureLiveRef.current) return;
     captureLiveRef.current = true;
@@ -1169,11 +1233,11 @@ export function CaptureRoom({
     setShowConnectHelp(false);
     void (async () => {
       try {
-        await runOpenBookend();
-        if (
-          roomRef.current &&
-          (isSolo || roomRef.current.remoteParticipants.size > 0)
-        ) {
+        await Promise.race([
+          runOpenBookend(),
+          new Promise((r) => setTimeout(r, 2800)),
+        ]);
+        if (roomRef.current && roomRef.current.remoteParticipants.size > 0) {
           openHeardOnCallRef.current = true;
         }
       } catch {
@@ -1329,7 +1393,10 @@ export function CaptureRoom({
   }, [roomState, pullSegments, networkOffline, pendingQueue]);
 
   useEffect(() => {
-    if (roomState !== "connected" || !captureLive) {
+    // Solo arms without LiveKit; trainer lessons still need the call connected.
+    const canListen =
+      captureLive && (isSolo || roomState === "connected");
+    if (!canListen) {
       wantListeningRef.current = false;
       return;
     }
@@ -1423,7 +1490,8 @@ export function CaptureRoom({
       setListening(false);
     };
     recognition.onend = () => {
-      if (!wantListeningRef.current || !roomRef.current) {
+      const roomOk = isSolo || Boolean(roomRef.current);
+      if (!wantListeningRef.current || !roomOk) {
         setListening(false);
         return;
       }
@@ -1432,9 +1500,10 @@ export function CaptureRoom({
         return;
       }
       window.setTimeout(() => {
+        const stillOk = isSolo || Boolean(roomRef.current);
         if (
           !wantListeningRef.current ||
-          !roomRef.current ||
+          !stillOk ||
           document.visibilityState !== "visible"
         ) {
           return;
@@ -1471,7 +1540,7 @@ export function CaptureRoom({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [captureSessionId, speaker, guestToken, roomState, captureLive]);
+  }, [captureSessionId, speaker, guestToken, roomState, captureLive, isSolo]);
 
   async function toggleMute() {
     const track = localMicRef.current;
@@ -1563,7 +1632,10 @@ export function CaptureRoom({
     ended_by?: string;
   } | null> {
     const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 15000);
+    const timer = window.setTimeout(
+      () => controller.abort(),
+      isSolo ? 10000 : 15000
+    );
     try {
       const res = await fetch(`/api/capture/sessions/${captureSessionId}/end`, {
         method: "POST",
@@ -1604,20 +1676,22 @@ export function CaptureRoom({
       broadcastSessionEnded(null);
 
       // Upload mic audio for Whisper before ending (best-effort, capped)
+      const flushMs = isSolo ? 2500 : 8000;
       try {
         await Promise.race([
           stopLessonRecorderAndFlushRef.current(),
-          new Promise((r) => setTimeout(r, 8000)),
+          new Promise((r) => setTimeout(r, flushMs)),
         ]);
       } catch {
         /* ignore */
       }
 
       // Best-effort cue flush (short) — never block End on barn Wi‑Fi
+      const cueMs = isSolo ? 800 : 2000;
       try {
         await Promise.race([
-          outboxRef.current?.flush({ timeoutMs: 2000 }) ?? Promise.resolve(),
-          new Promise((r) => setTimeout(r, 2000)),
+          outboxRef.current?.flush({ timeoutMs: cueMs }) ?? Promise.resolve(),
+          new Promise((r) => setTimeout(r, cueMs)),
         ]);
       } catch {
         /* ignore */
@@ -1692,10 +1766,11 @@ export function CaptureRoom({
 
       stopKeepAwake();
       // Close bookend must never trap End — TTS/network can hang
+      const bookendMs = isSolo ? 2000 : 3500;
       try {
         await Promise.race([
           playCloseBookend(),
-          new Promise((r) => setTimeout(r, 3500)),
+          new Promise((r) => setTimeout(r, bookendMs)),
         ]);
       } catch {
         /* ignore */
@@ -1916,9 +1991,9 @@ export function CaptureRoom({
       <div className="rounded-xl border border-gold/15 bg-[#131C31] px-4 py-3 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <p className="text-[10px] uppercase tracking-[0.18em] text-cream/40">
-            Headset call
+            {isSolo ? "Solo ride" : "Headset call"}
           </p>
-          {roomState === "connected" && !showConnectHelp ? (
+          {!isSolo && roomState === "connected" && !showConnectHelp ? (
             <button
               type="button"
               onClick={() => setShowConnectHelp(true)}
@@ -1930,7 +2005,31 @@ export function CaptureRoom({
           ) : null}
         </div>
 
-        {!livekitProp.configured && roomState === "idle" ? (
+        {isSolo ? (
+          <div className="space-y-2">
+            <p className="text-sm text-cream/90">
+              {captureLive
+                ? "Mic live — say Hey Vector when you want input."
+                : roomError
+                  ? "Need the mic to capture."
+                  : "Opening mic…"}
+            </p>
+            <VoiceLevelMeter track={meterTrack} muted={muted} />
+            {roomError ? (
+              <p className="text-xs text-destructive">{roomError}</p>
+            ) : null}
+            <p className="text-xs text-cream/45">
+              Your transcript:{" "}
+              {!captureLive
+                ? "starting…"
+                : speechUnsupported
+                  ? "speech not available in this browser — try Safari/Chrome with mic allowed"
+                  : listening
+                    ? "listening…"
+                    : "paused — will resume when this screen is open"}
+            </p>
+          </div>
+        ) : !livekitProp.configured && roomState === "idle" ? (
           <p className="text-sm text-cream/70">
             Add LiveKit env vars and redeploy to enable the call.
           </p>
@@ -2101,8 +2200,12 @@ export function CaptureRoom({
         {segments.length === 0 && !interim && !peerInterim && (
           <p className="text-sm text-cream/40">
             {!captureLive
-              ? `Waiting for ${peerLabel} — capture starts when both of you are on the call.`
-              : "Rider and trainer speech will appear here with timestamps."}
+              ? isSolo
+                ? "Opening capture…"
+                : `Waiting for ${peerLabel} — capture starts when both of you are on the call.`
+              : isSolo
+                ? "Your speech will appear here with timestamps."
+                : "Rider and trainer speech will appear here with timestamps."}
           </p>
         )}
         {segments.map((s, i) => {
