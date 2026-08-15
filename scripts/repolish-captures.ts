@@ -64,7 +64,7 @@ async function main() {
     captureIds.add(cap.id);
   }
 
-  for (const captureId of captureIds) {
+  for (const captureId of Array.from(captureIds)) {
     console.log(`\nPolishing capture ${captureId}…`);
 
     const { data: capture, error: capErr } = await db
