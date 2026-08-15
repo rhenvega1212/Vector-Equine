@@ -1,5 +1,5 @@
-import { VectorSetupWizard } from "@/components/train/vector-setup-wizard";
+import { HorseNameSetup } from "@/components/train/horse-name-setup";
 
 export default function VectorSetupPage() {
-  return <VectorSetupWizard />;
+  return <HorseNameSetup />;
 }

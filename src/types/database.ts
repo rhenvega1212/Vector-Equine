@@ -33,6 +33,7 @@ export type Database = {
           suspended_by: string | null;
           suspension_reason: string | null;
           vector_setup_completed_at: string | null;
+          active_horse_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -59,6 +60,7 @@ export type Database = {
           suspended_by?: string | null;
           suspension_reason?: string | null;
           vector_setup_completed_at?: string | null;
+          active_horse_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -85,6 +87,7 @@ export type Database = {
           suspended_by?: string | null;
           suspension_reason?: string | null;
           vector_setup_completed_at?: string | null;
+          active_horse_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -95,7 +98,7 @@ export type Database = {
           rider_id: string;
           trainer_id: string;
           status: "pending" | "active" | "declined" | "removed";
-          initiated_by: "rider" | "trainer";
+          initiated_by: "rider" | "trainer" | "capture";
           share_scope: "all" | "shared_only";
           created_at: string;
           updated_at: string;
@@ -105,7 +108,7 @@ export type Database = {
           rider_id: string;
           trainer_id: string;
           status?: "pending" | "active" | "declined" | "removed";
-          initiated_by: "rider" | "trainer";
+          initiated_by: "rider" | "trainer" | "capture";
           share_scope?: "all" | "shared_only";
           created_at?: string;
           updated_at?: string;
@@ -115,7 +118,7 @@ export type Database = {
           rider_id?: string;
           trainer_id?: string;
           status?: "pending" | "active" | "declined" | "removed";
-          initiated_by?: "rider" | "trainer";
+          initiated_by?: "rider" | "trainer" | "capture";
           share_scope?: "all" | "shared_only";
           created_at?: string;
           updated_at?: string;
@@ -803,7 +806,11 @@ export type Database = {
           session_date: string;
           horse: string;
           session_type: string;
-          overall_feel: number;
+          overall_feel: number | null;
+          feel_scale: 5 | 10 | null;
+          feel_asked_at: string | null;
+          feel_answered_at: string | null;
+          feel_deferrals: number;
           discipline: string | null;
           exercises: string | null;
           notes: string | null;
@@ -829,7 +836,11 @@ export type Database = {
           session_date: string;
           horse: string;
           session_type: string;
-          overall_feel: number;
+          overall_feel?: number | null;
+          feel_scale?: 5 | 10 | null;
+          feel_asked_at?: string | null;
+          feel_answered_at?: string | null;
+          feel_deferrals?: number;
           discipline?: string | null;
           exercises?: string | null;
           notes?: string | null;
@@ -855,7 +866,11 @@ export type Database = {
           session_date?: string;
           horse?: string;
           session_type?: string;
-          overall_feel?: number;
+          overall_feel?: number | null;
+          feel_scale?: 5 | 10 | null;
+          feel_asked_at?: string | null;
+          feel_answered_at?: string | null;
+          feel_deferrals?: number;
           discipline?: string | null;
           exercises?: string | null;
           notes?: string | null;
@@ -891,6 +906,10 @@ export type Database = {
           expires_at: string;
           trainer_display_name: string | null;
           trainer_participant_id: string | null;
+          trainer_id: string | null;
+          claim_token: string | null;
+          claim_expires_at: string | null;
+          claimed_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -908,6 +927,10 @@ export type Database = {
           expires_at?: string;
           trainer_display_name?: string | null;
           trainer_participant_id?: string | null;
+          trainer_id?: string | null;
+          claim_token?: string | null;
+          claim_expires_at?: string | null;
+          claimed_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -925,6 +948,10 @@ export type Database = {
           expires_at?: string;
           trainer_display_name?: string | null;
           trainer_participant_id?: string | null;
+          trainer_id?: string | null;
+          claim_token?: string | null;
+          claim_expires_at?: string | null;
+          claimed_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -935,11 +962,13 @@ export type Database = {
           capture_session_id: string;
           offset_ms: number;
           ended_offset_ms: number | null;
-          speaker: "rider" | "trainer" | "system";
+          speaker: "rider" | "trainer" | "system" | "vector";
           text: string;
           confidence: number | null;
           client_id: string | null;
           raw_json: Json | null;
+          addressed_to_vector: boolean;
+          excluded_from_corpus: boolean;
           created_at: string;
         };
         Insert: {
@@ -947,11 +976,13 @@ export type Database = {
           capture_session_id: string;
           offset_ms: number;
           ended_offset_ms?: number | null;
-          speaker: "rider" | "trainer" | "system";
+          speaker: "rider" | "trainer" | "system" | "vector";
           text: string;
           confidence?: number | null;
           client_id?: string | null;
           raw_json?: Json | null;
+          addressed_to_vector?: boolean;
+          excluded_from_corpus?: boolean;
           created_at?: string;
         };
         Update: {
@@ -959,11 +990,13 @@ export type Database = {
           capture_session_id?: string;
           offset_ms?: number;
           ended_offset_ms?: number | null;
-          speaker?: "rider" | "trainer" | "system";
+          speaker?: "rider" | "trainer" | "system" | "vector";
           text?: string;
           confidence?: number | null;
           client_id?: string | null;
           raw_json?: Json | null;
+          addressed_to_vector?: boolean;
+          excluded_from_corpus?: boolean;
           created_at?: string;
         };
       };

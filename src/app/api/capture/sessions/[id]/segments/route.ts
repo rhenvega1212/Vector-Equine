@@ -12,10 +12,12 @@ const segmentSchema = z.object({
   client_id: z.string().uuid().or(z.string().min(8).max(80)).optional().nullable(),
   offset_ms: z.number().int().min(0),
   ended_offset_ms: z.number().int().min(0).optional().nullable(),
-  speaker: z.enum(["rider", "trainer", "system"]),
+  speaker: z.enum(["rider", "trainer", "system", "vector"]),
   text: z.string().min(1).max(4000),
   confidence: z.number().min(0).max(1).optional().nullable(),
   raw_json: z.record(z.unknown()).optional().nullable(),
+  addressed_to_vector: z.boolean().optional(),
+  excluded_from_corpus: z.boolean().optional(),
 });
 
 const batchSchema = z.object({
@@ -68,19 +70,24 @@ async function insertIdempotent(
   }[] = [];
 
   if (toInsert.length > 0) {
-    const rows = toInsert.map((s) => ({
-      capture_session_id: captureSessionId,
-      client_id: s.client_id?.trim() || null,
-      offset_ms: s.offset_ms,
-      ended_offset_ms: s.ended_offset_ms ?? null,
-      speaker: forceSpeaker ?? s.speaker,
-      text: s.text.trim(),
-      confidence: s.confidence ?? null,
-      raw_json: {
-        ...(s.raw_json || {}),
-        ...(s.client_id ? { client_id: s.client_id } : {}),
-      },
-    }));
+    const rows = toInsert.map((s) => {
+      const sp = forceSpeaker ?? s.speaker;
+      return {
+        capture_session_id: captureSessionId,
+        client_id: s.client_id?.trim() || null,
+        offset_ms: s.offset_ms,
+        ended_offset_ms: s.ended_offset_ms ?? null,
+        speaker: sp,
+        text: s.text.trim(),
+        confidence: s.confidence ?? null,
+        addressed_to_vector: s.addressed_to_vector ?? false,
+        excluded_from_corpus: sp === "vector" || s.excluded_from_corpus === true,
+        raw_json: {
+          ...(s.raw_json || {}),
+          ...(s.client_id ? { client_id: s.client_id } : {}),
+        },
+      };
+    });
 
     let { data, error } = await db
       .from("session_transcript_segments")

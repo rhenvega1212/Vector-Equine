@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { format, parseISO } from "date-fns";
+import { formatHomeCalendarDate } from "@/lib/timezone";
 import { ArrowLeft } from "lucide-react";
 
 interface CoachRiderPageProps {
@@ -133,10 +133,10 @@ export default async function CoachRiderPage({ params }: CoachRiderPageProps) {
                       <div>
                         <p className="font-medium text-cream">
                           {s.session_title?.trim() ||
-                            format(parseISO(s.session_date), "EEEE, MMM d")}
+                            formatHomeCalendarDate(s.session_date, "EEEE, MMM d")}
                         </p>
                         <p className="text-xs text-cream/50">
-                          {horse} · {format(parseISO(s.session_date), "MMM d, yyyy")}
+                          {horse} · {formatHomeCalendarDate(s.session_date, "MMM d, yyyy")}
                         </p>
                       </div>
                       <p className="font-serif text-xl text-gold">{s.overall_feel}</p>

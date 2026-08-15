@@ -10,15 +10,20 @@ export type LoginState = {
 
 function safeRedirectPath(raw: FormDataEntryValue | null): string {
   const value = typeof raw === "string" ? raw : "/train";
+  if (!value.startsWith("/") || value.startsWith("//")) {
+    return "/train";
+  }
   if (
-    value.startsWith("/") &&
-    !value.startsWith("//") &&
-    (value.startsWith("/invite") ||
-      value.startsWith("/shared") ||
-      value.startsWith("/train") ||
-      value === "/")
+    value.startsWith("/invite") ||
+    value.startsWith("/shared") ||
+    value.startsWith("/train") ||
+    value.startsWith("/onboarding") ||
+    value === "/"
   ) {
-    return value === "/" ? "/train" : value.split("?")[0] || "/train";
+    if (value === "/") return "/train";
+    // Keep ?claim= on onboarding redirects
+    if (value.startsWith("/onboarding")) return value;
+    return value.split("?")[0] || "/train";
   }
   return "/train";
 }

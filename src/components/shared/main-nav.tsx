@@ -24,7 +24,6 @@ import {
   Shield,
 } from "lucide-react";
 import { HorseHeadIcon } from "@/components/icons/horse-head";
-import { Badge } from "@/components/ui/badge";
 import { useFeatureFlags } from "@/lib/flags/context";
 import type { FeatureFlagKey } from "@/lib/flags/registry";
 import type { ComponentType } from "react";
@@ -38,7 +37,6 @@ type NavItem = {
   href: string;
   label: string;
   icon: ComponentType<{ className?: string }>;
-  comingSoon?: boolean;
   adminOnly?: boolean;
   flag?: FeatureFlagKey;
   community?: boolean;
@@ -88,23 +86,9 @@ export function MainNav({ profile }: MainNavProps) {
             const adminBlocked = requiresAdmin && profile.role !== "admin";
             const communityBlocked =
               !!item.community && SOCIAL_CONFIG.SOCIAL_MODE === "off";
-            const showAsDisabled = adminBlocked || flagBlocked || communityBlocked;
-
-            if (showAsDisabled) {
-              return (
-                <Button
-                  key={item.href}
-                  variant="ghost"
-                  className="gap-2 cursor-not-allowed opacity-70"
-                  disabled
-                >
-                  <Icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} />
-                  <span className="uppercase tracking-[0.18em] text-[11px] font-semibold">{item.label}</span>
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
-                    Coming soon
-                  </Badge>
-                </Button>
-              );
+            // Flag-off / community-off / admin-blocked → absent (never greyed "Coming soon")
+            if (adminBlocked || flagBlocked || communityBlocked) {
+              return null;
             }
 
             return (
@@ -118,11 +102,6 @@ export function MainNav({ profile }: MainNavProps) {
                 >
                   <Icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} />
                   <span className="uppercase tracking-[0.18em] text-[11px] font-semibold">{item.label}</span>
-                  {item.comingSoon && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
-                      Coming soon
-                    </Badge>
-                  )}
                 </Button>
               </Link>
             );

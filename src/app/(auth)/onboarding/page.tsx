@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -15,39 +15,34 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { onboardingSchema, type OnboardingInput } from "@/lib/validations/auth";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const DISCIPLINES = [
-  { value: "dressage", label: "Dressage" },
-  { value: "jumping", label: "Show Jumping" },
-  { value: "eventing", label: "Eventing" },
-  { value: "western", label: "Western" },
-  { value: "hunter", label: "Hunter" },
-  { value: "endurance", label: "Endurance" },
-  { value: "reining", label: "Reining" },
-  { value: "trail", label: "Trail Riding" },
-  { value: "other", label: "Other" },
-];
-
-const RIDER_LEVELS = [
-  { value: "beginner", label: "Beginner" },
-  { value: "intermediate", label: "Intermediate" },
-  { value: "advanced", label: "Advanced" },
-  { value: "professional", label: "Professional" },
-];
-
 export default function OnboardingPage() {
+  return (
+    <Suspense
+      fallback={
+        <Card className="border-gold/15 shadow-2xl shadow-black/30">
+          <CardContent className="py-10">
+            <div className="flex justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+      }
+    >
+      <OnboardingForm />
+    </Suspense>
+  );
+}
+
+function OnboardingForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const claimFromQuery = searchParams.get("claim");
+  const [claimToken, setClaimToken] = useState<string | null>(claimFromQuery);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -61,13 +56,29 @@ export default function OnboardingPage() {
   } = useForm<OnboardingInput>({
     resolver: zodResolver(onboardingSchema),
     defaultValues: {
-      role_rider: true,
-      role_trainer: false,
+      role_rider: !claimFromQuery,
+      role_trainer: !!claimFromQuery,
     },
   });
 
   const roleRider = watch("role_rider");
   const roleTrainer = watch("role_trainer");
+
+  useEffect(() => {
+    let token = claimFromQuery;
+    try {
+      if (!token) token = sessionStorage.getItem("vector-claim-token");
+      const claimName = sessionStorage.getItem("vector-claim-name");
+      if (claimName) setValue("display_name", claimName);
+    } catch {
+      /* ignore */
+    }
+    if (token) {
+      setClaimToken(token);
+      setValue("role_trainer", true, { shouldValidate: true });
+      setValue("role_rider", false, { shouldValidate: true });
+    }
+  }, [claimFromQuery, setValue]);
 
   useEffect(() => {
     async function checkAuth() {
@@ -77,26 +88,47 @@ export default function OnboardingPage() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        router.push("/login");
+        router.push(
+          claimToken
+            ? `/login?redirectTo=${encodeURIComponent(`/onboarding?claim=${claimToken}`)}`
+            : "/login"
+        );
         return;
       }
 
       const { data: profile } = (await supabase
         .from("profiles")
-        .select("username")
+        .select("username, display_name")
         .eq("id", user.id)
-        .maybeSingle()) as { data: { username: string } | null };
+        .maybeSingle()) as {
+        data: {
+          username: string;
+          display_name: string | null;
+        } | null;
+      };
 
-      if (profile && profile.username) {
+      // Claim path: profile may already have username from signup — finish claim after roles.
+      if (profile?.username && !claimToken) {
         router.push("/train");
         return;
+      }
+
+      if (profile?.username) {
+        setValue("username", profile.username);
+      }
+      if (profile?.display_name) {
+        setValue("display_name", profile.display_name);
+      }
+      if (claimToken) {
+        setValue("role_trainer", true, { shouldValidate: true });
+        setValue("role_rider", false, { shouldValidate: true });
       }
 
       setIsCheckingAuth(false);
     }
 
     checkAuth();
-  }, [router]);
+  }, [router, claimToken, setValue]);
 
   async function onSubmit(data: OnboardingInput) {
     setIsLoading(true);
@@ -117,6 +149,7 @@ export default function OnboardingPage() {
         .from("profiles")
         .select("id")
         .eq("username", data.username)
+        .neq("id", user.id)
         .maybeSingle();
 
       if (existingUser) {
@@ -124,18 +157,16 @@ export default function OnboardingPage() {
         return;
       }
 
-      const coachOnly = data.role_trainer && !data.role_rider;
+      const asTrainer = data.role_trainer || !!claimToken;
+      const coachOnly = asTrainer && !data.role_rider;
 
       const { error: profileError } = await (supabase.from("profiles") as any).upsert({
         id: user.id,
         email: user.email!,
         username: data.username,
         display_name: data.display_name,
-        location: data.location || null,
-        discipline: coachOnly ? null : data.discipline || null,
-        rider_level: coachOnly ? null : data.rider_level || null,
         role_rider: data.role_rider,
-        role_trainer: data.role_trainer,
+        role_trainer: asTrainer,
         // Coach-only skips the horse wizard; riders hit the /train/setup hard gate.
         ...(coachOnly
           ? { vector_setup_completed_at: new Date().toISOString() }
@@ -145,6 +176,32 @@ export default function OnboardingPage() {
       if (profileError) {
         setError(profileError.message);
         return;
+      }
+
+      if (claimToken) {
+        const claimRes = await fetch(
+          `/api/capture/claim/${encodeURIComponent(claimToken)}`,
+          { method: "POST" }
+        );
+        const claimData = await claimRes.json().catch(() => ({}));
+        try {
+          sessionStorage.removeItem("vector-claim-token");
+          sessionStorage.removeItem("vector-claim-name");
+        } catch {
+          /* ignore */
+        }
+        if (claimRes.ok && claimData.sessionId) {
+          window.location.assign(
+            `${window.location.origin}/train/sessions/${claimData.sessionId}`
+          );
+          return;
+        }
+        if (!claimRes.ok) {
+          setError(
+            claimData.error ||
+              "Account ready, but we couldn't open that lesson yet. Check Rides."
+          );
+        }
       }
 
       router.push("/train");
@@ -171,8 +228,14 @@ export default function OnboardingPage() {
   return (
     <Card className="border-gold/15 shadow-2xl shadow-black/30">
       <CardHeader className="text-center">
-        <CardTitle className="text-3xl font-serif">Complete your profile</CardTitle>
-        <CardDescription>Tell us a bit about yourself to get started</CardDescription>
+        <CardTitle className="text-3xl font-serif">
+          {claimToken ? "Finish your coach profile" : "Complete your profile"}
+        </CardTitle>
+        <CardDescription>
+          {claimToken
+            ? "Then we'll open the lesson you just taught"
+            : "Tell us a bit about yourself to get started"}
+        </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
         <CardContent className="space-y-4">
@@ -246,53 +309,6 @@ export default function OnboardingPage() {
               <p className="text-sm text-destructive">{errors.display_name.message}</p>
             )}
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="location">Location (optional)</Label>
-            <Input
-              id="location"
-              placeholder="City, State"
-              className="bg-white/[0.04] border-border focus-visible:ring-gold/60"
-              {...register("location")}
-            />
-            {errors.location && (
-              <p className="text-sm text-destructive">{errors.location.message}</p>
-            )}
-          </div>
-
-          {roleRider && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="discipline">Discipline (optional)</Label>
-                <Select onValueChange={(value) => setValue("discipline", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your discipline" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DISCIPLINES.map((discipline) => (
-                      <SelectItem key={discipline.value} value={discipline.value}>
-                        {discipline.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="rider_level">Rider Level (optional)</Label>
-                <Select onValueChange={(value) => setValue("rider_level", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your level" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {RIDER_LEVELS.map((level) => (
-                      <SelectItem key={level.value} value={level.value}>
-                        {level.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          )}
         </CardContent>
         <CardFooter>
           <Button
@@ -301,7 +317,7 @@ export default function OnboardingPage() {
             disabled={isLoading}
           >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Complete Profile
+            {claimToken ? "Open the lesson" : "Complete Profile"}
           </Button>
         </CardFooter>
       </form>

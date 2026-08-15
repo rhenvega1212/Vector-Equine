@@ -32,25 +32,7 @@ import { uploadFile, isValidImageType, MAX_IMAGE_SIZE_MB } from "@/lib/uploads/s
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, ArrowLeft, Settings, Camera } from "lucide-react";
 import type { Profile } from "@/types/database";
-
-const DISCIPLINES = [
-  { value: "dressage", label: "Dressage" },
-  { value: "jumping", label: "Show Jumping" },
-  { value: "eventing", label: "Eventing" },
-  { value: "western", label: "Western" },
-  { value: "hunter", label: "Hunter" },
-  { value: "endurance", label: "Endurance" },
-  { value: "reining", label: "Reining" },
-  { value: "trail", label: "Trail Riding" },
-  { value: "other", label: "Other" },
-];
-
-const RIDER_LEVELS = [
-  { value: "beginner", label: "Beginner" },
-  { value: "intermediate", label: "Intermediate" },
-  { value: "advanced", label: "Advanced" },
-  { value: "professional", label: "Professional" },
-];
+import { DISCIPLINES, RIDER_LEVELS } from "@/lib/constants/rider";
 
 export default function SettingsPage() {
   const router = useRouter();

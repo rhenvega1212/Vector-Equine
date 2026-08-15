@@ -47,13 +47,23 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        navy: "#0E1729",
-        cream: "#FCF2E6",
-        ink: "#1A2133",
-        gold: {
-          DEFAULT: "#D1A955",
-          bright: "#F0C967",
+        navy: {
+          DEFAULT: "var(--navy)",
+          2: "var(--navy-2)",
+          3: "var(--navy-3)",
         },
+        cream: {
+          DEFAULT: "var(--cream)",
+          dim: "var(--cream-dim)",
+        },
+        ink: "var(--ink)",
+        gold: {
+          DEFAULT: "var(--gold)",
+          bright: "var(--gold-bright)",
+        },
+        good: "var(--good)",
+        watch: "var(--watch)",
+        line: "var(--line)",
       },
       borderRadius: {
         lg: "var(--radius)",

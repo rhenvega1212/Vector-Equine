@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { flagGuardForApi } from "@/lib/flags/guards";
 import { createTrainingSessionSchema } from "@/lib/validations/training-session";
 import { assertCanCaptureSession } from "@/lib/vector/billing";
+import { calendarDateInHomeTz, addHomeCalendarDays } from "@/lib/timezone";
 import { z } from "zod";
 
 export async function GET(request: NextRequest) {
@@ -24,16 +25,14 @@ export async function GET(request: NextRequest) {
     const sessionType = searchParams.get("session_type") || "";
     const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 100);
 
-    const fromDate = new Date();
-    if (range === "7") fromDate.setDate(fromDate.getDate() - 7);
-    else if (range === "30") fromDate.setDate(fromDate.getDate() - 30);
-    else fromDate.setDate(fromDate.getDate() - 90);
+    const days = range === "7" ? 7 : range === "30" ? 30 : 90;
+    const fromStr = addHomeCalendarDays(calendarDateInHomeTz(), -days);
 
     let query = supabase
       .from("training_sessions")
       .select("*")
       .eq("user_id", user.id)
-      .gte("session_date", fromDate.toISOString().split("T")[0])
+      .gte("session_date", fromStr)
       .order("session_date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -79,7 +78,17 @@ export async function POST(request: NextRequest) {
       session_date: parsed.session_date,
       horse: (parsed.horse && parsed.horse.trim()) || null,
       session_type: parsed.session_type,
-      overall_feel: parsed.overall_feel,
+      overall_feel: parsed.overall_feel ?? null,
+      feel_scale:
+        parsed.overall_feel != null
+          ? parsed.overall_feel <= 5
+            ? 5
+            : 10
+          : null,
+      feel_answered_at:
+        parsed.overall_feel != null ? new Date().toISOString() : null,
+      feel_asked_at:
+        parsed.overall_feel != null ? new Date().toISOString() : null,
       discipline: parsed.discipline || null,
       exercises: parsed.exercises || null,
       notes: parsed.notes || null,

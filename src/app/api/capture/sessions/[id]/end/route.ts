@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { summarizeCaptureTranscript } from "@/lib/capture/summary";
-import { cleanupTranscriptForJournal } from "@/lib/capture/transcript-cleanup";
+import { pendingCaptureBrief } from "@/lib/capture/summary";
 import { verifyGuestCaptureToken } from "@/lib/capture/guest-token";
-import { format } from "date-fns";
+import { calendarDateInHomeTz } from "@/lib/timezone";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -24,7 +23,7 @@ type DbClient = ReturnType<typeof createAdminClient>;
 
 /**
  * End lesson for everyone — rider (cookie) or trainer (guest Bearer).
- * Fast path: mark ended + heuristic journal. Claude polish is kicked off
+ * Fast path: mark ended + thin pending journal stub. Claude polish is kicked off
  * by the client afterward so End never freezes.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
@@ -120,6 +119,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       raw_json: (s.raw_json as Record<string, unknown> | null) || null,
     }));
 
+    const { data: videoAsset } = await db
+      .from("session_media_assets")
+      .select("id")
+      .eq("capture_session_id", id)
+      .eq("kind", "video")
+      .limit(1)
+      .maybeSingle();
+    const sessionSource = videoAsset ? "hybrid" : "comms";
+
     let horseFocus: string | null = null;
     let horseName = "Horse";
     if (capture.horse_id) {
@@ -133,11 +141,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const startedAt = new Date(capture.t0);
-    const heuristic = summarizeCaptureTranscript(list, {
+    const stub = pendingCaptureBrief({
       horseFocus,
-      trainerName: capture.trainer_display_name,
       horseName,
       startedAt,
+      hasSpeech: list.length > 0,
     });
 
     const started = startedAt.getTime();
@@ -147,22 +155,28 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       Math.round((endedMs - (Number.isNaN(started) ? endedMs : started)) / 60000)
     );
     const sessionDate = Number.isNaN(startedAt.getTime())
-      ? format(new Date(), "yyyy-MM-dd")
-      : format(startedAt, "yyyy-MM-dd");
+      ? calendarDateInHomeTz()
+      : calendarDateInHomeTz(startedAt);
 
+    const askedAt = new Date().toISOString();
     const payload: Record<string, unknown> = {
       user_id: capture.rider_id,
       session_date: sessionDate,
       horse: horseName,
       session_type: "lesson",
-      overall_feel: 5,
-      session_source: "comms",
-      session_title: heuristic.title,
-      summary: heuristic.focus
-        ? `${heuristic.focus}\n\n${heuristic.summary}`
-        : heuristic.summary,
-      homework: heuristic.homework,
-      exercises: heuristic.exercises,
+      // Brief 14: unanswered feel is null forever — never fabricate a 5.
+      overall_feel: null,
+      feel_scale: null,
+      feel_asked_at: askedAt,
+      feel_answered_at: null,
+      feel_deferrals: 0,
+      session_source: sessionSource,
+      session_title: stub.title,
+      summary: stub.focus
+        ? `${stub.focus}\n\n${stub.summary}`
+        : stub.summary,
+      homework: stub.homework || null,
+      exercises: stub.exercises || null,
       duration_minutes: durationMinutes,
       notes: capture.trainer_display_name
         ? `With ${capture.trainer_display_name}`
@@ -217,11 +231,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       training_session_id: journal.id,
       capture_session_id: id,
-      summary: heuristic.summary,
-      homework: heuristic.homework,
+      summary: stub.summary,
+      homework: stub.homework,
       segment_count: list.length,
       cleaned: false,
       polish: true,
+      brief_pending: true,
       ended_by: asGuest ? "trainer" : "rider",
     });
   } catch (e) {

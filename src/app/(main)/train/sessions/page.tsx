@@ -1,49 +1,26 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { SESSION_TYPE_LABELS } from "@/lib/validations/training-session";
-import { Plus } from "lucide-react";
-import { TrainSessionsFilters } from "@/components/train/sessions-filters";
-import {
-  formatSessionWhen,
-  sessionDisplayTitle,
-} from "@/lib/train/format-session-when";
+import { RidesListClient } from "@/components/train/rides-list-client";
+import { sessionDisplayTitle } from "@/lib/train/format-session-when";
+import { formatHomeCalendarDate } from "@/lib/timezone";
 
 interface SessionsPageProps {
-  searchParams: Promise<{ range?: string; horse?: string; horse_id?: string; session_type?: string }> | { range?: string; horse?: string; horse_id?: string; session_type?: string };
+  searchParams:
+    | Promise<{ horseId?: string; horse_id?: string }>
+    | { horseId?: string; horse_id?: string };
 }
 
-export default async function TrainSessionsPage({ searchParams }: SessionsPageProps) {
+export default async function TrainSessionsPage({
+  searchParams,
+}: SessionsPageProps) {
   const resolved = await Promise.resolve(searchParams);
-  const range = resolved.range || "30";
-  const horse = resolved.horse || "";
-  const horseId = resolved.horse_id || "";
-  const sessionType = resolved.session_type || "";
+  const horseIdParam = resolved.horseId || resolved.horse_id || "";
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return null;
-
-  const fromDate = new Date();
-  if (range === "7") fromDate.setDate(fromDate.getDate() - 7);
-  else if (range === "30") fromDate.setDate(fromDate.getDate() - 30);
-  else fromDate.setDate(fromDate.getDate() - 90);
-  const fromStr = fromDate.toISOString().split("T")[0];
-
-  let query = supabase
-    .from("training_sessions")
-    .select("*")
-    .eq("user_id", user.id)
-    .gte("session_date", fromStr)
-    .order("session_date", { ascending: false })
-    .order("created_at", { ascending: false });
-
-  if (horseId) query = query.eq("horse_id", horseId);
-  else if (horse) query = query.eq("horse", horse);
-  if (sessionType) query = query.eq("session_type", sessionType);
-
-  const { data: sessions } = await query;
 
   const { data: horseProfiles } = await supabase
     .from("horse_profiles")
@@ -51,87 +28,87 @@ export default async function TrainSessionsPage({ searchParams }: SessionsPagePr
     .eq("user_id", user.id)
     .order("name");
 
-  const horseMap = new Map((horseProfiles || []).map((h) => [h.id, h]));
-  function horseDisplay(s: { horse_id?: string | null; horse?: string | null }) {
-    if (s.horse_id) {
-      const hp = horseMap.get(s.horse_id);
-      return hp ? (hp.barn_name?.trim() ? `${hp.name} (“${hp.barn_name}”)` : hp.name) : "Unassigned";
-    }
-    return (s.horse && s.horse.trim()) || "Unassigned";
+  const horses = horseProfiles || [];
+  const activeHorse =
+    horses.find((h) => h.id === horseIdParam) || horses[0] || null;
+
+  let query = supabase
+    .from("training_sessions")
+    .select(
+      "id, session_date, created_at, session_title, session_type, duration_minutes, horse, horse_id, notes, session_source"
+    )
+    .eq("user_id", user.id)
+    .order("session_date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (activeHorse) {
+    query = query.eq("horse_id", activeHorse.id);
   }
 
+  const { data: sessions } = await query;
+  const list = sessions || [];
+
+  const trainerBySession = new Map<string, string>();
+  if (list.length > 0) {
+    const { data: captures } = await supabase
+      .from("capture_sessions")
+      .select("training_session_id, trainer_display_name")
+      .in(
+        "training_session_id",
+        list.map((s) => s.id)
+      );
+    for (const c of captures || []) {
+      if (c.training_session_id && c.trainer_display_name?.trim()) {
+        trainerBySession.set(
+          c.training_session_id,
+          c.trainer_display_name.trim()
+        );
+      }
+    }
+  }
+
+  const horseLabel = activeHorse
+    ? activeHorse.barn_name?.trim() || activeHorse.name
+    : "All";
+
+  const rides = list.map((s) => {
+    const trainer =
+      trainerBySession.get(s.id) ||
+      (typeof s.notes === "string" && /^With\s+/i.test(s.notes)
+        ? s.notes.replace(/^With\s+/i, "").trim()
+        : null);
+    const isLesson =
+      s.session_source === "comms" ||
+      s.session_source === "hybrid" ||
+      !!trainer;
+    const datePart = formatHomeCalendarDate(s.session_date, "MMM d").toUpperCase();
+    const metaParts = [datePart];
+    if (isLesson) {
+      metaParts.push("LESSON");
+      if (trainer) metaParts.push(trainer.toUpperCase());
+    } else {
+      metaParts.push("SCHOOLING");
+    }
+    const title = sessionDisplayTitle(
+      s.session_title,
+      s.notes?.split(" — ")[0]?.trim() ||
+        SESSION_TYPE_LABELS[s.session_type] ||
+        s.session_type
+    );
+    return {
+      id: s.id,
+      title,
+      meta: metaParts.join(" · "),
+      searchText: title,
+      session_date: s.session_date,
+      sensorValue: null as string | null,
+    };
+  });
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold">History</p>
-          <h1 className="mt-1 font-serif text-3xl">Sessions</h1>
-          <p className="text-cream/60">View and manage your Vector sessions</p>
-        </div>
-        <Link href="/train/sessions/new">
-          <Button className="bg-gold text-navy font-semibold hover:bg-gold/90 w-full sm:w-auto">
-            <Plus className="h-4 w-4 mr-2" />
-            Log Session
-          </Button>
-        </Link>
-      </div>
-
-      <TrainSessionsFilters
-        currentRange={range}
-        currentHorseId={horseId}
-        currentSessionType={sessionType}
-        horseProfiles={horseProfiles || []}
-      />
-
-      <Card className="border-gold/20 bg-white/5">
-        <CardContent className="p-0">
-          {(!sessions || sessions.length === 0) ? (
-            <div className="py-12 text-center text-muted-foreground">
-              <p>No sessions in this range.</p>
-              <Link href="/train/sessions/new" className="mt-2 inline-block text-gold hover:text-gold-bright">
-                Log your first session
-              </Link>
-            </div>
-          ) : (
-            <ul className="divide-y divide-gold/10">
-              {sessions.map((s: { id: string; session_date: string; created_at?: string; session_title?: string | null; session_type: string; duration_minutes?: number | null; overall_feel: number; horse?: string | null; horse_id?: string | null; video_link_url?: string | null; video_upload_path?: string | null }) => (
-                <li key={s.id}>
-                  <Link
-                    href={`/train/sessions/${s.id}`}
-                    className="flex flex-wrap items-center justify-between gap-2 p-4 hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">
-                        {formatSessionWhen(s.session_date, s.created_at)}
-                      </span>
-                      <span className="text-muted-foreground">·</span>
-                      <span className="text-foreground">
-                        {sessionDisplayTitle(
-                          s.session_title,
-                          SESSION_TYPE_LABELS[s.session_type] || s.session_type
-                        )}
-                      </span>
-                      <span className="text-muted-foreground">·</span>
-                      <span>{horseDisplay(s)}</span>
-                      {s.duration_minutes != null && (
-                        <span className="text-xs text-muted-foreground">
-                          {s.duration_minutes} min
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {(s.video_link_url || s.video_upload_path) && (
-                        <span className="text-xs text-muted-foreground">Video</span>
-                      )}
-                      <span className="text-gold font-medium">{s.overall_feel}/10</span>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+    <RidesListClient
+      horseLabel={horseLabel}
+      rides={rides}
+    />
   );
 }

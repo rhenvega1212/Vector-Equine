@@ -17,7 +17,13 @@ import {
   newClientId,
   type SegmentOutbox,
 } from "@/lib/capture/segment-outbox";
+import {
+  newChunkId,
+  pickRecorderMime,
+} from "@/lib/capture/lesson-recorder";
 import { VoiceLevelMeter } from "@/components/capture/voice-level-meter";
+import { playVectorAudio } from "@/lib/capture/play-vector-audio";
+import { useFeatureFlag } from "@/lib/flags/context";
 
 type LivekitCreds = {
   configured: boolean;
@@ -28,7 +34,7 @@ type LivekitCreds = {
 type Segment = {
   id?: string;
   offset_ms: number;
-  speaker: "rider" | "trainer" | "system";
+  speaker: "rider" | "trainer" | "system" | "vector";
   text: string;
 };
 
@@ -66,6 +72,9 @@ const CALL_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
   autoGainControl: true,
   channelCount: 1,
 };
+
+/** Rotate mic chunks often enough to stay under Whisper's 25MB limit. */
+const WHISPER_CHUNK_MS = 90_000;
 
 function mergeSegments(prev: Segment[], incoming: Segment[]): Segment[] {
   const softKey = (s: Segment) => `${s.speaker}:${s.offset_ms}:${s.text}`;
@@ -156,6 +165,11 @@ export function CaptureRoom({
   ending,
   autoStart = false,
   onLessonClosed,
+  riderFirstName = null,
+  trainerFirstName = null,
+  /** When false, no-wake escape: no strip hint / ON-OFF. Bookends still play if vectorInSession. */
+  wakeArmed = true,
+  vectorInSession: vectorInSessionProp,
 }: {
   captureSessionId: string;
   t0: string;
@@ -179,7 +193,21 @@ export function CaptureRoom({
     remote: boolean;
     training_session_id?: string | null;
   }) => void;
+  riderFirstName?: string | null;
+  trainerFirstName?: string | null;
+  wakeArmed?: boolean;
+  /** Override flag (guests). Rider defaults to feature flag. */
+  vectorInSession?: boolean;
 }) {
+  const flagVector = useFeatureFlag("vector_in_session");
+  // Guests sit outside the main flag provider; bookends still run when they join a live room.
+  const vectorInSession =
+    vectorInSessionProp !== undefined
+      ? vectorInSessionProp
+      : guestToken
+        ? true
+        : flagVector;
+  const showWakeUi = vectorInSession && wakeArmed;
   const [roomState, setRoomState] = useState<
     "idle" | "connecting" | "connected" | "reconnecting" | "error"
   >("idle");
@@ -222,6 +250,12 @@ export function CaptureRoom({
   const connectCallRef = useRef<(opts?: { reconnect?: boolean }) => Promise<void>>(
     async () => undefined
   );
+  const startLessonRecorderRef = useRef<(track: LocalAudioTrack) => void>(
+    () => undefined
+  );
+  const stopLessonRecorderAndFlushRef = useRef<() => Promise<void>>(
+    async () => undefined
+  );
   const outboxRef = useRef<SegmentOutbox | null>(null);
   const segmentsRef = useRef<Segment[]>([]);
   const pullSegmentsRef = useRef<(() => Promise<void>) | null>(null);
@@ -232,11 +266,22 @@ export function CaptureRoom({
   const micIdRef = useRef(micId);
   const speakerIdRef = useRef(speakerId);
   const t0Ms = useRef(new Date(t0).getTime());
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recorderChunkStartRef = useRef(0);
+  const recorderUploadsRef = useRef<Promise<unknown>[]>([]);
+  const speakerRoleRef = useRef(speaker);
+  const openBookendPlayedRef = useRef(false);
+  const closeBookendPlayedRef = useRef(false);
+  const vectorInSessionRef = useRef(vectorInSession);
+  const [vectorCalledOn, setVectorCalledOn] = useState(true);
+  const [vectorStrip, setVectorStrip] = useState<"idle" | "turn">("idle");
 
   livekitRef.current = livekitProp;
   micIdRef.current = micId;
   speakerIdRef.current = speakerId;
   segmentsRef.current = segments;
+  speakerRoleRef.current = speaker;
+  vectorInSessionRef.current = vectorInSession;
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -537,6 +582,35 @@ export function CaptureRoom({
           source: Track.Source.Microphone,
         });
 
+        // Brief 14: open bookend before capture/recording and before wake arms
+        if (
+          vectorInSessionRef.current &&
+          !opts?.reconnect &&
+          !openBookendPlayedRef.current
+        ) {
+          openBookendPlayedRef.current = true;
+          try {
+            await playVectorAudio(
+              captureSessionId,
+              {
+                kind: "open",
+                riderFirst: riderFirstName,
+                trainerFirst: trainerFirstName,
+                offsetMs: Math.max(0, Date.now() - t0Ms.current),
+              },
+              () => {
+                const h: Record<string, string> = {};
+                if (guestToken) h.Authorization = `Bearer ${guestToken}`;
+                return h;
+              }
+            );
+          } catch {
+            /* disclosure best-effort */
+          }
+        }
+
+        startLessonRecorderRef.current(micTrack);
+
         if (speakerIdRef.current) {
           await applySpeakerOutput(speakerIdRef.current);
         }
@@ -580,12 +654,16 @@ export function CaptureRoom({
     [
       applySpeakerOutput,
       attachRemoteAudio,
+      captureSessionId,
       fetchFreshLivekit,
+      guestToken,
       playKeepAliveAudio,
       refreshDevices,
+      riderFirstName,
       startKeepAwake,
       stopKeepAwake,
       teardownRoom,
+      trainerFirstName,
       speaker,
     ]
   );
@@ -613,6 +691,12 @@ export function CaptureRoom({
       } catch {
         /* ignore */
       }
+      try {
+        mediaRecorderRef.current?.stop();
+      } catch {
+        /* ignore */
+      }
+      mediaRecorderRef.current = null;
       keepAliveAudioRef.current?.pause();
       outboxRef.current?.destroy();
       outboxRef.current = null;
@@ -755,6 +839,114 @@ export function CaptureRoom({
     if (guestToken) headers.Authorization = `Bearer ${guestToken}`;
     return headers;
   }, [guestToken]);
+
+  async function playCloseBookend() {
+    if (!vectorInSessionRef.current || closeBookendPlayedRef.current) return;
+    closeBookendPlayedRef.current = true;
+    try {
+      await playVectorAudio(
+        captureSessionId,
+        {
+          kind: "close",
+          offsetMs: Math.max(0, Date.now() - t0Ms.current),
+        },
+        authHeaders
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const uploadLessonAudioChunk = useCallback(
+    async (blob: Blob, syncOffsetMs: number) => {
+      if (blob.size < 64) return;
+      const form = new FormData();
+      const ext = blob.type.includes("mp4") ? "mp4" : "webm";
+      form.append("file", blob, `chunk.${ext}`);
+      form.append("speaker", speakerRoleRef.current);
+      form.append("sync_offset_ms", String(Math.max(0, syncOffsetMs)));
+      form.append("chunk_id", newChunkId());
+      const headers: Record<string, string> = {};
+      if (guestToken) headers.Authorization = `Bearer ${guestToken}`;
+      const res = await fetch(`/api/capture/sessions/${captureSessionId}/audio`, {
+        method: "POST",
+        headers,
+        body: form,
+      });
+      if (!res.ok) {
+        console.warn("lesson audio upload failed", res.status);
+      }
+    },
+    [captureSessionId, guestToken]
+  );
+
+  const stopLessonRecorderAndFlush = useCallback(async () => {
+    const rec = mediaRecorderRef.current;
+    mediaRecorderRef.current = null;
+    if (rec && rec.state !== "inactive") {
+      await new Promise<void>((resolve) => {
+        const done = () => resolve();
+        rec.addEventListener("stop", done, { once: true });
+        try {
+          rec.stop();
+        } catch {
+          resolve();
+          return;
+        }
+        window.setTimeout(done, 2500);
+      });
+    }
+    const pending = recorderUploadsRef.current;
+    recorderUploadsRef.current = [];
+    if (pending.length === 0) return;
+    await Promise.race([
+      Promise.allSettled(pending),
+      new Promise((r) => setTimeout(r, 20000)),
+    ]);
+  }, []);
+
+  const startLessonRecorder = useCallback(
+    (track: LocalAudioTrack) => {
+      const mime = pickRecorderMime();
+      if (!mime) return;
+      // Stop prior recorder without awaiting — reconnect path
+      const prev = mediaRecorderRef.current;
+      mediaRecorderRef.current = null;
+      if (prev && prev.state !== "inactive") {
+        try {
+          prev.stop();
+        } catch {
+          /* ignore */
+        }
+      }
+
+      try {
+        const stream = new MediaStream([track.mediaStreamTrack]);
+        const rec = new MediaRecorder(stream, {
+          mimeType: mime,
+          audioBitsPerSecond: 48_000,
+        });
+        recorderChunkStartRef.current = Math.max(0, Date.now() - t0Ms.current);
+
+        rec.ondataavailable = (event) => {
+          if (!event.data || event.data.size < 64) return;
+          const sync = recorderChunkStartRef.current;
+          recorderChunkStartRef.current = Math.max(0, Date.now() - t0Ms.current);
+          const upload = uploadLessonAudioChunk(event.data, sync).catch(() => undefined);
+          recorderUploadsRef.current.push(upload);
+        };
+
+        rec.start(WHISPER_CHUNK_MS);
+        mediaRecorderRef.current = rec;
+      } catch (e) {
+        console.warn("lesson MediaRecorder unavailable", e);
+      }
+    },
+    [uploadLessonAudioChunk]
+  );
+
+  startLessonRecorderRef.current = startLessonRecorder;
+  stopLessonRecorderAndFlushRef.current = stopLessonRecorderAndFlush;
 
   const broadcastSegment = useCallback(
     (seg: Segment & { interim?: boolean }) => {
@@ -1046,15 +1238,27 @@ export function CaptureRoom({
         reconnectTimerRef.current = null;
       }
       stopKeepAwake();
-      teardownRoom();
-      unlockSafariScroll();
-      setLessonEnded(true);
-      setEndedRemote(remote);
-      setRoomState("idle");
-      onLessonClosed?.({
-        remote,
-        training_session_id: trainingSessionId ?? null,
-      });
+      void (async () => {
+        try {
+          await stopLessonRecorderAndFlushRef.current();
+        } catch {
+          /* ignore */
+        }
+        try {
+          await playCloseBookend();
+        } catch {
+          /* ignore */
+        }
+        teardownRoom();
+        unlockSafariScroll();
+        setLessonEnded(true);
+        setEndedRemote(remote);
+        setRoomState("idle");
+        onLessonClosed?.({
+          remote,
+          training_session_id: trainingSessionId ?? null,
+        });
+      })();
     },
     [lessonEnded, onLessonClosed, stopKeepAwake, teardownRoom]
   );
@@ -1122,6 +1326,16 @@ export function CaptureRoom({
       // Tell the other phone immediately — don't wait on network flush/Claude
       broadcastSessionEnded(null);
 
+      // Upload mic audio for Whisper before ending (best-effort, capped)
+      try {
+        await Promise.race([
+          stopLessonRecorderAndFlushRef.current(),
+          new Promise((r) => setTimeout(r, 22000)),
+        ]);
+      } catch {
+        /* ignore */
+      }
+
       // Best-effort cue flush (short) — never block End on barn Wi‑Fi
       try {
         await Promise.race([
@@ -1139,12 +1353,15 @@ export function CaptureRoom({
         if (result?.training_session_id) {
           broadcastSessionEnded(result.training_session_id);
         }
-        // Fire-and-forget Claude polish — never blocks leaving the call
+        // Fire-and-forget polish (Whisper + coach card) — never blocks leaving
         if (result && (result as { polish?: boolean }).polish !== false) {
-          void fetch(`/api/capture/sessions/${captureSessionId}/polish`, {
-            method: "POST",
-            headers: authHeaders(),
-          }).catch(() => undefined);
+          // Brief delay so the peer can finish uploading their mic chunk
+          window.setTimeout(() => {
+            void fetch(`/api/capture/sessions/${captureSessionId}/polish`, {
+              method: "POST",
+              headers: authHeaders(),
+            }).catch(() => undefined);
+          }, 4000);
         }
       } catch (e) {
         endingInFlightRef.current = false;
@@ -1166,6 +1383,11 @@ export function CaptureRoom({
       }
 
       stopKeepAwake();
+      try {
+        await playCloseBookend();
+      } catch {
+        /* ignore */
+      }
       teardownRoom();
       unlockSafariScroll();
       setLessonEnded(true);
@@ -1262,6 +1484,23 @@ export function CaptureRoom({
           {mm}:{ss}
         </p>
       </div>
+
+      {showWakeUi ? (
+        <div className="flex items-center justify-between px-1">
+          <p className="text-[10px] uppercase tracking-[0.28em] text-cream-dim">
+            {vectorStrip === "turn" ? "◇ VECTOR" : '◇ SAY "HEY VECTOR"'}
+          </p>
+          {speaker === "trainer" ? (
+            <button
+              type="button"
+              onClick={() => setVectorCalledOn((v) => !v)}
+              className="text-[10px] uppercase tracking-[0.22em] text-gold"
+            >
+              VECTOR · {vectorCalledOn ? "ON" : "OFF"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {(networkOffline || pendingQueue > 0 || weakLink || screenHint || roomError) && (
         <div className="rounded-lg border border-gold/25 bg-gold/10 px-3 py-2 text-xs text-cream/80 space-y-2">

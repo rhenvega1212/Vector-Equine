@@ -1,13 +1,14 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SESSION_TYPE_LABELS } from "@/lib/validations/training-session";
-import { format, parseISO } from "date-fns";
+import { formatHomeCalendarDate } from "@/lib/timezone";
 import { Pencil, Plus, Calendar } from "lucide-react";
 import { HorseHeadIcon } from "@/components/icons/horse-head";
+import { AtmosphereScreen } from "@/components/train/atmosphere-screen";
+import { SetActiveHorse } from "@/components/train/set-active-horse";
 
 interface HorseDetailPageProps {
   params: Promise<{ id: string }>;
@@ -35,7 +36,11 @@ export default async function HorseDetailPage({ params }: HorseDetailPageProps) 
     .order("session_date", { ascending: false })
     .limit(50);
 
-  const displayName = horse.barn_name?.trim() ? `${horse.name} (“${horse.barn_name}”)` : horse.name;
+  const displayName = horse.barn_name?.trim()
+    ? `${horse.name} (“${horse.barn_name}”)`
+    : horse.name;
+  const shortName = horse.barn_name?.trim() || horse.name;
+  const photoUrl = horse.profile_photo_url?.trim() || null;
 
   const detailRows = [
     { label: "Breed", value: horse.breed },
@@ -55,50 +60,78 @@ export default async function HorseDetailPage({ params }: HorseDetailPageProps) 
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <Link href="/train/horses">
-          <Button variant="ghost" size="sm">← Horses</Button>
-        </Link>
-        <div className="flex gap-2">
-          <Link href={`/train/sessions/new?horse_id=${horse.id}`}>
-            <Button className="bg-gold text-navy font-semibold hover:bg-gold/90">
-              <Plus className="h-4 w-4 mr-2" />
-              Log session
-            </Button>
-          </Link>
-          <Link href={`/train/horses/${horse.id}/edit`}>
-            <Button variant="outline" size="sm">
-              <Pencil className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-          </Link>
-        </div>
-      </div>
+      <SetActiveHorse horseId={horse.id} />
 
-      <Card className="border-gold/20 overflow-hidden">
-        <div className="flex flex-col sm:flex-row gap-4 p-4 sm:p-6">
-          {horse.profile_photo_url ? (
-            <div className="relative h-28 w-28 shrink-0 rounded-lg overflow-hidden bg-muted">
-              <Image src={horse.profile_photo_url} alt="" fill className="object-cover" sizes="112px" />
-            </div>
-          ) : (
-            <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg bg-gold/20">
-              <HorseHeadIcon size={56} className="text-gold" />
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <h1 className="font-serif text-3xl">{displayName}</h1>
-            {horse.show_name && (
-              <p className="text-muted-foreground">Show name: {horse.show_name}</p>
-            )}
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-              {detailRows.slice(0, 6).map(({ label, value }) => (
-                <span key={label}>{label}: {value}</span>
-              ))}
+      <AtmosphereScreen
+        className="overflow-hidden rounded-none sm:-mx-4"
+        heroImageUrl={photoUrl}
+      >
+        <div className="px-7 pb-10 pt-6 sm:pt-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Link
+              href="/train/horses"
+              className="text-[12.5px] tracking-[0.04em] text-gold hover:text-gold-bright"
+            >
+              ← Horses
+            </Link>
+            <div className="flex gap-2">
+              <Link href={`/train/sessions/new?horse_id=${horse.id}`}>
+                <Button
+                  size="sm"
+                  className="bg-gold font-semibold text-navy hover:bg-gold-bright"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Log session
+                </Button>
+              </Link>
+              <Link href={`/train/horses/${horse.id}/edit`}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-gold/35 bg-transparent text-cream hover:bg-white/5"
+                >
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit
+                </Button>
+              </Link>
             </div>
           </div>
+
+          {!photoUrl ? (
+            <div className="mt-8 flex h-24 w-24 items-center justify-center rounded-full border border-gold/30 bg-gold/10">
+              <HorseHeadIcon size={48} className="text-gold" />
+            </div>
+          ) : null}
+
+          <h1 className="mt-6 font-[Georgia,'Times_New_Roman',serif] text-4xl leading-[1.05] text-cream sm:text-5xl">
+            {displayName}
+          </h1>
+          {horse.show_name ? (
+            <p className="mt-2 text-sm text-cream-dim">Show name: {horse.show_name}</p>
+          ) : null}
+
+          {!photoUrl ? (
+            <p className="mt-4">
+              <Link
+                href={`/train/horses/${horse.id}/edit`}
+                className="text-[12.5px] tracking-[0.04em] text-cream-dim underline decoration-gold/35 underline-offset-4 hover:text-gold"
+              >
+                Add a photo of {shortName}
+              </Link>
+            </p>
+          ) : null}
+
+          {detailRows.length > 0 ? (
+            <div className="mt-5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] uppercase tracking-[0.18em] text-cream-dim">
+              {detailRows.slice(0, 6).map(({ label, value }) => (
+                <span key={label}>
+                  {label}: {value}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
-      </Card>
+      </AtmosphereScreen>
 
       {(horse.notes || horse.goals || horse.personality_quirks || horse.injuries_limitations) && (
         <Card className="border-gold/20">
@@ -162,7 +195,7 @@ export default async function HorseDetailPage({ params }: HorseDetailPageProps) 
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-foreground">
-                        {format(parseISO(s.session_date), "MMM d, yyyy")}
+                        {formatHomeCalendarDate(s.session_date, "MMM d, yyyy")}
                       </span>
                       {s.session_title && (
                         <>

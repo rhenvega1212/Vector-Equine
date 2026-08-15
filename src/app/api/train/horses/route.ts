@@ -82,6 +82,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
+    // Unlock dial + set home horse when this is the rider's first (or no active yet).
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("active_horse_id, vector_setup_completed_at")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const profilePatch: {
+      active_horse_id?: string;
+      vector_setup_completed_at?: string;
+    } = {};
+    if (!profileRow?.active_horse_id) {
+      profilePatch.active_horse_id = horse.id;
+    }
+    if (!profileRow?.vector_setup_completed_at) {
+      profilePatch.vector_setup_completed_at = new Date().toISOString();
+    }
+    if (Object.keys(profilePatch).length > 0) {
+      await supabase.from("profiles").update(profilePatch).eq("id", user.id);
+    }
+
     return NextResponse.json(horse, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {

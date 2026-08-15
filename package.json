@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.16",
+    "@ai-sdk/openai": "^4.0.27",
     "@ai-sdk/react": "^4.0.35",
     "@date-fns/tz": "^1.4.1",
     "@dnd-kit/core": "^6.3.1",

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VE wake spike — throwaway</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        background: #0e1729;
+        color: #fcf2e6;
+        padding: 1.5rem;
+        max-width: 28rem;
+        margin: 0 auto;
+      }
+      button {
+        display: block;
+        width: 100%;
+        margin: 0.5rem 0;
+        padding: 0.9rem;
+        border: 1px solid rgba(209, 169, 85, 0.4);
+        background: transparent;
+        color: #d1a955;
+        font-size: 1rem;
+      }
+      .log {
+        margin-top: 1rem;
+        font-size: 0.85rem;
+        white-space: pre-wrap;
+        color: #b8b0a4;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Wake spike</h1>
+    <p>Throwaway counter for arena tests. Wire Porcupine in a fork — do not ship.</p>
+    <button type="button" id="arm">Arm (start listening stub)</button>
+    <button type="button" id="hit">Log deliberate call</button>
+    <button type="button" id="fa">Log false accept</button>
+    <button type="button" id="miss">Log miss</button>
+    <button type="button" id="reset">Reset</button>
+    <div class="log" id="log"></div>
+    <script>
+      const state = {
+        armedAt: null,
+        deliberate: 0,
+        falseAccepts: 0,
+        misses: 0,
+      };
+      const logEl = document.getElementById("log");
+      function render() {
+        const mins = state.armedAt
+          ? ((Date.now() - state.armedAt) / 60000).toFixed(1)
+          : "0";
+        logEl.textContent = [
+          "armed_min=" + mins,
+          "deliberate=" + state.deliberate,
+          "false_accepts=" + state.falseAccepts,
+          "misses=" + state.misses,
+          "",
+          "Target: FA / 45min, misses / 20 deliberate, notes at walk/trot/canter.",
+        ].join("\n");
+      }
+      document.getElementById("arm").onclick = () => {
+        state.armedAt = Date.now();
+        render();
+      };
+      document.getElementById("hit").onclick = () => {
+        state.deliberate += 1;
+        render();
+      };
+      document.getElementById("fa").onclick = () => {
+        state.falseAccepts += 1;
+        render();
+      };
+      document.getElementById("miss").onclick = () => {
+        state.misses += 1;
+        render();
+      };
+      document.getElementById("reset").onclick = () => {
+        Object.assign(state, {
+          armedAt: null,
+          deliberate: 0,
+          falseAccepts: 0,
+          misses: 0,
+        });
+        render();
+      };
+      render();
+      setInterval(render, 5000);
+    </script>
+  </body>
+</html>

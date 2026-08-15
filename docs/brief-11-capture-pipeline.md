@@ -13,8 +13,8 @@ Turns a lesson into a **timestamped transcript + customer journal**, with schema
 
 1. Rider: Today → Plan → **Live** → `POST /api/capture/sessions` (join code + QR)
 2. Trainer: open `/join/CODE` → name + mic → two-way room
-3. Both: browser speech recognition posts `session_transcript_segments` with `offset_ms` from `t0`
-4. Rider: **End lesson** → Claude cleans ASR + writes journal brief (falls back to heuristic if no key) → `training_sessions` (`session_source: comms`) + Debrief. Raw ASR kept in `raw_json.asr_text`.
+3. Both: browser speech recognition posts live `session_transcript_segments` (cue feed). Each mic is also recorded and uploaded as chunks for Whisper.
+4. Rider: **End lesson** → upload final audio → Claude polish. If `OPENAI_API_KEY` is set, Whisper re-transcribes uploaded audio (replacing browser ASR for that speaker) before the coach card is written. Raw ASR kept in `raw_json.asr_text`.
 5. Lab: export JSON (`t0`, segments, empty `media[]` / `sensors[]`)
 
 ## Schema
@@ -33,7 +33,12 @@ LIVEKIT_API_SECRET=
 # optional
 NEXT_PUBLIC_LIVEKIT_URL=   # same as LIVEKIT_URL if needed
 CAPTURE_JOIN_SECRET=       # optional; falls back to LiveKit/service secrets
-SUPABASE_SERVICE_ROLE_KEY= # required for guest join
+SUPABASE_SERVICE_ROLE_KEY= # required for guest join + edge ingest
+OPENAI_API_KEY=            # Whisper re-transcription on polish (recommended)
+
+# Edge / Jetson (Phases 0–1)
+# Optional HMAC override for edge session tokens (falls back to CAPTURE_JOIN_SECRET)
+# EDGE_INGEST_SECRET=
 ```
 
 Restart `npm run dev` after setting these. On Live / Join, tap **Start headset call** (mic + headphones, echo cancel on).

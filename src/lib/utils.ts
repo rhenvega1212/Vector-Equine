@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { HOME_TIMEZONE } from "@/lib/timezone";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -7,6 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatDate(date: Date | string): string {
   return new Intl.DateTimeFormat("en-US", {
+    timeZone: HOME_TIMEZONE,
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -15,6 +17,7 @@ export function formatDate(date: Date | string): string {
 
 export function formatDateTime(date: Date | string): string {
   return new Intl.DateTimeFormat("en-US", {
+    timeZone: HOME_TIMEZONE,
     month: "short",
     day: "numeric",
     year: "numeric",

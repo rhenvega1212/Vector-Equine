@@ -11,8 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { VECTOR_CONFIG, TRAINER_BUSINESS_SKU } from "@/lib/vector/config";
-import { Loader2, UserPlus, Lock, ChevronRight } from "lucide-react";
+import { Loader2, UserPlus, ChevronRight } from "lucide-react";
 
 type ProfileProps = {
   id: string;
@@ -61,7 +60,6 @@ export function CoachingPanel({ profile }: { profile: ProfileProps }) {
   const [invites, setInvites] = useState<InviteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviting, setInviting] = useState(false);
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -94,8 +92,6 @@ export function CoachingPanel({ profile }: { profile: ProfileProps }) {
     (c) => c.trainer_id === profile.id && c.status === "active"
   );
   const rosterCount = asTrainer.length;
-  const atCap = rosterCount >= VECTOR_CONFIG.FREE_COACH_MAX_RIDERS;
-  const showBusinessUpsell = atCap || !profile.trainer_business;
 
   const pendingForMode = invites.filter((i) =>
     mode === "riding" ? i.invite_role === "trainer" : i.invite_role === "rider"
@@ -159,42 +155,6 @@ export function CoachingPanel({ profile }: { profile: ProfileProps }) {
       return;
     }
     await load();
-  }
-
-  async function startBusinessCheckout() {
-    setCheckoutLoading(true);
-    try {
-      const tiersRes = await fetch("/api/payments/tiers");
-      const tiersData = await tiersRes.json();
-      const tier = (tiersData.tiers || []).find(
-        (t: { name: string; stripe_price_id: string | null }) =>
-          t.name === "trainer_business"
-      );
-      if (!tier?.stripe_price_id) {
-        toast({
-          title: TRAINER_BUSINESS_SKU.name,
-          description: `${TRAINER_BUSINESS_SKU.priceLabel}${TRAINER_BUSINESS_SKU.priceTbd ? " (price TBD)" : ""} — checkout opens once Stripe is configured.`,
-        });
-        return;
-      }
-      const res = await fetch("/api/payments/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "subscription", tierId: tier.id }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.url) {
-        toast({
-          title: "Checkout unavailable",
-          description: typeof data.error === "string" ? data.error : "Try again later",
-          variant: "destructive",
-        });
-        return;
-      }
-      window.location.href = data.url;
-    } finally {
-      setCheckoutLoading(false);
-    }
   }
 
   return (
@@ -319,7 +279,11 @@ export function CoachingPanel({ profile }: { profile: ProfileProps }) {
             <div>
               <h3 className="text-sm font-medium">Rider roster</h3>
               <p className="text-xs text-muted-foreground">
-                {rosterCount} / {VECTOR_CONFIG.FREE_COACH_MAX_RIDERS} free seats
+                {rosterCount === 0
+                  ? "No riders yet"
+                  : rosterCount === 1
+                    ? "1 rider"
+                    : `${rosterCount} riders`}
               </p>
             </div>
             <Button
@@ -391,45 +355,6 @@ export function CoachingPanel({ profile }: { profile: ProfileProps }) {
               })}
             </ul>
           )}
-
-          {!profile.trainer_business && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <LockedBusinessTile title="Cross-client analytics" />
-              <LockedBusinessTile title="Branded reports" />
-            </div>
-          )}
-
-          {showBusinessUpsell && (
-            <div className="rounded-lg border border-gold/30 bg-gold/10 p-4 space-y-2">
-              <div className="flex items-center gap-2 text-gold">
-                <Lock className="h-4 w-4" />
-                <p className="text-sm font-semibold">{TRAINER_BUSINESS_SKU.name}</p>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {atCap
-                  ? `You've reached the free roster of ${VECTOR_CONFIG.FREE_COACH_MAX_RIDERS}. Unlock unlimited riders, cross-client analytics, and branded reports.`
-                  : "Unlock unlimited roster, multi-client dashboard, and branded client reports."}{" "}
-                {TRAINER_BUSINESS_SKU.priceLabel}
-                {TRAINER_BUSINESS_SKU.priceTbd ? " (price TBD)" : ""}.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  className="bg-gold text-navy font-semibold hover:bg-gold-bright"
-                  disabled={checkoutLoading}
-                  onClick={startBusinessCheckout}
-                >
-                  {checkoutLoading && (
-                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                  )}
-                  Upgrade
-                </Button>
-                <Button size="sm" variant="outline" className="border-gold/30" asChild>
-                  <Link href="/settings">Learn more</Link>
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
@@ -457,21 +382,6 @@ function PendingInvites({ invites }: { invites: InviteRow[] }) {
           </li>
         ))}
       </ul>
-    </div>
-  );
-}
-
-function LockedBusinessTile({ title }: { title: string }) {
-  return (
-    <div className="rounded-lg border border-gold/20 bg-[#131C31] p-4 opacity-90">
-      <div className="flex items-center gap-2 text-gold">
-        <Lock className="h-3.5 w-3.5" />
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em]">
-          Trainer Business
-        </p>
-      </div>
-      <p className="mt-2 font-serif text-base text-cream">{title}</p>
-      <p className="mt-1 text-xs text-muted-foreground">Coming soon</p>
     </div>
   );
 }

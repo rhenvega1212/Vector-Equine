@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { format, parseISO } from "date-fns";
+import { formatHomeCalendarDate } from "@/lib/timezone";
 
 interface SessionDeleteButtonProps {
   sessionId: string;
@@ -18,7 +18,7 @@ export function SessionDeleteButton({ sessionId, sessionDate }: SessionDeleteBut
   const [loading, setLoading] = useState(false);
 
   async function handleDelete() {
-    if (!confirm(`Delete this session (${format(parseISO(sessionDate), "MMM d, yyyy")})? This cannot be undone.`)) return;
+    if (!confirm(`Delete this session (${formatHomeCalendarDate(sessionDate, "MMM d, yyyy")})? This cannot be undone.`)) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/train/sessions/${sessionId}`, { method: "DELETE" });

@@ -28,6 +28,8 @@ interface MediaCropperProps {
   onOpenChange: (open: boolean) => void;
   imageSrc: string;
   onCropComplete: (croppedBlob: Blob) => void;
+  /** When set, locks the crop to this aspect (hides Free/16:9/etc). */
+  aspectRatio?: number;
 }
 
 async function getCroppedImg(
@@ -78,14 +80,25 @@ export function MediaCropper({
   onOpenChange,
   imageSrc,
   onCropComplete,
+  aspectRatio,
 }: MediaCropperProps) {
+  const locked = aspectRatio != null && Number.isFinite(aspectRatio);
+  const initialIdx = locked
+    ? Math.max(
+        0,
+        ASPECT_OPTIONS.findIndex(
+          (o) => o.value != null && Math.abs(o.value - aspectRatio!) < 0.001
+        )
+      )
+    : 0;
+
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [aspectIdx, setAspectIdx] = useState(0);
+  const [aspectIdx, setAspectIdx] = useState(initialIdx);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const aspect = ASPECT_OPTIONS[aspectIdx].value;
+  const aspect = locked ? aspectRatio : ASPECT_OPTIONS[aspectIdx].value;
 
   const onCropChangeHandler = useCallback((location: Point) => {
     setCrop(location);
@@ -105,8 +118,8 @@ export function MediaCropper({
   const handleReset = useCallback(() => {
     setCrop({ x: 0, y: 0 });
     setZoom(1);
-    setAspectIdx(0);
-  }, []);
+    if (!locked) setAspectIdx(0);
+  }, [locked]);
 
   const handleSave = async () => {
     if (!croppedAreaPixels) return;
@@ -134,11 +147,17 @@ export function MediaCropper({
         <DialogHeader>
           <DialogTitle>Crop Image</DialogTitle>
           <DialogDescription>
-            Drag to reposition, pinch or use the slider to zoom
+            {locked && aspectRatio === 1
+              ? "Square crop only — drag to reposition, pinch or use the slider to zoom"
+              : "Drag to reposition, pinch or use the slider to zoom"}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden bg-black">
+        <div
+          className={`relative w-full rounded-lg overflow-hidden bg-black ${
+            locked && aspectRatio === 1 ? "aspect-square" : "aspect-[4/3]"
+          }`}
+        >
           <Cropper
             image={imageSrc}
             crop={crop}
@@ -154,26 +173,26 @@ export function MediaCropper({
           />
         </div>
 
-        {/* Aspect ratio presets */}
-        <div className="flex items-center gap-2 justify-center">
-          {ASPECT_OPTIONS.map((opt, idx) => (
-            <Button
-              key={opt.label}
-              size="sm"
-              variant={aspectIdx === idx ? "default" : "outline"}
-              className={`h-8 text-xs ${
-                aspectIdx === idx
-                  ? "bg-gold text-navy font-semibold hover:bg-gold/90"
-                  : "border-gold/30 hover:bg-gold/10"
-              }`}
-              onClick={() => setAspectIdx(idx)}
-            >
-              {opt.label}
-            </Button>
-          ))}
-        </div>
+        {!locked && (
+          <div className="flex items-center gap-2 justify-center">
+            {ASPECT_OPTIONS.map((opt, idx) => (
+              <Button
+                key={opt.label}
+                size="sm"
+                variant={aspectIdx === idx ? "default" : "outline"}
+                className={`h-8 text-xs ${
+                  aspectIdx === idx
+                    ? "bg-gold text-navy font-semibold hover:bg-gold/90"
+                    : "border-gold/30 hover:bg-gold/10"
+                }`}
+                onClick={() => setAspectIdx(idx)}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </div>
+        )}
 
-        {/* Zoom controls */}
         <div className="space-y-3">
           <div className="flex items-center gap-4">
             <ZoomOut className="h-4 w-4 text-muted-foreground flex-shrink-0" />

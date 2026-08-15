@@ -28,7 +28,7 @@ export function DebriefShareActions({
   sessionId,
   isOwner,
 }: {
-  score: number;
+  score: number | null;
   decodedLine: string;
   horseName: string;
   riderFirstName: string;
@@ -38,12 +38,14 @@ export function DebriefShareActions({
   return (
     <div className="flex flex-col gap-4 w-full">
       <div className="flex flex-wrap gap-3">
-        <OutwardShareButton
-          score={score}
-          decodedLine={decodedLine}
-          horseName={horseName}
-          riderFirstName={riderFirstName}
-        />
+        {score != null ? (
+          <OutwardShareButton
+            score={score}
+            decodedLine={decodedLine}
+            horseName={horseName}
+            riderFirstName={riderFirstName}
+          />
+        ) : null}
         {isOwner && sessionId && <ViewLinkControls sessionId={sessionId} />}
       </div>
       {isOwner && sessionId && <ShareWithCoachControls sessionId={sessionId} />}

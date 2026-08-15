@@ -1,38 +1,30 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { SessionDeleteButton } from "@/components/train/session-delete-button";
 import { DebriefShareActions } from "@/components/train/debrief-share-actions";
+import { RideFeelAsk } from "@/components/train/ride-feel-ask";
 import { CoachingNotesEditor } from "@/components/train/coaching-notes-editor";
-import { DebriefCaptureClient } from "@/components/train/debrief-capture-client";
-import { DebriefJournalBrief } from "@/components/train/debrief-journal-brief";
-import { VectorRideChatLazy } from "@/components/train/vector-ride-chat-lazy";
+import { AtmosphereScreen } from "@/components/train/atmosphere-screen";
+import { RideDetailClient } from "@/components/train/ride-detail-client";
 import { VECTOR_CONFIG } from "@/lib/vector/config";
-import { cueReelFromSegments } from "@/lib/capture/summary";
+import { sessionDisplayTitle } from "@/lib/train/format-session-when";
 import {
-  formatSessionWhen,
-  sessionDisplayTitle,
-} from "@/lib/train/format-session-when";
+  formatHomeCalendarDate,
+  formatInHomeTz,
+} from "@/lib/timezone";
+import {
+  deriveRideMoments,
+  transcriptFromTimeline,
+} from "@/lib/train/ride-moments";
+import { resolveRideVideo } from "@/lib/capture/resolve-ride-video";
 
 interface SessionPageProps {
   params: Promise<{ id: string }>;
 }
 
-function splitFocusAndStory(summary: string | null): {
-  focus: string | null;
-  story: string | null;
-} {
-  if (!summary?.trim()) return { focus: null, story: null };
-  const parts = summary.split(/\n\n+/).map((p) => p.trim()).filter(Boolean);
-  if (parts.length >= 2 && parts[0].length < 160) {
-    return { focus: parts[0], story: parts.slice(1).join("\n\n") };
-  }
-  return { focus: null, story: summary.trim() };
-}
-
-export default async function DebriefPage({ params }: SessionPageProps) {
+export default async function RidePage({ params }: SessionPageProps) {
   const { id } = await params;
   const supabase = await createClient();
   const {
@@ -61,10 +53,12 @@ export default async function DebriefPage({ params }: SessionPageProps) {
   if (session.horse_id) {
     const { data: horse } = await supabase
       .from("horse_profiles")
-      .select("name")
+      .select("name, barn_name")
       .eq("id", session.horse_id)
       .maybeSingle();
-    if (horse?.name) horseShort = horse.name;
+    if (horse) {
+      horseShort = horse.barn_name?.trim() || horse.name;
+    }
   }
 
   const { data: capture } = await supabase
@@ -82,6 +76,7 @@ export default async function DebriefPage({ params }: SessionPageProps) {
     rider_highlight?: boolean;
     featured_quote?: boolean;
   }[] = [];
+
   if (capture?.id) {
     const { data: segments } = await supabase
       .from("session_transcript_segments")
@@ -107,128 +102,115 @@ export default async function DebriefPage({ params }: SessionPageProps) {
     (typeof session.notes === "string" && /^With\s+/i.test(session.notes)
       ? session.notes.replace(/^With\s+/i, "").trim()
       : null);
+  const trainerFirst = trainerName?.trim().split(/\s+/)[0] || null;
 
-  const { focus, story } = splitFocusAndStory(session.summary);
-  const featuredCues = timeline
-    .filter((s) => s.speaker === "trainer" && s.featured_quote)
-    .map((s) => ({
-      offset_ms: s.offset_ms,
-      text: s.text,
-      featured: true as const,
-    }));
-  const cues =
-    featuredCues.length > 0
-      ? featuredCues
-      : cueReelFromSegments(timeline).map((c) => ({ ...c, featured: false }));
-  const source = session.session_source as string | null;
-  const isComms = source === "comms" || (!source && !!capture);
+  // Rider note: prefer notes that aren't the "With Trainer" stub
+  const riderNoteRaw = session.notes?.trim() || null;
+  const riderNote =
+    riderNoteRaw && !/^With\s+/i.test(riderNoteRaw)
+      ? riderNoteRaw.replace(/^[^—–-]+[—–-]\s*/, "").trim() || riderNoteRaw
+      : null;
 
-  const backHref = isOwner ? "/train" : `/profile/coach/${session.user_id}`;
-  const backLabel = isOwner ? "Today" : "Roster";
+  const { moments, carryIn } = deriveRideMoments({
+    summary: session.summary,
+    timeline,
+    trainerName,
+    riderNote,
+  });
+
+  const transcript = transcriptFromTimeline(timeline, trainerName);
+
+  const title = sessionDisplayTitle(
+    session.session_title,
+    "Lesson"
+  );
+
+  const datePart = formatHomeCalendarDate(
+    session.session_date,
+    "MMM d"
+  ).toUpperCase();
+  const timePart = session.created_at
+    ? formatInHomeTz(session.created_at, "h:mm a").toUpperCase()
+    : null;
+  const dur =
+    session.duration_minutes != null
+      ? `${session.duration_minutes} MIN`
+      : null;
+  const metaLine = [datePart, timePart, dur].filter(Boolean).join(" · ");
+
+  const isLesson =
+    session.session_source === "comms" ||
+    session.session_source === "hybrid" ||
+    !!trainerName;
+  const whoLine = trainerName
+    ? `${horseShort} · Lesson with ${trainerName}`
+    : `${horseShort} · ${isLesson ? "Lesson" : "Schooling"}`;
+
+  const rideVideo = await resolveRideVideo({
+    captureSessionId: capture?.id,
+    videoLinkUrl: session.video_link_url,
+    riderId: session.user_id,
+  });
+  const videoUrl = rideVideo.url;
+  const videoKind = rideVideo.kind;
+  const videoSyncOffsetMs = rideVideo.syncOffsetMs;
+
+  const backHref = isOwner
+    ? session.horse_id
+      ? `/train/sessions?range=all&horseId=${session.horse_id}`
+      : "/train/sessions?range=all"
+    : `/profile/coach/${session.user_id}`;
+
+  const planHref = session.horse_id
+    ? `/train/ride/plan?horseId=${session.horse_id}`
+    : "/train/ride/plan";
 
   const shareLine =
-    focus || story?.split(".")[0]?.trim() || "Lesson notes from this ride.";
+    carryIn?.text ||
+    moments[0]?.text ||
+    "Lesson notes from this ride.";
 
-  return (
-    <div className="space-y-8 pb-10">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <Link href={backHref}>
-          <Button variant="ghost" size="sm" className="text-cream/70">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            {backLabel}
-          </Button>
-        </Link>
-        {isOwner && (
-          <div className="flex gap-2">
-            {VECTOR_CONFIG.CAPTURE_LAB && capture?.id && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-gold/30"
-                asChild
-              >
-                <Link href={`/train/lab?capture=${capture.id}`}>Lab</Link>
-              </Button>
-            )}
-            <SessionDeleteButton
-              sessionId={session.id}
-              sessionDate={session.session_date}
-            />
-            <Link href={`/train/sessions/${session.id}/edit`}>
-              <Button variant="outline" size="sm" className="border-gold/30">
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit
-              </Button>
+  const tools = (
+    <>
+      {isOwner && (
+        <div className="flex flex-wrap gap-3">
+          {VECTOR_CONFIG.CAPTURE_LAB && capture?.id ? (
+            <Link
+              href={`/train/lab?capture=${capture.id}`}
+              className="text-[12.5px] text-cream-dim hover:text-gold"
+            >
+              Lab
             </Link>
-          </div>
-        )}
-      </div>
-
-      <header className="space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold">
-          Debrief
-        </p>
-        <h1 className="font-serif text-3xl text-cream sm:text-4xl">
-          {sessionDisplayTitle(
-            session.session_title,
-            session.notes?.split(" — ")[0]?.trim() || "Today's ride"
-          )}
-        </h1>
-        <p className="text-sm text-cream/55">
-          {horseShort}
-          {trainerName ? (
-            <>
-              {" "}
-              · Lesson with{" "}
-              <span className="text-cream/80">{trainerName}</span>
-            </>
           ) : null}
-        </p>
-        <p className="text-sm text-cream/45">
-          {formatSessionWhen(session.session_date, session.created_at)} ·{" "}
-          {session.duration_minutes ?? "—"} min
-          {source === "comms"
-            ? " · comms"
-            : source === "hybrid"
-              ? " · hybrid"
-              : ""}
-        </p>
-      </header>
-
-      {capture ? (
-        <DebriefCaptureClient
-          sessionId={session.id}
-          focus={focus}
-          story={story}
-          homework={isOwner ? session.homework : null}
-          exercises={session.exercises}
-          cues={cues}
-          trainerName={trainerName}
-          isComms={!!isComms}
-          timeline={timeline}
-          showChat={isOwner}
-          canHighlight={isOwner}
-        />
-      ) : (
-        <div className="space-y-6">
-          <DebriefJournalBrief
-            focus={focus}
-            story={story}
-            homework={isOwner ? session.homework : null}
-            exercises={session.exercises}
-            cues={[]}
-            trainerName={trainerName}
-            isComms={false}
+          <Link
+            href={`/train/sessions/${session.id}/edit`}
+            className="inline-flex items-center gap-1.5 text-[12.5px] text-cream-dim hover:text-gold"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Edit
+          </Link>
+          <SessionDeleteButton
+            sessionId={session.id}
+            sessionDate={session.session_date}
           />
-          {isOwner && (
-            <VectorRideChatLazy
-              sessionId={session.id}
-              trainerName={trainerName}
-            />
-          )}
         </div>
       )}
-
+      {isOwner && session.overall_feel == null ? (
+        <RideFeelAsk
+          rideId={session.id}
+          withTrainer={Boolean(trainerFirst)}
+        />
+      ) : null}
+      {isOwner && (
+        <DebriefShareActions
+          score={session.overall_feel}
+          decodedLine={shareLine}
+          horseName={horseShort}
+          riderFirstName={riderFirstName}
+          sessionId={session.id}
+          isOwner
+        />
+      )}
       {!isOwner && (
         <CoachingNotesEditor
           sessionId={session.id}
@@ -236,22 +218,28 @@ export default async function DebriefPage({ params }: SessionPageProps) {
           initialHomework={session.homework}
         />
       )}
+    </>
+  );
 
-      {isOwner && (
-        <div className="flex flex-col gap-4">
-          <DebriefShareActions
-            score={session.overall_feel ?? 5}
-            decodedLine={shareLine}
-            horseName={horseShort}
-            riderFirstName={riderFirstName}
-            sessionId={session.id}
-            isOwner
-          />
-          <Button variant="outline" className="border-gold/30 w-fit" asChild>
-            <Link href="/train">Save to journal</Link>
-          </Button>
-        </div>
-      )}
-    </div>
+  return (
+    <AtmosphereScreen className="min-h-[70vh] -mx-3 sm:-mx-4">
+      <RideDetailClient
+        backHref={backHref}
+        metaLine={metaLine}
+        title={title}
+        whoLine={whoLine}
+        carryIn={carryIn}
+        moments={moments}
+        transcript={transcript}
+        trainerFirstName={trainerFirst}
+        riderNote={riderNote}
+        videoUrl={videoUrl}
+        videoKind={videoKind}
+        videoSyncOffsetMs={videoSyncOffsetMs}
+        planHref={planHref}
+        askHref={`/train/sessions/${session.id}/ask`}
+        tools={tools}
+      />
+    </AtmosphereScreen>
   );
 }

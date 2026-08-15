@@ -8,8 +8,7 @@ import type { FlagStage } from "@/types/database";
  * defines the typed keys + human descriptions + the stage a flag should fall
  * back to if its DB row is missing.
  *
- * To add a new gated feature: add a key here, then add a matching seed row in a
- * migration (or it will be auto-seeded by the admin flags sync endpoint).
+ * Flag-off means the surface is absent — never greyed "Coming soon".
  */
 export const FEATURE_FLAGS = {
   training_diary: {
@@ -17,13 +16,48 @@ export const FEATURE_FLAGS = {
       "Vector workspace — Today, Horse room, Plan, Live, Debrief",
     defaultStage: "off" as FlagStage,
   },
-  ai_video_analysis: {
-    description: "Video analysis of training sessions (Ask Vector)",
+  video_analysis: {
+    description: "Plan / uploaded video analysis (Ask about a clip)",
     defaultStage: "off" as FlagStage,
   },
-  ai_highlight_reel: {
+  highlight_reel: {
     description: "Generated highlight reels",
     defaultStage: "off" as FlagStage,
+  },
+  sensor_capture: {
+    description: "Sensor-derived aid reads, decoded moments, sweet-spot UI",
+    defaultStage: "off" as FlagStage,
+  },
+  horse_health: {
+    description: "Load, recovery, symmetry — horse health surface",
+    defaultStage: "off" as FlagStage,
+  },
+  events_shows: {
+    description: "Events and shows",
+    defaultStage: "off" as FlagStage,
+  },
+  trainer_business: {
+    description: "Trainer Business back-office SKU (never gates coaching)",
+    defaultStage: "off" as FlagStage,
+  },
+  coach_claim: {
+    description: "Guest trainer claim after scan-in lesson",
+    defaultStage: "ga" as FlagStage,
+  },
+  clinic_batch: {
+    description: "Clinic multi-lesson claim batch screen",
+    defaultStage: "internal" as FlagStage,
+  },
+  /** Brief 14 — open, close, called turns. Evaluated at session start (DB), not build-cached. */
+  vector_in_session: {
+    description:
+      "Vector spoken presence in Live (open/close/called turns). Kill switch — flip without deploy",
+    defaultStage: "internal" as FlagStage,
+  },
+  /** Brief 14 — blocking feel sheet only; independent of live session voice. */
+  vector_feel_prompt: {
+    description: "Blocking post-ride feel rating sheet (1–5)",
+    defaultStage: "internal" as FlagStage,
   },
 } as const;
 

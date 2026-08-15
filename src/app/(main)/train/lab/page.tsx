@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { VECTOR_CONFIG } from "@/lib/vector/config";
 import { Button } from "@/components/ui/button";
-import { format, parseISO } from "date-fns";
+import { formatInHomeTz } from "@/lib/timezone";
 import { LabExportButton } from "@/components/capture/lab-export-button";
+import { LabEdgePair } from "@/components/capture/lab-edge-pair";
 
 interface LabPageProps {
   searchParams: Promise<{ capture?: string }>;
@@ -46,14 +47,17 @@ export default async function CaptureLabPage({ searchParams }: LabPageProps) {
         </p>
       </header>
 
+      <LabEdgePair />
+
       <section className="rounded-xl border border-gold/15 bg-[#131C31] p-4 space-y-2">
         <p className="text-[10px] uppercase tracking-[0.16em] text-cream/40">
-          Coming next
+          Sync model
         </p>
         <p className="text-sm text-cream/70">
-          Attach parallel video and set <code className="text-gold/80">sync_offset_ms</code>{" "}
-          against session <code className="text-gold/80">t0</code>. Sensor streams land in the
-          same export envelope.
+          Master clock is session <code className="text-gold/80">t0</code>. Jetson
+          uploads video with <code className="text-gold/80">sync_offset_ms</code>;
+          transcript uses the same offsets. Sensors (raw) stay off the client —
+          insights only, next phase.
         </p>
       </section>
 
@@ -82,9 +86,9 @@ export default async function CaptureLabPage({ searchParams }: LabPageProps) {
                     {c.status === "ended" ? "Ended" : c.status} · {c.join_code}
                   </p>
                   <p className="text-xs text-cream/45">
-                    Started {format(parseISO(c.t0), "MMM d, yyyy · h:mm a")}
+                    Started {formatInHomeTz(c.t0, "MMM d, yyyy · h:mm a")}
                     {c.ended_at
-                      ? ` · ended ${format(parseISO(c.ended_at), "h:mm a")}`
+                      ? ` · ended ${formatInHomeTz(c.ended_at, "h:mm a")}`
                       : ""}
                     {c.trainer_display_name
                       ? ` · trainer ${c.trainer_display_name}`
@@ -103,8 +107,8 @@ export default async function CaptureLabPage({ searchParams }: LabPageProps) {
                 </div>
               </div>
               <p className="text-xs text-cream/40">
-                Video/sensor attach: not wired yet — export JSON includes empty media[] and
-                sensors[].
+                Edge video lands in session_media_assets after Jetson upload. Export
+                includes media[] when present.
               </p>
             </li>
           ))}
@@ -112,7 +116,7 @@ export default async function CaptureLabPage({ searchParams }: LabPageProps) {
       )}
 
       <Button variant="ghost" className="text-cream/60" asChild>
-        <Link href="/train">Back to Today</Link>
+        <Link href="/train">Back to Ride</Link>
       </Button>
     </div>
   );

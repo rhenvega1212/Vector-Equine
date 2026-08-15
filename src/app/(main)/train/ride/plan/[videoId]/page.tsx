@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, ArrowLeft } from "lucide-react";
-import { format } from "date-fns";
+import { formatInHomeTz } from "@/lib/timezone";
 
 const SCORE_LABELS: Record<string, string> = {
   rhythm: "Rhythm",
@@ -90,7 +90,7 @@ export default async function AiTrainerResultPage({
         <h1 className="font-serif text-3xl">Ride read-back</h1>
         <p className="text-muted-foreground">
           {video.horse && `${video.horse} · `}
-          {format(new Date(video.created_at), "MMM d, yyyy")}
+          {formatInHomeTz(video.created_at, "MMM d, yyyy")}
         </p>
       </div>
 

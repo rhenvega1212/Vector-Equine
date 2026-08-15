@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { flagGuardForApi } from "@/lib/flags/guards";
-import { vectorSetupSchema } from "@/lib/validations/vector-setup";
 import { z } from "zod";
+
+/** Minimal first-five setup: horse name unlocks the dial. */
+const minimalSetupSchema = z.object({
+  name: z.string().min(1, "Horse name is required").max(120),
+});
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role_rider, vector_setup_completed_at")
+      .select("role_rider, vector_setup_completed_at, active_horse_id")
       .eq("id", user.id)
       .single();
 
@@ -31,34 +35,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (profile.vector_setup_completed_at) {
+    const { count: existingCount } = await supabase
+      .from("horse_profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id);
+
+    if ((existingCount ?? 0) > 0) {
       return NextResponse.json({ error: "Setup already complete" }, { status: 400 });
     }
 
     const body = await request.json();
-    const parsed = vectorSetupSchema.parse(body);
+    const parsed = minimalSetupSchema.parse(body);
     const now = new Date().toISOString();
-    const horse = parsed.horse;
 
     const { data: createdHorse, error: horseError } = await supabase
       .from("horse_profiles")
       .insert({
         user_id: user.id,
-        name: horse.name.trim(),
-        breed: horse.breed?.trim() || null,
-        age: horse.age != null ? Number(horse.age) : null,
-        sex: horse.sex?.trim() || null,
-        discipline: horse.discipline.trim(),
-        training_level: horse.training_level.trim(),
-        goals: horse.goals?.trim() || null,
-        injuries_limitations: horse.injuries_limitations?.trim() || null,
-        months_together: horse.months_together,
-        sessions_per_week: horse.sessions_per_week,
-        current_focus: horse.current_focus.trim(),
-        sticking_points: horse.sticking_points?.trim() || null,
-        health_flags: horse.health_flags ?? [],
-        health_flag_notes: horse.health_flag_notes?.trim() || null,
-        baseline_completed_at: now,
+        name: parsed.name.trim(),
       })
       .select("id, name")
       .single();
@@ -70,14 +64,12 @@ export async function POST(request: NextRequest) {
     const { error: profileError } = await supabase
       .from("profiles")
       .update({
-        discipline: parsed.discipline,
-        rider_level: parsed.rider_level,
-        vector_setup_completed_at: now,
+        active_horse_id: createdHorse.id,
+        vector_setup_completed_at: profile.vector_setup_completed_at ?? now,
       })
       .eq("id", user.id);
 
     if (profileError) {
-      // Roll back horse so the rider can retry cleanly
       if (createdHorse?.id) {
         await supabase.from("horse_profiles").delete().eq("id", createdHorse.id);
       }

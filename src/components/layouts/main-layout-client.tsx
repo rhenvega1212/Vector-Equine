@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { UserX, Loader2 } from "lucide-react";
 import { UploadProgressBar } from "@/components/shared/upload-progress-bar";
+import { FeelRatingSheet } from "@/components/train/feel-rating-sheet";
 import { FeatureFlagsProvider } from "@/lib/flags/context";
 import { allFlagsOff, type EvaluatedFlags } from "@/lib/flags/registry";
 import { CurrentUserProvider } from "@/lib/auth/current-user-context";
@@ -36,7 +37,17 @@ export function MainLayoutClient({
   const [stopping, setStopping] = useState(false);
   const pathname = usePathname();
   const onVector = pathname.startsWith("/train");
+  const onVectorHome = pathname === "/train";
+  const onRidesList =
+    pathname === "/train/sessions" || pathname.startsWith("/train/sessions?");
+  const onRideDetail =
+    /^\/train\/sessions\/[^/]+$/.test(pathname) &&
+    !pathname.includes("/edit") &&
+    !pathname.includes("/new");
+  const onAskRoom = /\/train\/sessions\/[^/]+\/ask$/.test(pathname);
   const onCaptureLive = pathname.startsWith("/train/ride/live");
+  const selfPadsBottom =
+    onVectorHome || onRidesList || onRideDetail || onAskRoom;
 
   async function handleStopImpersonating() {
     setStopping(true);
@@ -105,37 +116,24 @@ export function MainLayoutClient({
       <MainNav profile={profile} />
       <main
         className={cn(
-          "container mx-auto px-3 sm:px-4 md:pb-6",
-          onVector ? "pt-0 pb-0" : "py-4 sm:py-6"
-        )}
-        style={
+          "container mx-auto px-3 sm:px-4",
+          // Clear fixed MainNav (h-14 / sm:h-16 + safe-area inset)
+          "pt-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:pt-[calc(4rem+env(safe-area-inset-top,0px))]",
           onCaptureLive
-            ? {
-                paddingTop: "calc(3.5rem + env(safe-area-inset-top, 0px))",
-                // Sticky End bar only — no app tab / Loop on live
-                paddingBottom:
-                  "calc(5.5rem + env(safe-area-inset-bottom, 0px))",
-              }
-            : onVector
-              ? {
-                  // Header is fixed: h-14 + safe-area — no extra cream gap
-                  paddingTop: "calc(3.5rem + env(safe-area-inset-top, 0px))",
-                  // App tab bar (h-12) + Loop dock (~4.5rem) + safe area
-                  paddingBottom:
-                    "calc(3rem + 4.75rem + env(safe-area-inset-bottom, 0px))",
-                }
-              : {
-                  paddingTop:
-                    "calc(3.5rem + env(safe-area-inset-top, 0px))",
-                  paddingBottom:
-                    "calc(3rem + env(safe-area-inset-bottom, 0px))",
-                }
-        }
+            ? "pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]"
+            : selfPadsBottom
+              ? "pb-0"
+              : onVector
+                ? "pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]"
+                : "pb-[calc(3rem+env(safe-area-inset-bottom,0px))] md:pb-6"
+        )}
       >
         {children}
       </main>
-      <MobileNav profile={profile} />
+      {/* Vector has its own RIDE · RIDES · HORSE · MORE nav */}
+      {!onVector && <MobileNav profile={profile} />}
       <UploadProgressBar />
+      <FeelRatingSheet />
     </div>
     </CurrentUserProvider>
     </FeatureFlagsProvider>

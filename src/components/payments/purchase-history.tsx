@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Receipt, ShoppingCart, CreditCard, ChevronLeft, ChevronRight } from "lucide-react";
 import { usePurchaseHistory } from "@/hooks/use-payment";
 import { formatPrice } from "@/lib/stripe/types";
-import { format } from "date-fns";
+import { formatInHomeTz } from "@/lib/timezone";
 
 export function PurchaseHistory() {
   const [page, setPage] = useState(1);
@@ -90,7 +90,7 @@ export function PurchaseHistory() {
                         {purchase.product?.name || "Course Purchase"}
                       </p>
                       <p className="text-sm text-white/60">
-                        {format(new Date(purchase.created_at), "MMM d, yyyy 'at' h:mm a")}
+                        {formatInHomeTz(purchase.created_at, "MMM d, yyyy 'at' h:mm a")}
                       </p>
                     </div>
                     <div className="text-right">
@@ -150,9 +150,9 @@ export function PurchaseHistory() {
                       {sub.tier?.display_name || "Subscription"}
                     </p>
                     <p className="text-sm text-white/60">
-                      {format(new Date(sub.created_at), "MMM d, yyyy")}
+                      {formatInHomeTz(sub.created_at, "MMM d, yyyy")}
                       {sub.current_period_end && (
-                        <> - Renews {format(new Date(sub.current_period_end), "MMM d, yyyy")}</>
+                        <> - Renews {formatInHomeTz(sub.current_period_end, "MMM d, yyyy")}</>
                       )}
                     </p>
                   </div>

@@ -22,7 +22,7 @@ import {
   useBillingPortal,
 } from "@/hooks/use-payment";
 import { formatPrice } from "@/lib/stripe/types";
-import { format } from "date-fns";
+import { formatInHomeTz } from "@/lib/timezone";
 
 export function SubscriptionManager() {
   const { data: subscription, isLoading, error } = useSubscription();
@@ -107,7 +107,7 @@ export function SubscriptionManager() {
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-white/60">Current period ends</span>
                 <span className="text-sm font-medium text-white">
-                  {format(new Date(subscription.subscription.currentPeriodEnd), "MMMM d, yyyy")}
+                  {formatInHomeTz(subscription.subscription.currentPeriodEnd, "MMMM d, yyyy")}
                 </span>
               </div>
               {isCanceling && (

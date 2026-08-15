@@ -100,6 +100,10 @@ export async function POST(request: NextRequest) {
         ...existing,
         join_url: joinUrl,
         resumed: true,
+        edge: {
+          attach: "/api/edge/sessions/attach",
+          note: "Jetson: attach after Start to share this session t0",
+        },
         livekit: {
           configured: isLiveKitConfigured(),
           url: getLiveKitUrl(),
@@ -141,6 +145,10 @@ export async function POST(request: NextRequest) {
           {
             ...created,
             join_url: joinUrl,
+            edge: {
+              attach: "/api/edge/sessions/attach",
+              note: "Jetson: attach after Start to share this session t0",
+            },
             livekit: {
               configured: isLiveKitConfigured(),
               url: getLiveKitUrl(),

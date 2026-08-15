@@ -4,7 +4,10 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
 const cinzel = Cinzel({ 
   subsets: ["latin"],
   variable: "--font-cinzel",
@@ -93,7 +96,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} ${cinzel.variable}`}>
+      <body className={`${inter.className} ${inter.variable} ${cinzel.variable}`}>
         <style dangerouslySetInnerHTML={{ __html: criticalStyles }} />
         <Providers>
           {children}

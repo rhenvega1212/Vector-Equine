@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
-import { format, parseISO } from "date-fns";
+import { formatHomeCalendarDate } from "@/lib/timezone";
 
 interface SharedPageProps {
   params: Promise<{ token: string }>;
@@ -77,11 +77,11 @@ export default async function SharedDebriefPage({ params }: SharedPageProps) {
           </p>
           <h1 className="font-serif text-3xl">
             {session.session_title?.trim() ||
-              format(parseISO(session.session_date), "EEEE, MMMM d")}
+              formatHomeCalendarDate(session.session_date, "EEEE, MMMM d")}
           </h1>
           <p className="text-sm text-muted-foreground">
             {riderFirstName} · {horseFirstName} ·{" "}
-            {format(parseISO(session.session_date), "MMM d, yyyy")}
+            {formatHomeCalendarDate(session.session_date, "MMM d, yyyy")}
           </p>
         </header>
 

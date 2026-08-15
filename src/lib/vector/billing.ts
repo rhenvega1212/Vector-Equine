@@ -45,7 +45,3 @@ export async function getCoachRosterCount(trainerId: string): Promise<number> {
 
   return count ?? 0;
 }
-
-export function isAtFreeCoachCap(count: number): boolean {
-  return count >= VECTOR_CONFIG.FREE_COACH_MAX_RIDERS;
-}

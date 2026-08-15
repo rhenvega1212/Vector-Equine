@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { flagGuardForApi } from "@/lib/flags/guards";
+import {
+  addHomeCalendarDays,
+  calendarDateInHomeTz,
+} from "@/lib/timezone";
 
 export async function GET() {
   try {
@@ -14,13 +18,9 @@ export async function GET() {
     const flagBlock = await flagGuardForApi("training_diary");
     if (flagBlock) return flagBlock;
 
-    const today = new Date().toISOString().split("T")[0];
-    const weekStart = new Date();
-    weekStart.setDate(weekStart.getDate() - 7);
-    const weekStartStr = weekStart.toISOString().split("T")[0];
-    const monthStart = new Date();
-    monthStart.setDate(monthStart.getDate() - 30);
-    const monthStartStr = monthStart.toISOString().split("T")[0];
+    const today = calendarDateInHomeTz();
+    const weekStartStr = addHomeCalendarDays(today, -7);
+    const monthStartStr = addHomeCalendarDays(today, -30);
 
     const { data: allSessions } = await supabase
       .from("training_sessions")
@@ -34,13 +34,11 @@ export async function GET() {
 
     const datesSet = new Set(sessions.map((s) => s.session_date));
     let currentStreak = 0;
-    const checkDate = new Date();
-    checkDate.setHours(0, 0, 0, 0);
+    let checkDay = today;
     for (;;) {
-      const dStr = checkDate.toISOString().split("T")[0];
-      if (datesSet.has(dStr)) {
+      if (datesSet.has(checkDay)) {
         currentStreak++;
-        checkDate.setDate(checkDate.getDate() - 1);
+        checkDay = addHomeCalendarDays(checkDay, -1);
       } else {
         break;
       }

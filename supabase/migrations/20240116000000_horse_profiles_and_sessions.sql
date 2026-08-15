@@ -132,19 +132,16 @@ CREATE INDEX IF NOT EXISTS idx_training_sessions_user_horse ON training_sessions
 -- STORAGE: horse profile photos
 -- ============================================================================
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('horse-photos', 'horse-photos', false)
+VALUES ('horse-photos', 'horse-photos', true)
 ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "Horse photos are publicly accessible"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'horse-photos');
 
 CREATE POLICY "Users can upload own horse photos"
   ON storage.objects FOR INSERT
   WITH CHECK (
-    bucket_id = 'horse-photos'
-    AND auth.uid()::text = (storage.foldername(name))[1]
-  );
-
-CREATE POLICY "Users can read own horse photos"
-  ON storage.objects FOR SELECT
-  USING (
     bucket_id = 'horse-photos'
     AND auth.uid()::text = (storage.foldername(name))[1]
   );

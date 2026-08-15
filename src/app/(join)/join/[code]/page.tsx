@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CaptureRoom } from "@/components/capture/capture-room";
+import { AtmosphereScreen } from "@/components/train/atmosphere-screen";
+import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
 
 type Preview = {
@@ -23,6 +26,7 @@ type Joined = {
   horse_name: string | null;
   trainer_display_name: string;
   guest_token: string;
+  claim_token?: string | null;
   livekit: {
     configured: boolean;
     url: string | null;
@@ -30,8 +34,22 @@ type Joined = {
   };
 };
 
+type ClaimTeaser = {
+  valid: boolean;
+  pending: boolean;
+  rider_name: string;
+  horse_name: string | null;
+  focus: string | null;
+  correction_count: number | null;
+  duration_minutes: number | null;
+};
+
 function storageKey(code: string) {
   return `vector-capture-join:${code}`;
+}
+
+function claimStorageKey(code: string) {
+  return `vector-capture-claim:${code}`;
 }
 
 export default function GuestJoinPage() {
@@ -40,9 +58,16 @@ export default function GuestJoinPage() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [joined, setJoined] = useState<Joined | null>(null);
   const [name, setName] = useState("");
+  const [authCoach, setAuthCoach] = useState<{
+    displayName: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [claimToken, setClaimToken] = useState<string | null>(null);
+  const [showClaim, setShowClaim] = useState(false);
+  const [claimTeaser, setClaimTeaser] = useState<ClaimTeaser | null>(null);
+  const [claimLoading, setClaimLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,13 +81,38 @@ export default function GuestJoinPage() {
             if (saved?.capture_session_id && saved?.guest_token) {
               if (!cancelled) {
                 setJoined(saved);
+                if (saved.claim_token) setClaimToken(saved.claim_token);
                 setLoading(false);
                 return;
               }
             }
           }
+          const savedClaim = sessionStorage.getItem(claimStorageKey(code));
+          if (savedClaim && !cancelled) setClaimToken(savedClaim);
         } catch {
           /* ignore */
+        }
+
+        try {
+          const supabase = createClient();
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (user && !cancelled) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("display_name, role_trainer")
+              .eq("id", user.id)
+              .maybeSingle();
+            if (profile?.display_name) {
+              setAuthCoach({ displayName: profile.display_name });
+              setName(profile.display_name);
+            } else {
+              setAuthCoach({ displayName: "" });
+            }
+          }
+        } catch {
+          /* guest */
         }
 
         const res = await fetch(`/api/capture/join/${code}`);
@@ -84,7 +134,8 @@ export default function GuestJoinPage() {
   }, [code]);
 
   async function join() {
-    if (!name.trim()) {
+    const displayName = authCoach?.displayName?.trim() || name.trim();
+    if (!displayName && !authCoach) {
       setError("Enter your name");
       return;
     }
@@ -113,7 +164,11 @@ export default function GuestJoinPage() {
       const res = await fetch(`/api/capture/join/${code}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ display_name: name.trim() }),
+        body: JSON.stringify(
+          authCoach?.displayName
+            ? {}
+            : { display_name: displayName }
+        ),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -122,14 +177,66 @@ export default function GuestJoinPage() {
       }
       try {
         sessionStorage.setItem(storageKey(code), JSON.stringify(data));
+        if (data.claim_token) {
+          sessionStorage.setItem(claimStorageKey(code), data.claim_token);
+        }
       } catch {
         /* ignore */
       }
+      if (data.claim_token) setClaimToken(data.claim_token);
       setJoined(data);
     } catch {
       setError("Could not join");
     } finally {
       setJoining(false);
+    }
+  }
+
+  async function openClaimTeaser(token: string) {
+    setShowClaim(true);
+    setClaimLoading(true);
+    try {
+      const res = await fetch(`/api/capture/claim/${encodeURIComponent(token)}`);
+      const data = await res.json();
+      if (res.ok) {
+        setClaimTeaser({
+          valid: !!data.valid,
+          pending: !!data.pending,
+          rider_name: data.rider_name || joined?.rider_name || "Rider",
+          horse_name: data.horse_name ?? joined?.horse_name ?? null,
+          focus: data.focus ?? null,
+          correction_count:
+            typeof data.correction_count === "number"
+              ? data.correction_count
+              : null,
+          duration_minutes:
+            typeof data.duration_minutes === "number"
+              ? data.duration_minutes
+              : null,
+        });
+      } else {
+        setClaimTeaser({
+          valid: false,
+          pending: true,
+          rider_name: joined?.rider_name || "Rider",
+          horse_name: joined?.horse_name ?? null,
+          focus: null,
+          correction_count: null,
+          duration_minutes: null,
+        });
+      }
+    } catch {
+      setClaimTeaser({
+        valid: true,
+        pending: true,
+        rider_name: joined?.rider_name || "Rider",
+        horse_name: joined?.horse_name ?? null,
+        focus: null,
+        correction_count: null,
+        duration_minutes: null,
+      });
+    } finally {
+      setClaimLoading(false);
     }
   }
 
@@ -147,6 +254,75 @@ export default function GuestJoinPage() {
         <p className="font-serif text-2xl text-cream">Lesson unavailable</p>
         <p className="text-sm text-cream/55">{error}</p>
       </div>
+    );
+  }
+
+  if (showClaim && claimToken) {
+    const rider = claimTeaser?.rider_name || joined?.rider_name || "Rider";
+    const pending = claimTeaser?.pending !== false;
+    const corrections = claimTeaser?.correction_count;
+    const focus = claimTeaser?.focus;
+    const signupHref = `/signup?claim=${encodeURIComponent(claimToken)}${
+      joined?.trainer_display_name
+        ? `&name=${encodeURIComponent(joined.trainer_display_name)}`
+        : ""
+    }`;
+
+    let italicLine: string;
+    if (pending || claimLoading) {
+      italicLine = "Your write-up is on the way — save this lesson so you can open it.";
+    } else if (corrections != null && corrections > 0 && focus) {
+      italicLine = `${corrections} correction${corrections === 1 ? "" : "s"}, the work, and the homework you set.`;
+    } else if (corrections != null && corrections > 0) {
+      italicLine = `${corrections} correction${corrections === 1 ? "" : "s"} captured — open the write-up.`;
+    } else if (focus) {
+      italicLine = focus;
+    } else {
+      italicLine = "The work, what was said, and the homework you set.";
+    }
+
+    return (
+      <AtmosphereScreen className="-mx-4 -my-6 flex min-h-[100dvh] flex-col justify-center px-6 py-10">
+        <div className="mx-auto w-full max-w-md space-y-8 text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold">
+            Vector
+          </p>
+          <h1 className="font-serif text-3xl leading-tight text-cream sm:text-4xl">
+            {pending
+              ? `${rider}'s lesson is being written up.`
+              : `${rider}'s lesson is written up.`}
+          </h1>
+          <p className="font-serif text-lg italic text-gold/90">{italicLine}</p>
+          <div className="space-y-3 pt-2">
+            <Button
+              asChild
+              className="w-full bg-gold text-navy font-semibold hover:bg-gold-bright"
+            >
+              <Link href={signupHref}>
+                Create a free coach account to open it
+              </Link>
+            </Button>
+            <button
+              type="button"
+              className="w-full text-sm text-cream/45 underline-offset-4 hover:text-cream/70 hover:underline"
+              onClick={() => {
+                setShowClaim(false);
+                setJoined(null);
+                try {
+                  sessionStorage.removeItem(storageKey(code));
+                } catch {
+                  /* ignore */
+                }
+              }}
+            >
+              Not now
+            </button>
+          </div>
+          <p className="text-xs text-cream/35">
+            This link stays good for 7 days.
+          </p>
+        </div>
+      </AtmosphereScreen>
     );
   }
 
@@ -181,6 +357,12 @@ export default function GuestJoinPage() {
             } catch {
               /* ignore */
             }
+            const token = claimToken || joined.claim_token;
+            if (token) {
+              void openClaimTeaser(token);
+            } else {
+              setJoined(null);
+            }
           }}
         />
       </div>
@@ -209,30 +391,43 @@ export default function GuestJoinPage() {
         </div>
       )}
 
-      <div className="space-y-2">
-        <Label className="text-cream/70">Your name</Label>
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Coach name"
-          className="bg-[#131C31] border-gold/20 text-cream"
-        />
-      </div>
+      {!authCoach?.displayName && (
+        <div className="space-y-2">
+          <Label className="text-cream/70">Your name</Label>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Coach name"
+            className="bg-[#131C31] border-gold/20 text-cream"
+          />
+        </div>
+      )}
 
-      <Button
-        onClick={join}
-        disabled={joining}
-        className="w-full bg-gold text-navy font-semibold hover:bg-gold-bright"
-      >
-        {joining ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Joining…
-          </>
-        ) : (
-          "Join with microphone"
-        )}
-      </Button>
+      {authCoach?.displayName && (
+        <p className="text-sm text-cream/60">
+          Joining as <span className="text-cream">{authCoach.displayName}</span>
+        </p>
+      )}
+
+      <div className="space-y-2">
+        <Button
+          onClick={join}
+          disabled={joining}
+          className="w-full bg-gold text-navy font-semibold hover:bg-gold-bright"
+        >
+          {joining ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Joining…
+            </>
+          ) : (
+            "Join with microphone"
+          )}
+        </Button>
+        <p className="text-center text-xs text-cream/40">
+          Coaching here often? You can save this after the lesson.
+        </p>
+      </div>
     </div>
   );
 }

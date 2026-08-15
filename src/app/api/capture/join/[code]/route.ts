@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import {
+  claimExpiresAt,
+  generateClaimToken,
+  upsertCaptureCoachConnection,
+} from "@/lib/capture/claim";
 import {
   generateParticipantId,
   signGuestCaptureToken,
@@ -12,7 +18,7 @@ interface RouteParams {
 }
 
 const joinBodySchema = z.object({
-  display_name: z.string().min(1).max(80),
+  display_name: z.string().min(1).max(80).optional(),
 });
 
 /** Preview a join code (public). */
@@ -76,7 +82,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   }
 }
 
-/** Guest trainer joins (no account) — issues LiveKit + guest segment token. */
+/** Guest or signed-in coach joins — issues LiveKit + guest segment token + claim_token. */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -87,10 +93,34 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const { code } = await params;
-    const body = joinBodySchema.parse(await request.json());
-    const supabase = createAdminClient();
+    const body = joinBodySchema.parse(await request.json().catch(() => ({})));
+    const admin = createAdminClient();
 
-    const { data: capture } = await supabase
+    // Optional auth — signed-in coach path.
+    let authUser: { id: string } | null = null;
+    let profile: {
+      display_name: string | null;
+      role_trainer: boolean;
+    } | null = null;
+    try {
+      const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        authUser = user;
+        const { data } = await admin
+          .from("profiles")
+          .select("display_name, role_trainer")
+          .eq("id", user.id)
+          .maybeSingle();
+        profile = data;
+      }
+    } catch {
+      /* guest path */
+    }
+
+    const { data: capture } = await admin
       .from("capture_sessions")
       .select("*")
       .eq("join_code", code.toUpperCase())
@@ -106,17 +136,70 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Join code expired" }, { status: 410 });
     }
 
-    const participantId = capture.trainer_participant_id || generateParticipantId();
-    const now = new Date().toISOString();
+    // Any authenticated user who isn't the rider joins as coach (guest path stays unauth).
+    const joiningAsCoach = !!authUser && authUser.id !== capture.rider_id;
 
-    const { data: updated, error } = await supabase
+    if (
+      joiningAsCoach &&
+      capture.trainer_id &&
+      capture.trainer_id !== authUser!.id
+    ) {
+      return NextResponse.json(
+        { error: "Another coach is already linked to this lesson" },
+        { status: 409 }
+      );
+    }
+
+    const displayName = joiningAsCoach
+      ? (profile?.display_name?.trim() ||
+          body.display_name?.trim() ||
+          "Coach")
+      : body.display_name?.trim();
+
+    if (!displayName) {
+      return NextResponse.json({ error: "Enter your name" }, { status: 400 });
+    }
+
+    const participantId = capture.trainer_participant_id || generateParticipantId();
+    const now = new Date();
+    const nowIso = now.toISOString();
+
+    const patch: Record<string, unknown> = {
+      status: "live",
+      trainer_display_name: displayName,
+      trainer_participant_id: participantId,
+      updated_at: nowIso,
+    };
+
+    // Issue / keep claim_token for guests (7d). Auth coaches claim immediately.
+    let claimToken: string | null = capture.claim_token ?? null;
+    if (joiningAsCoach && authUser) {
+      patch.trainer_id = authUser.id;
+      patch.claimed_at = capture.claimed_at || nowIso;
+      if (!profile?.role_trainer) {
+        await admin
+          .from("profiles")
+          .update({ role_trainer: true })
+          .eq("id", authUser.id);
+      }
+      await upsertCaptureCoachConnection(admin, {
+        riderId: capture.rider_id,
+        trainerId: authUser.id,
+      });
+      claimToken = null;
+    } else if (!capture.claim_token) {
+      claimToken = generateClaimToken();
+      patch.claim_token = claimToken;
+      patch.claim_expires_at = claimExpiresAt(now);
+    } else if (!capture.claim_expires_at) {
+      patch.claim_expires_at = claimExpiresAt(now);
+    } else if (capture.claimed_at || capture.trainer_id) {
+      claimToken = null;
+    }
+
+    const { data: updated, error } = await admin
       .from("capture_sessions")
-      .update({
-        status: "live",
-        trainer_display_name: body.display_name.trim(),
-        trainer_participant_id: participantId,
-        updated_at: now,
-      })
+      .update(patch)
       .eq("id", capture.id)
       .select("*")
       .single();
@@ -125,7 +208,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: error?.message || "Join failed" }, { status: 400 });
     }
 
-    const { data: rider } = await supabase
+    const { data: rider } = await admin
       .from("profiles")
       .select("display_name")
       .eq("id", updated.rider_id)
@@ -133,7 +216,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     let horseName: string | null = null;
     if (updated.horse_id) {
-      const { data: horse } = await supabase
+      const { data: horse } = await admin
         .from("horse_profiles")
         .select("name, barn_name")
         .eq("id", updated.horse_id)
@@ -144,7 +227,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const livekitToken = await mintLiveKitToken({
       roomName: updated.livekit_room,
       identity: `trainer_${participantId}`,
-      name: body.display_name.trim(),
+      name: displayName,
       canPublish: true,
     });
 
@@ -160,6 +243,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       horse_name: horseName,
       trainer_display_name: updated.trainer_display_name,
       guest_token: guestToken,
+      claim_token: claimToken,
       livekit: {
         configured: isLiveKitConfigured(),
         url: getLiveKitUrl(),

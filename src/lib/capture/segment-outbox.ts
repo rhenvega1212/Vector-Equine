@@ -7,7 +7,7 @@ export type OutboxSegment = {
   client_id: string;
   offset_ms: number;
   ended_offset_ms?: number | null;
-  speaker: "rider" | "trainer" | "system";
+  speaker: "rider" | "trainer" | "system" | "vector";
   text: string;
   confidence?: number | null;
 };
@@ -16,7 +16,7 @@ export type SavedSegment = {
   id?: string;
   client_id?: string | null;
   offset_ms: number;
-  speaker: "rider" | "trainer" | "system";
+  speaker: "rider" | "trainer" | "system" | "vector";
   text: string;
 };
 

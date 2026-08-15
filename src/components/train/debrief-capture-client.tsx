@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { formatOffset } from "@/lib/capture/summary";
 import {
@@ -8,6 +9,7 @@ import {
   type BriefCue,
 } from "@/components/train/debrief-journal-brief";
 import { VectorRideChatLazy as VectorRideChat } from "@/components/train/vector-ride-chat-lazy";
+import { isBriefPending } from "@/lib/capture/transcript-cleanup";
 import { Star } from "lucide-react";
 
 export type TimelineSegment = {
@@ -24,14 +26,15 @@ export function DebriefCaptureClient({
   sessionId,
   focus,
   story: storyProp,
-  homework,
-  exercises,
+  homework: homeworkProp,
+  exercises: exercisesProp,
   cues,
   trainerName,
   isComms,
   timeline: timelineProp,
   showChat,
   canHighlight,
+  briefPending: briefPendingProp = false,
 }: {
   sessionId: string;
   focus: string | null;
@@ -44,13 +47,76 @@ export function DebriefCaptureClient({
   timeline: TimelineSegment[];
   showChat: boolean;
   canHighlight?: boolean;
+  briefPending?: boolean;
 }) {
+  const router = useRouter();
   const [tab, setTab] = useState<"journal" | "timeline">("journal");
   const [highlightMs, setHighlightMs] = useState<number | null>(null);
   const [timeline, setTimeline] = useState(timelineProp);
+  const [focusLine, setFocusLine] = useState(focus);
   const [story, setStory] = useState(storyProp);
+  const [homework, setHomework] = useState(homeworkProp);
+  const [exercises, setExercises] = useState(exercisesProp);
+  const [briefPending, setBriefPending] = useState(briefPendingProp);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFocusLine(focus);
+    setStory(storyProp);
+    setHomework(homeworkProp);
+    setExercises(exercisesProp);
+    setBriefPending(briefPendingProp);
+    setTimeline(timelineProp);
+  }, [
+    focus,
+    storyProp,
+    homeworkProp,
+    exercisesProp,
+    briefPendingProp,
+    timelineProp,
+  ]);
+
+  // Poll until Claude polish replaces the pending stub
+  useEffect(() => {
+    if (!briefPending) return;
+    let cancelled = false;
+    let tries = 0;
+    const tick = async () => {
+      tries += 1;
+      try {
+        const res = await fetch(`/api/train/sessions/${sessionId}`, {
+          cache: "no-store",
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const summary = typeof data.summary === "string" ? data.summary : "";
+        if (!isBriefPending(summary)) {
+          setBriefPending(false);
+          setHomework(
+            typeof data.homework === "string" ? data.homework : null
+          );
+          setExercises(
+            typeof data.exercises === "string" ? data.exercises : null
+          );
+          setStory(summary);
+          setFocusLine(null);
+          router.refresh();
+          return;
+        }
+      } catch {
+        /* ignore */
+      }
+      if (!cancelled && tries < 24) {
+        window.setTimeout(() => void tick(), 2500);
+      }
+    };
+    const id = window.setTimeout(() => void tick(), 2000);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(id);
+    };
+  }, [briefPending, sessionId, router]);
 
   const liveCues = useMemo<BriefCue[]>(() => {
     const featured = timeline
@@ -61,7 +127,7 @@ export function DebriefCaptureClient({
         featured: true as const,
       }));
     if (featured.length > 0) return featured;
-    return cues;
+    return cues.filter((c) => c.featured);
   }, [timeline, cues]);
 
   function jumpToTimeline(offsetMs: number) {
@@ -96,11 +162,7 @@ export function DebriefCaptureClient({
       if (typeof data.summary === "string") {
         setStory(data.summary);
       }
-      setToast(
-        next
-          ? "Saved to What you marked — open Journal to see it in the brief."
-          : "Removed from your marks."
-      );
+      setToast(next ? "Saved to your marks." : "Removed from your marks.");
     } catch {
       setToast("Could not save highlight");
     } finally {
@@ -133,7 +195,7 @@ export function DebriefCaptureClient({
 
       {tab === "journal" ? (
         <DebriefJournalBrief
-          focus={focus}
+          focus={focusLine}
           story={story}
           homework={homework}
           exercises={exercises}
@@ -150,9 +212,7 @@ export function DebriefCaptureClient({
             </p>
             {canHighlight && (
               <p className="text-xs text-cream/50">
-                Tap the star on lines that mattered — they fold into{" "}
-                <span className="text-cream/70">What you marked</span> on the
-                Journal
+                Star lines to bookmark them for yourself
                 {markedCount > 0 ? ` (${markedCount} saved)` : ""}.
               </p>
             )}
@@ -191,7 +251,7 @@ export function DebriefCaptureClient({
                           </span>
                           {s.featured_quote && (
                             <span className="text-[10px] uppercase tracking-wider text-gold">
-                              coach quote
+                              correction
                             </span>
                           )}
                         </div>
@@ -210,7 +270,7 @@ export function DebriefCaptureClient({
                           disabled={busyId === s.id}
                           onClick={() => void toggleHighlight(s)}
                           aria-label={
-                            starred ? "Remove highlight" : "Mark as valuable"
+                            starred ? "Remove bookmark" : "Bookmark line"
                           }
                           className={cn(
                             "mt-0.5 shrink-0 rounded-md border p-1.5 transition",

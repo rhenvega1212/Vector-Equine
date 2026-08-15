@@ -1,4 +1,9 @@
-import { format, parseISO, isValid } from "date-fns";
+import { parseISO, isValid } from "date-fns";
+import {
+  formatHomeCalendarDate,
+  formatInHomeTz,
+  hourInHomeTz,
+} from "@/lib/timezone";
 
 /** Human-readable when a session was taken (date + time when available). */
 export function formatSessionWhen(
@@ -9,10 +14,11 @@ export function formatSessionWhen(
   const includeYear = opts?.includeYear ?? true;
   let dayLabel = sessionDate;
   try {
-    const d = parseISO(sessionDate.length <= 10 ? `${sessionDate}T12:00:00` : sessionDate);
-    if (isValid(d)) {
-      dayLabel = format(d, includeYear ? "MMM d, yyyy" : "MMM d");
-    }
+    const formatted = formatHomeCalendarDate(
+      sessionDate,
+      includeYear ? "MMM d, yyyy" : "MMM d"
+    );
+    if (formatted) dayLabel = formatted;
   } catch {
     /* keep raw */
   }
@@ -22,7 +28,7 @@ export function formatSessionWhen(
   try {
     const t = parseISO(createdAt);
     if (isValid(t)) {
-      return `${dayLabel} · ${format(t, "h:mm a")}`;
+      return `${dayLabel} · ${formatInHomeTz(t, "h:mm a")}`;
     }
   } catch {
     /* ignore */
@@ -48,7 +54,7 @@ export function sessionDisplayTitle(
 export function captureLessonTitle(t0Iso: string, now = new Date()): string {
   const start = new Date(t0Iso);
   const when = isValid(start) ? start : now;
-  const h = when.getHours();
+  const h = hourInHomeTz(when);
   const daypart =
     h < 11
       ? "Morning schooling"

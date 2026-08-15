@@ -39,9 +39,6 @@ export const onboardingSchema = z
       .string()
       .min(2, "Display name must be at least 2 characters")
       .max(50, "Display name must be less than 50 characters"),
-    location: z.string().max(100, "Location must be less than 100 characters").optional(),
-    discipline: z.string().optional(),
-    rider_level: z.string().optional(),
     role_rider: z.boolean().default(true),
     role_trainer: z.boolean().default(false),
   })

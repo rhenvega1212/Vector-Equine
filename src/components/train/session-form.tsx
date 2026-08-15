@@ -26,6 +26,7 @@ import {
   QUICK_RATING_LABELS,
 } from "@/lib/validations/training-session";
 import { useToast } from "@/hooks/use-toast";
+import { calendarDateInHomeTz } from "@/lib/timezone";
 import { Loader2, ArrowLeft, Video, Link as LinkIcon, Upload, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -59,7 +60,10 @@ interface HorseOption {
 interface SessionFormProps {
   mode: "create" | "edit";
   sessionId?: string;
-  defaultValues?: Partial<CreateTrainingSessionInput> & { session_date?: string };
+  defaultValues?: Partial<CreateTrainingSessionInput> & {
+    session_date?: string;
+    feel_scale?: 5 | 10 | null;
+  };
 }
 
 export function SessionForm({ mode, sessionId, defaultValues }: SessionFormProps) {
@@ -83,14 +87,14 @@ export function SessionForm({ mode, sessionId, defaultValues }: SessionFormProps
   } = useForm<CreateTrainingSessionInput>({
     resolver: zodResolver(createTrainingSessionSchema),
     defaultValues: {
-      session_date: defaultValues?.session_date || new Date().toISOString().split("T")[0],
+      session_date: defaultValues?.session_date || calendarDateInHomeTz(),
       horse_id: defaultValues?.horse_id ?? undefined,
       horse: defaultValues?.horse ?? "",
       session_title: defaultValues?.session_title ?? "",
       session_type: defaultValues?.session_type || "flat_ride",
       duration_minutes: defaultValues?.duration_minutes ?? undefined,
       location: defaultValues?.location ?? "",
-      overall_feel: defaultValues?.overall_feel ?? 5,
+      overall_feel: defaultValues?.overall_feel ?? 3,
       competition_prep: defaultValues?.competition_prep ?? false,
       focused_goal_session: defaultValues?.focused_goal_session ?? false,
       notes: defaultValues?.notes ?? "",
@@ -331,12 +335,14 @@ export function SessionForm({ mode, sessionId, defaultValues }: SessionFormProps
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="overall_feel">Overall feel (1–10) *</Label>
+              <Label htmlFor="overall_feel">
+                Overall feel ({defaultValues?.feel_scale === 10 ? "1–10" : "1–5"}) *
+              </Label>
               <div className="flex items-center gap-4">
                 <Slider
                   id="overall_feel"
                   min={1}
-                  max={10}
+                  max={defaultValues?.feel_scale === 10 ? 10 : 5}
                   step={1}
                   value={[overallFeel]}
                   onValueChange={([v]) => setValue("overall_feel", v)}
@@ -344,6 +350,10 @@ export function SessionForm({ mode, sessionId, defaultValues }: SessionFormProps
                 />
                 <span className="text-gold font-medium w-8">{overallFeel}</span>
               </div>
+              <p className="text-[11px] text-muted-foreground">
+                1 · a fight — {defaultValues?.feel_scale === 10 ? "10" : "5"} ·
+                effortless
+              </p>
             </div>
 
             {/* Quick ratings — tap 1–5 */}

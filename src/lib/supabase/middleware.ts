@@ -101,21 +101,39 @@ export async function updateSession(request: NextRequest) {
     );
 
     if (isAuthPath && user) {
+      const claim = request.nextUrl.searchParams.get("claim");
       const redirectTo = request.nextUrl.searchParams.get("redirectTo");
+
+      // Existing account opening a claim link from signup → finish claim on onboarding
+      if (claim && pathname.startsWith("/signup")) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/onboarding";
+        url.search = `?claim=${encodeURIComponent(claim)}`;
+        return NextResponse.redirect(url);
+      }
+
       const safeRedirect =
         redirectTo &&
         redirectTo.startsWith("/") &&
         !redirectTo.startsWith("//") &&
-        (redirectTo.startsWith("/invite") || redirectTo.startsWith("/shared"))
+        (redirectTo.startsWith("/invite") ||
+          redirectTo.startsWith("/shared") ||
+          redirectTo.startsWith("/onboarding"))
           ? redirectTo
           : "/train";
       const url = request.nextUrl.clone();
-      url.pathname = safeRedirect.split("?")[0] || "/train";
-      url.search = "";
+      if (safeRedirect.startsWith("/onboarding")) {
+        const [path, qs] = safeRedirect.split("?");
+        url.pathname = path || "/onboarding";
+        url.search = qs ? `?${qs}` : "";
+      } else {
+        url.pathname = safeRedirect.split("?")[0] || "/train";
+        url.search = "";
+      }
       return NextResponse.redirect(url);
     }
 
-    // Hard gate: riders without Vector setup stay on /train/setup until complete.
+    // Hard gate: riders with zero horses stay on /train/setup until they add one.
     if (user && pathname.startsWith("/train")) {
       const { data: setupProfile } = await supabase
         .from("profiles")
@@ -123,10 +141,19 @@ export async function updateSession(request: NextRequest) {
         .eq("id", user.id)
         .maybeSingle();
 
+      let horseCount = 0;
+      if (setupProfile?.role_rider) {
+        const { count } = await supabase
+          .from("horse_profiles")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id);
+        horseCount = count ?? 0;
+      }
+
       const needsSetup =
         !!setupProfile &&
         setupProfile.role_rider === true &&
-        setupProfile.vector_setup_completed_at == null;
+        horseCount === 0;
       const onSetup = pathname.startsWith("/train/setup");
 
       if (needsSetup && !onSetup) {

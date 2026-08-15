@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CoverImageUpload } from "@/components/shared/cover-image-upload";
 import { createHorseProfileSchema, type CreateHorseProfileInput } from "@/lib/validations/horse-profile";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ArrowLeft } from "lucide-react";
@@ -44,7 +45,13 @@ export function HorseForm({ mode, horseId, defaultValues }: HorseFormProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<CreateHorseProfileInput>({
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<CreateHorseProfileInput>({
     resolver: zodResolver(createHorseProfileSchema),
     defaultValues: {
       name: "",
@@ -63,6 +70,7 @@ export function HorseForm({ mode, horseId, defaultValues }: HorseFormProps) {
       purchase_lease_status: "",
       date_acquired: "",
       notes: "",
+      profile_photo_url: "",
       show_name: "",
       personality_quirks: "",
       injuries_limitations: "",
@@ -71,11 +79,14 @@ export function HorseForm({ mode, horseId, defaultValues }: HorseFormProps) {
     },
   });
 
+  const photoUrl = watch("profile_photo_url");
+
   async function onSubmit(data: CreateHorseProfileInput) {
     setIsLoading(true);
     try {
       const payload = { ...data };
       if (data.age === undefined || data.age === null) (payload as Record<string, unknown>).age = null;
+      if (!data.profile_photo_url) (payload as Record<string, unknown>).profile_photo_url = null;
       if (mode === "create") {
         const res = await fetch("/api/train/horses", {
           method: "POST",
@@ -127,6 +138,20 @@ export function HorseForm({ mode, horseId, defaultValues }: HorseFormProps) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <div className="space-y-2">
+              <Label>Photo</Label>
+              <CoverImageUpload
+                value={photoUrl || null}
+                onChange={(url) =>
+                  setValue("profile_photo_url", url || "", { shouldDirty: true })
+                }
+                // Use avatars bucket (always present). Path is still {userId}/horse-photos/...
+                bucket="avatars"
+                pathPrefix="horse-photos"
+                aspectRatio={1}
+              />
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               {FIELDS.map(({ key, label, placeholder, type }) => (
                 <div key={key} className="space-y-2">

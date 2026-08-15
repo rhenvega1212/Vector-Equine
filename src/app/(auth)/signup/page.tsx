@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -39,6 +39,8 @@ export default function SignUpPage() {
 function SignUpForm() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") || "/train";
+  const claimToken = searchParams.get("claim");
+  const claimName = searchParams.get("name");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
@@ -49,7 +51,22 @@ function SignUpForm() {
     formState: { errors },
   } = useForm<SignUpInput>({
     resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      display_name: claimName?.trim() || "",
+    },
   });
+
+  useEffect(() => {
+    if (!claimToken) return;
+    try {
+      sessionStorage.setItem("vector-claim-token", claimToken);
+      if (claimName?.trim()) {
+        sessionStorage.setItem("vector-claim-name", claimName.trim());
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [claimToken, claimName]);
 
   async function onSubmit(data: SignUpInput) {
     setIsLoading(true);
@@ -74,7 +91,9 @@ function SignUpForm() {
         email: data.email.trim(),
         password: data.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/login`,
+          emailRedirectTo: claimToken
+            ? `${window.location.origin}/login?redirectTo=${encodeURIComponent(`/onboarding?claim=${claimToken}`)}`
+            : `${window.location.origin}/login`,
           data: {
             username,
             display_name: data.display_name.trim(),
@@ -100,6 +119,7 @@ function SignUpForm() {
         email: signUpData.user.email!,
         username,
         display_name: data.display_name.trim(),
+        ...(claimToken ? { role_trainer: true, role_rider: false } : {}),
       });
 
       if (profileError) {
@@ -114,8 +134,9 @@ function SignUpForm() {
 
       // Brief delay so the session cookie is committed before navigating.
       await new Promise((r) => setTimeout(r, 100));
-      const target =
-        redirectTo.startsWith("/") && !redirectTo.startsWith("//")
+      const target = claimToken
+        ? `/onboarding?claim=${encodeURIComponent(claimToken)}`
+        : redirectTo.startsWith("/") && !redirectTo.startsWith("//")
           ? redirectTo
           : "/train";
       window.location.assign(`${window.location.origin}${target}`);
@@ -157,8 +178,14 @@ function SignUpForm() {
   return (
     <Card className="border-gold/15 shadow-2xl shadow-black/30">
       <CardHeader className="text-center">
-        <CardTitle className="text-3xl font-serif">Create your account</CardTitle>
-        <CardDescription>Join the Vector Equine community</CardDescription>
+        <CardTitle className="text-3xl font-serif">
+          {claimToken ? "Create your coach account" : "Create your account"}
+        </CardTitle>
+        <CardDescription>
+          {claimToken
+            ? "Free coach seat — then open the lesson you taught"
+            : "Join the Vector Equine community"}
+        </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
         <CardContent className="space-y-4">
@@ -242,7 +269,14 @@ function SignUpForm() {
           </Button>
           <p className="text-sm text-muted-foreground text-center">
             Already have an account?{" "}
-            <Link href="/login" className="text-gold hover:underline">
+            <Link
+              href={
+                claimToken
+                  ? `/login?redirectTo=${encodeURIComponent(`/onboarding?claim=${claimToken}`)}`
+                  : "/login"
+              }
+              className="text-gold hover:underline"
+            >
               Sign in
             </Link>
           </p>

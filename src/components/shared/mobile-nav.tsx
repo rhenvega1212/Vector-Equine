@@ -57,24 +57,10 @@ export function MobileNav({ profile }: MobileNavProps) {
           const adminBlocked = !!item.adminOnly && profile.role !== "admin";
           const communityBlocked =
             !!item.community && SOCIAL_CONFIG.SOCIAL_MODE === "off";
-          const showAsDisabled = flagBlocked || adminBlocked || communityBlocked;
-          const isActive = !showAsDisabled && pathname.startsWith(item.href);
-
-          if (showAsDisabled) {
-            return (
-              <div
-                key={item.href}
-                className={cn(
-                  "flex h-11 w-16 flex-col items-center justify-center gap-0.5 text-[10px] cursor-not-allowed opacity-50",
-                  onVector ? "text-cream/40" : "text-muted-foreground"
-                )}
-                title="Coming soon"
-              >
-                <Icon className="h-5 w-5" />
-                <span className="font-medium leading-none">{item.label}</span>
-              </div>
-            );
+          if (flagBlocked || adminBlocked || communityBlocked) {
+            return null;
           }
+          const isActive = pathname.startsWith(item.href);
 
           return (
             <Link
