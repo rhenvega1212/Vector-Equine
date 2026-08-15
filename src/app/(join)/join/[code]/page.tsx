@@ -17,6 +17,8 @@ type Preview = {
   rider_name: string;
   horse_name: string | null;
   livekit_configured: boolean;
+  viewer_is_rider?: boolean;
+  is_test?: boolean;
 };
 
 type Joined = {
@@ -121,7 +123,14 @@ export default function GuestJoinPage() {
           if (!cancelled) setError(data.error || "Could not load lesson");
           return;
         }
-        if (!cancelled) setPreview(data);
+        if (!cancelled) {
+          setPreview(data);
+          // Rider on a second phone: unlock name — join as coach persona, not as yourself.
+          if (data.viewer_is_rider) {
+            setAuthCoach(null);
+            setName("");
+          }
+        }
       } catch {
         if (!cancelled) setError("Could not load lesson");
       } finally {
@@ -134,9 +143,14 @@ export default function GuestJoinPage() {
   }, [code]);
 
   async function join() {
-    const displayName = authCoach?.displayName?.trim() || name.trim();
-    if (!displayName && !authCoach) {
-      setError("Enter your name");
+    const ownLesson = Boolean(preview?.viewer_is_rider);
+    const displayName = ownLesson
+      ? name.trim()
+      : authCoach?.displayName?.trim() || name.trim();
+    if (!displayName) {
+      setError(
+        ownLesson ? "Enter the coach name for this phone" : "Enter your name"
+      );
       return;
     }
     setJoining(true);
@@ -164,11 +178,7 @@ export default function GuestJoinPage() {
       const res = await fetch(`/api/capture/join/${code}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          authCoach?.displayName
-            ? {}
-            : { display_name: displayName }
-        ),
+        body: JSON.stringify({ display_name: displayName }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -377,11 +387,15 @@ export default function GuestJoinPage() {
         </p>
         <h1 className="font-serif text-3xl text-cream">Join lesson</h1>
         <p className="text-sm text-cream/55">
-          {preview
-            ? `Connected to ${preview.rider_name}'s lesson${
+          {preview?.viewer_is_rider
+            ? `This is your lesson${
                 preview.horse_name ? ` — ${preview.horse_name}` : ""
-              }. No account needed.`
-            : "Enter your name to join."}
+              }. Enter the coach name for this phone — no second account needed.`
+            : preview
+              ? `Connected to ${preview.rider_name}'s lesson${
+                  preview.horse_name ? ` — ${preview.horse_name}` : ""
+                }. No account needed.`
+              : "Enter your name to join."}
         </p>
       </header>
 
@@ -391,19 +405,22 @@ export default function GuestJoinPage() {
         </div>
       )}
 
-      {!authCoach?.displayName && (
+      {(preview?.viewer_is_rider || !authCoach?.displayName) && (
         <div className="space-y-2">
-          <Label className="text-cream/70">Your name</Label>
+          <Label className="text-cream/70">
+            {preview?.viewer_is_rider ? "Coach name on this phone" : "Your name"}
+          </Label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Coach name"
+            placeholder={preview?.viewer_is_rider ? "e.g. Emma" : "Coach name"}
+            autoComplete="name"
             className="bg-[#131C31] border-gold/20 text-cream"
           />
         </div>
       )}
 
-      {authCoach?.displayName && (
+      {!preview?.viewer_is_rider && authCoach?.displayName && (
         <p className="text-sm text-cream/60">
           Joining as <span className="text-cream">{authCoach.displayName}</span>
         </p>

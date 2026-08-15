@@ -36,7 +36,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const { data: capture } = await supabase
       .from("capture_sessions")
       .select(
-        "id, join_code, status, expires_at, horse_id, rider_id, trainer_display_name"
+        "id, join_code, status, expires_at, horse_id, rider_id, trainer_display_name, is_test"
       )
       .eq("join_code", code.toUpperCase())
       .maybeSingle();
@@ -69,6 +69,17 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       horseName = horse?.barn_name?.trim() || horse?.name || null;
     }
 
+    let viewerIsRider = false;
+    try {
+      const authed = await createClient();
+      const {
+        data: { user },
+      } = await authed.auth.getUser();
+      viewerIsRider = Boolean(user && user.id === capture.rider_id);
+    } catch {
+      /* public preview */
+    }
+
     return NextResponse.json({
       join_code: capture.join_code,
       status: capture.status,
@@ -76,6 +87,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       horse_name: horseName,
       trainer_display_name: capture.trainer_display_name,
       livekit_configured: isLiveKitConfigured(),
+      viewer_is_rider: viewerIsRider,
+      is_test: Boolean((capture as { is_test?: boolean }).is_test),
     });
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -136,8 +149,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Join code expired" }, { status: 410 });
     }
 
-    // Any authenticated user who isn't the rider joins as coach (guest path stays unauth).
-    const joiningAsCoach = !!authUser && authUser.id !== capture.rider_id;
+    // Signed-in coach (someone other than the rider). The rider on a second phone
+    // joins as a guest trainer persona — needed for Lab dual-phone tests.
+    const isRiderJoiningOwnLesson =
+      !!authUser && authUser.id === capture.rider_id;
+    const joiningAsCoach = !!authUser && !isRiderJoiningOwnLesson;
 
     if (
       joiningAsCoach &&
@@ -151,13 +167,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const displayName = joiningAsCoach
-      ? (profile?.display_name?.trim() ||
-          body.display_name?.trim() ||
-          "Coach")
+      ? profile?.display_name?.trim() ||
+        body.display_name?.trim() ||
+        "Coach"
       : body.display_name?.trim();
 
     if (!displayName) {
-      return NextResponse.json({ error: "Enter your name" }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: isRiderJoiningOwnLesson
+            ? "Enter the coach name for this phone"
+            : "Enter your name",
+        },
+        { status: 400 }
+      );
     }
 
     const participantId = capture.trainer_participant_id || generateParticipantId();
