@@ -10,6 +10,8 @@ const startSchema = z.object({
   horse_id: z.string().uuid().optional().nullable(),
   /** Admin-only Lab test lesson — excluded from product rides lists. */
   is_test: z.boolean().optional(),
+  /** solo = capture without waiting for a peer; with_trainer = wait for coach. */
+  ride_mode: z.enum(["solo", "with_trainer"]).optional(),
 });
 
 export async function GET() {
@@ -64,6 +66,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const parsed = startSchema.parse(body);
     const wantTest = parsed.is_test === true;
+    const rideMode = parsed.ride_mode ?? "with_trainer";
 
     if (wantTest) {
       const { data: profile } = await supabase
@@ -153,18 +156,33 @@ export async function POST(request: NextRequest) {
     let joinCode = generateJoinCode(6).toUpperCase();
     for (let attempt = 0; attempt < 5; attempt++) {
       const roomName = `capture_${user.id.slice(0, 8)}_${Date.now()}`;
-      const { data: created, error } = await supabase
+      const baseRow = {
+        rider_id: user.id,
+        horse_id: parsed.horse_id || null,
+        join_code: joinCode,
+        livekit_room: roomName,
+        status: "waiting" as const,
+        is_test: wantTest,
+        ride_mode: rideMode,
+      };
+
+      let { data: created, error } = await supabase
         .from("capture_sessions")
-        .insert({
-          rider_id: user.id,
-          horse_id: parsed.horse_id || null,
-          join_code: joinCode,
-          livekit_room: roomName,
-          status: "waiting",
-          is_test: wantTest,
-        })
+        .insert(baseRow)
         .select("*")
         .single();
+
+      // Column may be missing until migration — strip and retry.
+      if (error && /ride_mode/i.test(error.message || "")) {
+        const { ride_mode: _rm, ...withoutMode } = baseRow;
+        const retry = await supabase
+          .from("capture_sessions")
+          .insert(withoutMode)
+          .select("*")
+          .single();
+        created = retry.data;
+        error = retry.error;
+      }
 
       if (error && /is_test/i.test(error.message || "")) {
         // Migration not applied yet — create without the column.
@@ -196,6 +214,7 @@ export async function POST(request: NextRequest) {
             {
               ...created,
               is_test: wantTest,
+              ride_mode: rideMode,
               join_url: joinUrl,
               edge: {
                 attach: "/api/edge/sessions/attach",
@@ -210,6 +229,7 @@ export async function POST(request: NextRequest) {
             { status: 201 }
           );
         }
+        error = retry.error;
       }
 
       if (!error && created) {
@@ -229,6 +249,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             ...created,
+            ride_mode:
+              (created as { ride_mode?: string }).ride_mode || rideMode,
             join_url: joinUrl,
             edge: {
               attach: "/api/edge/sessions/attach",

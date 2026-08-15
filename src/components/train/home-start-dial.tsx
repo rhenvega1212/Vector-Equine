@@ -7,8 +7,13 @@ import {
   requestMicAccess,
 } from "@/lib/capture/mic-preflight";
 import { useState } from "react";
+import {
+  RideModeChooser,
+  hrefWithRideMode,
+  type RideMode,
+} from "@/components/train/ride-mode-chooser";
 
-/** Home dial: invert + timer, then mic warm and navigate to live ride. */
+/** Home dial: invert + timer, mic warm, then solo vs trainer, then live. */
 export function HomeStartDial({
   horseName,
   liveHref,
@@ -18,6 +23,13 @@ export function HomeStartDial({
 }) {
   const router = useRouter();
   const [help, setHelp] = useState<string | null>(null);
+  const [chooseMode, setChooseMode] = useState(false);
+  const [navigating, setNavigating] = useState(false);
+
+  function go(mode: RideMode) {
+    setNavigating(true);
+    router.push(hrefWithRideMode(liveHref, mode));
+  }
 
   return (
     <div>
@@ -30,13 +42,18 @@ export function HomeStartDial({
             setHelp(result.message || MIC_BLOCKED_HELP);
             return;
           }
-          router.push(liveHref);
+          setChooseMode(true);
         }}
       />
       {help ? (
         <p className="mx-auto mt-3 max-w-xs text-center text-xs leading-relaxed text-watch">
           {help}
         </p>
+      ) : null}
+      {chooseMode ? (
+        <div className="mt-6">
+          <RideModeChooser onChoose={go} busy={navigating} />
+        </div>
       ) : null}
     </div>
   );

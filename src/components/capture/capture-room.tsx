@@ -192,6 +192,8 @@ export function CaptureRoom({
   vectorInSession: vectorInSessionProp,
   /** Lab test lesson — force Vector bookends on for founders. */
   isTestLesson = false,
+  /** solo = arm capture without waiting for a peer. */
+  rideMode = "with_trainer" as "solo" | "with_trainer",
 }: {
   captureSessionId: string;
   t0: string;
@@ -217,6 +219,7 @@ export function CaptureRoom({
   wakeArmed?: boolean;
   vectorInSession?: boolean;
   isTestLesson?: boolean;
+  rideMode?: "solo" | "with_trainer";
 }) {
   const flagVector = useFeatureFlag("vector_in_session");
   // Guests + Lab tests always run bookends; riders need the flag (or test mode).
@@ -225,6 +228,7 @@ export function CaptureRoom({
       ? vectorInSessionProp
       : isTestLesson || Boolean(guestToken) || flagVector;
   const showWakeUi = vectorInSession && wakeArmed;
+  const isSolo = rideMode === "solo";
   const [roomState, setRoomState] = useState<
     "idle" | "connecting" | "connected" | "reconnecting" | "error"
   >("idle");
@@ -232,6 +236,7 @@ export function CaptureRoom({
   const [muted, setMuted] = useState(false);
   const [deafened, setDeafened] = useState(false);
   const [peerConnected, setPeerConnected] = useState(false);
+  const peerReady = isSolo || peerConnected;
   const [listening, setListening] = useState(false);
   const [speechUnsupported, setSpeechUnsupported] = useState(false);
   const [segments, setSegments] = useState<Segment[]>([]);
@@ -1155,9 +1160,9 @@ export function CaptureRoom({
   startLessonRecorderRef.current = startLessonRecorder;
   stopLessonRecorderAndFlushRef.current = stopLessonRecorderAndFlush;
 
-  // Both phones on the call → open bookend, then recorder / transcript
+  // Solo → capture when on the call. With trainer → wait for both phones.
   useEffect(() => {
-    if (roomState !== "connected" || !peerConnected) return;
+    if (roomState !== "connected" || !peerReady) return;
     if (captureLiveRef.current) return;
     captureLiveRef.current = true;
     setCaptureLive(true);
@@ -1165,7 +1170,10 @@ export function CaptureRoom({
     void (async () => {
       try {
         await runOpenBookend();
-        if (roomRef.current && roomRef.current.remoteParticipants.size > 0) {
+        if (
+          roomRef.current &&
+          (isSolo || roomRef.current.remoteParticipants.size > 0)
+        ) {
           openHeardOnCallRef.current = true;
         }
       } catch {
@@ -1175,7 +1183,7 @@ export function CaptureRoom({
       if (track) startLessonRecorderRef.current(track);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomState, peerConnected]);
+  }, [roomState, peerReady, isSolo]);
 
   const broadcastSegment = useCallback(
     (seg: Segment & { interim?: boolean }) => {
@@ -1759,7 +1767,7 @@ export function CaptureRoom({
           <p className="text-[10px] uppercase tracking-[0.28em] text-cream-dim">
             {vectorStrip === "turn" ? "◇ VECTOR" : '◇ SAY "HEY VECTOR"'}
           </p>
-          {speaker === "trainer" ? (
+          {speaker === "trainer" || isSolo ? (
             <button
               type="button"
               onClick={() => toggleVectorCalledOn()}
@@ -1827,7 +1835,7 @@ export function CaptureRoom({
         </div>
       )}
 
-      {joinCode && joinUrl && (showConnectHelp || !peerConnected) ? (
+      {joinCode && joinUrl && !isSolo && (showConnectHelp || !peerConnected) ? (
         <div className="rounded-xl border border-gold/20 bg-[#131C31] p-4 space-y-3 text-center">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] uppercase tracking-[0.18em] text-cream/40">
@@ -1853,7 +1861,7 @@ export function CaptureRoom({
             Capture starts when both of you are on the call.
           </p>
         </div>
-      ) : joinCode && joinUrl && peerConnected ? (
+      ) : joinCode && joinUrl && !isSolo && peerConnected ? (
         <div className="flex justify-end">
           <button
             type="button"
@@ -1927,15 +1935,24 @@ export function CaptureRoom({
         ) : (
           <div className="space-y-2">
             <p className="text-sm text-cream/90">
-              {peerConnected
+              {isSolo
                 ? captureLive
-                  ? `On call with ${peerLabel}`
-                  : `On call with ${peerLabel} — starting capture…`
-                : `In call — waiting for ${peerLabel}…`}
+                  ? "On call — capturing solo"
+                  : "On call — starting capture…"
+                : peerConnected
+                  ? captureLive
+                    ? `On call with ${peerLabel}`
+                    : `On call with ${peerLabel} — starting capture…`
+                  : `In call — waiting for ${peerLabel}…`}
             </p>
-            {!peerConnected ? (
+            {!isSolo && !peerConnected ? (
               <p className="text-xs text-cream/50">
                 Timeline and recording stay off until {peerLabel} joins.
+              </p>
+            ) : null}
+            {isSolo && captureLive ? (
+              <p className="text-xs text-cream/50">
+                Say Hey Vector when you want input — no second phone needed.
               </p>
             ) : null}
             {showConnectHelp ? (
@@ -1957,14 +1974,16 @@ export function CaptureRoom({
             <p className="text-xs text-cream/45">
               Your transcript:{" "}
               {!captureLive
-                ? `waiting for ${peerLabel}`
+                ? isSolo
+                  ? "starting…"
+                  : `waiting for ${peerLabel}`
                 : speechUnsupported
                   ? "speech not available in this browser — try Safari/Chrome with mic allowed"
                   : listening
                     ? "listening…"
                     : "paused — will resume when this screen is open"}
             </p>
-            {captureLive ? (
+            {captureLive && !isSolo ? (
               <p className="text-xs text-cream/40">
                 Timeline syncs both sides — you should see {peerLabel}&apos;s cues
                 here too. On weak barn Wi‑Fi the call may dip; your cues still

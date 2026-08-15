@@ -10,6 +10,11 @@ import {
   isMicGrantedStored,
   requestMicAccess,
 } from "@/lib/capture/mic-preflight";
+import {
+  RideModeChooser,
+  parseRideMode,
+  type RideMode,
+} from "@/components/train/ride-mode-chooser";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 type CaptureStart = {
@@ -18,6 +23,7 @@ type CaptureStart = {
   join_url: string;
   t0: string;
   status: string;
+  ride_mode?: RideMode | null;
   livekit: {
     configured: boolean;
     url: string | null;
@@ -30,12 +36,14 @@ function CaptureLiveInner() {
   const searchParams = useSearchParams();
   const horseIdParam = searchParams.get("horseId");
   const isTestLesson = searchParams.get("test") === "1";
+  const modeParam = parseRideMode(searchParams.get("mode"));
 
   const [horseId, setHorseId] = useState<string | null>(horseIdParam);
   const [horseName, setHorseName] = useState("Horse");
   const [horsesReady, setHorsesReady] = useState(false);
+  const [rideMode, setRideMode] = useState<RideMode | null>(modeParam);
   const [capture, setCapture] = useState<CaptureStart | null>(null);
-  const [starting, setStarting] = useState(true);
+  const [starting, setStarting] = useState(false);
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [micReady, setMicReady] = useState(false);
@@ -49,6 +57,10 @@ function CaptureLiveInner() {
     setMicReady(granted);
     if (granted) setShowMicDirections(false);
   }, []);
+
+  useEffect(() => {
+    setRideMode(modeParam);
+  }, [modeParam]);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,7 +93,7 @@ function CaptureLiveInner() {
   }, [horseIdParam]);
 
   useEffect(() => {
-    if (!horsesReady) return;
+    if (!horsesReady || !rideMode) return;
     let cancelled = false;
     (async () => {
       setStarting(true);
@@ -93,6 +105,7 @@ function CaptureLiveInner() {
           body: JSON.stringify({
             horse_id: horseId || null,
             is_test: isTestLesson,
+            ride_mode: rideMode,
           }),
         });
         const data = await res.json();
@@ -100,7 +113,9 @@ function CaptureLiveInner() {
           if (!cancelled) setError(data.error || "Could not start capture");
           return;
         }
-        if (!cancelled) setCapture(data);
+        if (!cancelled) {
+          setCapture(data);
+        }
       } catch {
         if (!cancelled) setError("Could not start capture");
       } finally {
@@ -111,11 +126,18 @@ function CaptureLiveInner() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [horsesReady, horseId, isTestLesson]);
+  }, [horsesReady, horseId, isTestLesson, rideMode]);
 
   const planHref = horseId
     ? `/train/ride/plan?horseId=${horseId}`
     : "/train/ride/plan";
+
+  function chooseMode(mode: RideMode) {
+    const q = new URLSearchParams(searchParams.toString());
+    q.set("mode", mode);
+    router.replace(`/train/ride/live?${q.toString()}`);
+    setRideMode(mode);
+  }
 
   async function allowMic() {
     setMicBusy(true);
@@ -159,6 +181,9 @@ function CaptureLiveInner() {
     setEnding(false);
   }
 
+  const effectiveMode =
+    parseRideMode(capture?.ride_mode) || rideMode || "with_trainer";
+
   return (
     <div className="relative space-y-4 pb-8">
       <div className="flex items-center justify-between">
@@ -168,7 +193,11 @@ function CaptureLiveInner() {
           </Link>
         </Button>
         <span className="text-[10px] uppercase tracking-[0.18em] text-cream/40">
-          {isTestLesson ? "Test lesson" : "Live lesson"}
+          {isTestLesson
+            ? "Test lesson"
+            : rideMode === "solo"
+              ? "Solo ride"
+              : "Live lesson"}
         </span>
       </div>
 
@@ -233,6 +262,10 @@ function CaptureLiveInner() {
         </div>
       )}
 
+      {!rideMode && !capture ? (
+        <RideModeChooser onChoose={chooseMode} />
+      ) : null}
+
       {starting && (
         <div className="flex items-center justify-center gap-2 py-12 text-cream/50">
           <Loader2 className="h-5 w-5 animate-spin" />
@@ -246,16 +279,19 @@ function CaptureLiveInner() {
         </div>
       )}
 
-      {capture && !starting && (
+      {capture && !starting && rideMode ? (
         <CaptureRoom
           captureSessionId={capture.id}
           t0={capture.t0}
           speaker="rider"
           displayName="You"
           livekit={capture.livekit}
-          joinCode={capture.join_code}
-          joinUrl={capture.join_url}
+          joinCode={
+            effectiveMode === "solo" ? undefined : capture.join_code
+          }
+          joinUrl={effectiveMode === "solo" ? undefined : capture.join_url}
           peerLabel="trainer"
+          rideMode={effectiveMode}
           onEnd={endLesson}
           ending={ending}
           autoStart={micReady}
@@ -288,7 +324,7 @@ function CaptureLiveInner() {
             })();
           }}
         />
-      )}
+      ) : null}
     </div>
   );
 }
