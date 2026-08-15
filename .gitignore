@@ -18,6 +18,8 @@
 # Misc
 .DS_Store
 *.pem
+# VS Code Simple Browser URI stubs (not app source)
+/vscode:/
 
 # Debug
 npm-debug.log*
