@@ -1,9 +1,14 @@
 /**
  * Client-side called-turn state machine (Brief 14 Phase 5 + reply window).
  * Driven by local ASR finals/interims after wake arms.
+ *
+ * Shape of a turn:
+ *   wake (earcon) → "Yes?" if nothing was asked → question → answer
+ *   → "Anything else?" → another question, or the rider closes it.
  */
 
-import { playWakeEarcon } from "@/lib/capture/vector-earcon";
+import { isGarbageTurnText } from "@/lib/capture/asr-cleanup";
+import { playCloseEarcon, playWakeEarcon } from "@/lib/capture/vector-earcon";
 import {
   isVectorPlaying,
   runCalledTurnIntoCall,
@@ -13,16 +18,36 @@ import {
 import {
   classifyTurnIntent,
   isAddressedToVector,
+  isAffirmativeReply,
   isIntelligibleQuestion,
+  isNegativeReply,
   isStopPhrase,
   splitWakeUtterance,
 } from "@/lib/capture/wake-word";
 import type { Room } from "livekit-client";
 
-const SILENCE_MS = 1200;
-const CAP_MS = 12_000;
-const FOLLOW_UP_MS = 8000;
-const COOLDOWN_MS = 900;
+const SILENCE_MS = 1600;
+/** Incomplete trailing words — wait longer before firing the turn. */
+const SILENCE_INCOMPLETE_MS = 3200;
+/** After "Yes?" — the rider is gathering the question. */
+const SILENCE_EMPTY_MS = 12_000;
+const CAP_MS = 16_000;
+/** Corrections land late; keep accepting them after the strip goes quiet. */
+const FOLLOW_UP_MS = 25_000;
+/** "Anything else?" waits about as long as a person would. */
+const ANYTHING_ELSE_MS = 10_000;
+const COOLDOWN_MS = 600;
+
+const ACK_LINE = "Yes?";
+const ANYTHING_ELSE_LINE = "Anything else?";
+
+/** Rider pushing back on the answer — always earns a reply. */
+const CORRECTION_RE =
+  /\b(that'?s\s+not|that\s+isn'?t|not\s+what\s+i|i\s+(?:said|asked)|wrong|no,?\s+i|i\s+meant|try\s+again|different\s+one|something\s+else)\b/i;
+
+export function isCorrection(text: string): boolean {
+  return CORRECTION_RE.test(text.replace(/\s+/g, " ").trim());
+}
 
 export type CalledTurnUi = {
   strip: "idle" | "turn";
@@ -43,18 +68,54 @@ export type CalledTurnRuntimeOpts = {
   broadcast: (msg: Record<string, unknown>) => void;
 };
 
+function sanitizePiece(raw: string): string {
+  const t = raw.replace(/\s+/g, " ").trim();
+  if (!t || isGarbageTurnText(t)) return "";
+  return t;
+}
+
 export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
   let collecting = false;
-  let buffer = "";
+  /** Finalized speech for this question. */
+  let committed = "";
+  /** Latest in-flight partial — replaced, never appended. */
+  let interimTail = "";
   let silenceTimer: number | null = null;
   let capTimer: number | null = null;
+  let anythingElseTimer: number | null = null;
   let followUpUntil = 0;
+  /** Vector asked "Anything else?" and is waiting on the rider. */
+  let awaitingMore = false;
   let crossingSaid = false;
   let lastExerciseText: string | null = null;
   let declined: string[] = [];
   let busy = false;
   let cooldownUntil = 0;
   let disposed = false;
+  let history: Array<{ question: string; answer: string }> = [];
+  /** What Vector is saying right now, so the mic doesn't quote it back. */
+  let speakingLine = "";
+
+  function normalizeForEcho(s: string): string {
+    return s
+      .toLowerCase()
+      .replace(/[^a-z0-9 ]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  /** The open mic hears Vector too — that is not the rider talking. */
+  function isEchoOfVector(piece: string): boolean {
+    if (!speakingLine || !isVectorPlaying()) return false;
+    const p = normalizeForEcho(piece);
+    const line = normalizeForEcho(speakingLine);
+    if (!p || !line) return false;
+    return line.includes(p) || p.includes(line);
+  }
+
+  function questionSoFar(): string {
+    return `${committed} ${interimTail}`.replace(/\s+/g, " ").trim();
+  }
 
   function clearCollectTimers() {
     if (silenceTimer != null) {
@@ -67,9 +128,17 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
     }
   }
 
+  function clearAnythingElseTimer() {
+    if (anythingElseTimer != null) {
+      window.clearTimeout(anythingElseTimer);
+      anythingElseTimer = null;
+    }
+  }
+
   function resetCollect() {
     collecting = false;
-    buffer = "";
+    committed = "";
+    interimTail = "";
     clearCollectTimers();
   }
 
@@ -77,8 +146,25 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
     opts.onUi({ strip: "idle" });
   }
 
+  /** Turn is over — back to listening for the next wake. */
+  function closeTurn() {
+    const wasOpen = awaitingMore || collecting;
+    awaitingMore = false;
+    followUpUntil = 0;
+    clearAnythingElseTimer();
+    resetCollect();
+    setIdleStrip();
+    // Sign off the way it signed on, so the rider knows it let go
+    if (wasOpen) void playCloseEarcon();
+  }
+
   function openFollowUp() {
     followUpUntil = Date.now() + FOLLOW_UP_MS;
+  }
+
+  /** Vector still talking counts as open — the rider can cut in. */
+  function inFollowUp(): boolean {
+    return Date.now() < followUpUntil || isVectorPlaying() || awaitingMore;
   }
 
   function broadcastTurn(text: string) {
@@ -89,11 +175,33 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
     });
   }
 
+  /** Speak a short Vector line in Vector's own voice. */
+  async function speakLine(text: string): Promise<void> {
+    opts.onUi({ strip: "turn", line: text });
+    speakingLine = text;
+    try {
+      await speakVectorIntoCall(
+        opts.getRoom(),
+        opts.getCaptureSessionId(),
+        {
+          kind: "turn",
+          text,
+          offsetMs: opts.getOffsetMs(),
+          persist: false,
+        },
+        opts.getAuthHeaders
+      );
+    } catch {
+      /* the line is on screen either way */
+    } finally {
+      speakingLine = "";
+    }
+  }
+
   async function handleStop() {
     stopVectorPlayback();
     opts.broadcast({ type: "vector_stop" });
-    resetCollect();
-    setIdleStrip();
+    closeTurn();
     busy = false;
   }
 
@@ -104,6 +212,8 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
       return;
     }
     busy = true;
+    awaitingMore = false;
+    clearAnythingElseTimer();
     opts.onUi({ strip: "turn", line: lastExerciseText });
     broadcastTurn(lastExerciseText);
     try {
@@ -120,12 +230,24 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
       );
     } finally {
       busy = false;
-      openFollowUp();
       cooldownUntil = Date.now() + COOLDOWN_MS;
-      window.setTimeout(() => {
-        if (!isVectorPlaying()) setIdleStrip();
-      }, 600);
+      await promptAnythingElse();
     }
+  }
+
+  /** Close the loop like a person would, then wait a beat. */
+  async function promptAnythingElse() {
+    if (disposed) return;
+    awaitingMore = true;
+    openFollowUp();
+    await speakLine(ANYTHING_ELSE_LINE);
+    if (disposed || !awaitingMore) return;
+    clearAnythingElseTimer();
+    anythingElseTimer = window.setTimeout(() => {
+      anythingElseTimer = null;
+      // No answer — close quietly rather than nag
+      if (awaitingMore && !busy && !collecting) closeTurn();
+    }, ANYTHING_ELSE_MS);
   }
 
   async function submitQuestion(question: string) {
@@ -138,13 +260,23 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
       await handleReplay();
       return;
     }
-    if (!isIntelligibleQuestion(question)) {
+    if (!isIntelligibleQuestion(question) || isGarbageTurnText(question)) {
       resetCollect();
-      setIdleStrip();
+      if (!awaitingMore) setIdleStrip();
       return;
     }
 
     busy = true;
+    awaitingMore = false;
+    clearAnythingElseTimer();
+    // A correction rejects the answer it followed — don't offer it again
+    if (isCorrection(question)) {
+      const rejected = history[history.length - 1]?.answer;
+      if (rejected && !declined.includes(rejected)) {
+        declined = [...declined, rejected].slice(-12);
+      }
+      stopVectorPlayback();
+    }
     opts.onUi({ strip: "turn", line: null });
     try {
       const result = await runCalledTurnIntoCall(
@@ -159,67 +291,91 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
           crossingLineAlreadySaid: crossingSaid,
           declinedTexts: declined,
           intent: "ask",
+          priorTurns: history.slice(-3),
         },
         opts.getAuthHeaders
       );
 
       if (result.silent || !result.text) {
-        setIdleStrip();
+        closeTurn();
         return;
       }
 
       if (result.crossingSaid) crossingSaid = true;
-      if (result.kind === "exercise" || (result.text && result.text.length > 80)) {
+      if (result.kind === "exercise" || result.text.length > 80) {
         lastExerciseText = result.text;
       }
 
+      history = [...history, { question, answer: result.text }].slice(-3);
       opts.onUi({ strip: "turn", line: result.text });
       broadcastTurn(result.text);
-      openFollowUp();
+      // runCalledTurnIntoCall already exhausts cloud + local speech; speaking
+      // again here would say the answer twice
+      busy = false;
+      await promptAnythingElse();
     } finally {
       busy = false;
       cooldownUntil = Date.now() + COOLDOWN_MS;
-      window.setTimeout(() => {
-        if (!collecting && !isVectorPlaying()) setIdleStrip();
-      }, FOLLOW_UP_MS + 200);
     }
   }
 
   function finishCollect() {
     if (!collecting) return;
-    const q = buffer.trim();
+    const q = questionSoFar();
     resetCollect();
+    if (!q) {
+      // Nothing came after the wake — let it go quietly
+      closeTurn();
+      return;
+    }
     void submitQuestion(q);
+  }
+
+  function looksIncomplete(q: string): boolean {
+    const t = q.replace(/\s+/g, " ").trim().toLowerCase();
+    if (!t) return false;
+    if (/[?]$/.test(t)) return false;
+    return /(?:\b(?:for|to|a|an|the|my|your|about|on|with|and|or|of)\s*$)/.test(
+      t
+    );
   }
 
   function bumpSilence() {
     if (silenceTimer != null) window.clearTimeout(silenceTimer);
-    silenceTimer = window.setTimeout(() => {
-      finishCollect();
-    }, SILENCE_MS);
+    const q = questionSoFar();
+    const wait = q
+      ? looksIncomplete(q)
+        ? SILENCE_INCOMPLETE_MS
+        : SILENCE_MS
+      : SILENCE_EMPTY_MS;
+    silenceTimer = window.setTimeout(() => finishCollect(), wait);
   }
 
   function beginCollect(seed: string) {
     collecting = true;
-    buffer = seed;
-    opts.onUi({ strip: "turn" });
+    committed = sanitizePiece(seed);
+    interimTail = "";
+    awaitingMore = false;
+    clearAnythingElseTimer();
+    opts.onUi({ strip: "turn", line: null });
     clearCollectTimers();
     capTimer = window.setTimeout(() => finishCollect(), CAP_MS);
-    if (isIntelligibleQuestion(seed)) {
-      // Same-breath question — still wait a short beat for trailing words
-      bumpSilence();
-    } else {
-      bumpSilence();
-    }
+    bumpSilence();
   }
 
   async function onWake(residual: string) {
     if (disposed || busy || collecting) return;
     if (Date.now() < cooldownUntil) return;
-    await playWakeEarcon();
-    opts.onUi({ strip: "turn" });
-    if (isIntelligibleQuestion(residual)) {
-      const intent = classifyTurnIntent(residual);
+
+    // The bing lands before anything else — the rider knows they were heard
+    try {
+      await playWakeEarcon();
+    } catch {
+      /* earcon best-effort */
+    }
+
+    const intent = residual ? classifyTurnIntent(residual) : "ask";
+    if (residual && isIntelligibleQuestion(residual)) {
       if (intent === "stop") {
         await handleStop();
         return;
@@ -228,16 +384,25 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
         await handleReplay();
         return;
       }
+      // Asked in one breath — go straight to the answer
       beginCollect(residual);
       return;
     }
-    // False-wake path: wait for a question; empty → zero output
+
+    // Bare wake — answer, then listen. Collect first so a rider who starts
+    // talking over the "Yes?" is still heard.
     beginCollect("");
+    await speakLine(ACK_LINE);
+    if (disposed || !collecting) return;
+    // The clock on the question starts when Vector stops talking
+    bumpSilence();
   }
 
   return {
     dispose() {
       disposed = true;
+      awaitingMore = false;
+      clearAnythingElseTimer();
       resetCollect();
       stopVectorPlayback();
     },
@@ -249,8 +414,7 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
     },
     onRemoteStop() {
       stopVectorPlayback();
-      resetCollect();
-      setIdleStrip();
+      closeTurn();
     },
     /** Trainer barge-in while Vector is speaking. */
     onTrainerVoice() {
@@ -259,14 +423,32 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
     },
     onAsrInterim(text: string) {
       if (!opts.isArmed() || !opts.isCaptureLive()) return;
-      if (collecting && text.trim()) {
-        buffer = `${buffer} ${text}`.replace(/\s+/g, " ").trim();
+      const raw = text.replace(/\s+/g, " ").trim();
+      if (!raw || isGarbageTurnText(raw)) return;
+      if (isEchoOfVector(raw)) return;
+
+      if (!collecting && !busy) {
+        const { hit, residual } = splitWakeUtterance(raw);
+        if (hit) {
+          void onWake(residual);
+          return;
+        }
+      }
+
+      if (collecting) {
+        const { hit, residual } = splitWakeUtterance(raw);
+        // Partials replace the tail; finals are what accumulate
+        interimTail = sanitizePiece(hit ? residual : raw);
         bumpSilence();
       }
     },
     onAsrFinal(text: string) {
       if (!opts.isArmed() || !opts.isCaptureLive()) return;
-      const cleaned = text.replace(/\s+/g, " ").trim();
+      const raw = text.replace(/\s+/g, " ").trim();
+      if (!raw || isGarbageTurnText(raw)) return;
+      if (isEchoOfVector(raw)) return;
+
+      const cleaned = sanitizePiece(raw);
       if (!cleaned) return;
 
       // Barge-in: trainer speech while Vector plays
@@ -279,26 +461,56 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
         return;
       }
 
-      if (busy) return;
-
-      // Stop / replay while Vector speaking (either party)
       if (isVectorPlaying() && isStopPhrase(cleaned)) {
         void handleStop();
         return;
       }
 
+      if (busy) return;
+
       if (collecting) {
         const { hit, residual } = splitWakeUtterance(cleaned);
-        const piece = hit ? residual : cleaned;
+        const piece = sanitizePiece(hit ? residual : cleaned);
         if (piece) {
-          buffer = `${buffer} ${piece}`.replace(/\s+/g, " ").trim();
+          committed = `${committed} ${piece}`.replace(/\s+/g, " ").trim();
         }
+        interimTail = "";
         bumpSilence();
         return;
       }
 
-      // Follow-up window — no wake required, address must be clear
-      if (Date.now() < followUpUntil) {
+      // "Anything else?" is on the table
+      if (awaitingMore) {
+        if (isNegativeReply(cleaned) || isStopPhrase(cleaned)) {
+          stopVectorPlayback();
+          closeTurn();
+          return;
+        }
+        if (isAffirmativeReply(cleaned) && cleaned.split(/\s+/).length <= 3) {
+          // "Yes" alone — wait for what they actually want
+          stopVectorPlayback();
+          clearAnythingElseTimer();
+          beginCollect("");
+          return;
+        }
+        if (classifyTurnIntent(cleaned) === "replay") {
+          stopVectorPlayback();
+          void handleReplay();
+          return;
+        }
+        const { hit, residual } = splitWakeUtterance(cleaned);
+        const q = sanitizePiece(hit ? residual : cleaned);
+        if (q && isIntelligibleQuestion(q)) {
+          stopVectorPlayback();
+          clearAnythingElseTimer();
+          beginCollect(q);
+          return;
+        }
+        return;
+      }
+
+      // Reply window — the rider is still mid-conversation, no wake required
+      if (inFollowUp()) {
         if (isStopPhrase(cleaned)) {
           void handleStop();
           return;
@@ -307,22 +519,25 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
           void handleReplay();
           return;
         }
+        if (isCorrection(cleaned)) {
+          void submitQuestion(cleaned);
+          return;
+        }
         if (isAddressedToVector(cleaned)) {
           const { residual } = splitWakeUtterance(cleaned);
           const q = residual || cleaned.replace(/\bvector\b/gi, "").trim();
-          if (isIntelligibleQuestion(q)) {
-            void submitQuestion(q);
-          }
+          if (isIntelligibleQuestion(q)) void submitQuestion(q);
           return;
         }
-        // Ambiguous → silence
+        if (!isVectorPlaying() && isIntelligibleQuestion(cleaned)) {
+          void submitQuestion(cleaned);
+          return;
+        }
         return;
       }
 
       const { hit, residual } = splitWakeUtterance(cleaned);
-      if (hit) {
-        void onWake(residual);
-      }
+      if (hit) void onWake(residual);
     },
   };
 }

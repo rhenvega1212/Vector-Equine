@@ -17,6 +17,10 @@ let activePlayback: {
   resolve: (spoken: boolean) => void;
 } | null = null;
 
+/** Browser speechSynthesis fallback when ElevenLabs audio is unavailable. */
+let browserSpeechActive = false;
+let browserSpeechTimer: number | null = null;
+
 function getVectorAudioContext(): AudioContext {
   if (typeof window === "undefined") {
     throw new Error("AudioContext is browser-only");
@@ -54,11 +58,68 @@ export async function unlockVectorAudio(): Promise<void> {
 }
 
 export function isVectorPlaying(): boolean {
-  return activePlayback != null;
+  return activePlayback != null || browserSpeechActive;
+}
+
+/**
+ * Local speak when cloud TTS fails or returns no audio.
+ * Uses the system voice so lab / solo still hears the open line.
+ */
+export async function speakTextLocally(text: string): Promise<boolean> {
+  if (typeof window === "undefined" || !text.trim()) return false;
+  const synth = window.speechSynthesis;
+  if (!synth) return false;
+
+  await unlockVectorAudio();
+  stopVectorPlayback();
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      browserSpeechActive = false;
+      if (browserSpeechTimer != null) {
+        window.clearTimeout(browserSpeechTimer);
+        browserSpeechTimer = null;
+      }
+      resolve(ok);
+    };
+
+    try {
+      synth.cancel();
+      const utter = new SpeechSynthesisUtterance(text.trim());
+      utter.rate = 1.02;
+      utter.pitch = 1;
+      browserSpeechActive = true;
+      utter.onend = () => finish(true);
+      utter.onerror = () => finish(false);
+      synth.speak(utter);
+      // Some embedded browsers never fire onend
+      browserSpeechTimer = window.setTimeout(
+        () => finish(true),
+        Math.min(22_000, 900 + text.trim().length * 70)
+      );
+    } catch {
+      finish(false);
+    }
+  });
 }
 
 /** Channel rule / stop phrase — halt TTS, keep text on screen. */
 export function stopVectorPlayback(): void {
+  if (browserSpeechActive) {
+    browserSpeechActive = false;
+    if (browserSpeechTimer != null) {
+      window.clearTimeout(browserSpeechTimer);
+      browserSpeechTimer = null;
+    }
+    try {
+      window.speechSynthesis?.cancel();
+    } catch {
+      /* ignore */
+    }
+  }
   const cur = activePlayback;
   if (!cur) return;
   activePlayback = null;
@@ -216,27 +277,32 @@ export async function speakVectorIntoCall(
         typeof (json as { text?: string }).text === "string"
           ? (json as { text: string }).text
           : fallbackText;
-      return { text, spoken: false };
+      const spoken = await speakTextLocally(text);
+      return { text, spoken };
     }
 
     const ct = res.headers.get("Content-Type") || "";
     if (!ct.includes("audio")) {
       const json = await res.json().catch(() => ({}));
-      return {
-        text: (json as { text?: string }).text || text,
-        spoken: false,
-      };
+      text = (json as { text?: string }).text || text;
+      const spoken = await speakTextLocally(text);
+      return { text, spoken };
     }
 
     const buf = await res.arrayBuffer();
     if (!buf.byteLength) {
-      return { text, spoken: false };
+      const spoken = await speakTextLocally(text);
+      return { text, spoken };
     }
 
-    const spoken = await playDecodedIntoCall(room, buf);
+    let spoken = await playDecodedIntoCall(room, buf);
+    if (!spoken) {
+      spoken = await speakTextLocally(text);
+    }
     return { text, spoken };
   } catch {
-    return { text: fallbackText, spoken: false };
+    const spoken = await speakTextLocally(fallbackText);
+    return { text: fallbackText, spoken };
   }
 }
 
@@ -251,7 +317,7 @@ export type CalledTurnClientResult = {
   failure?: boolean;
 };
 
-/** POST called-turn generation; speak into call when audio returns fast enough. */
+/** POST called-turn generation; always speak the reply when we have text. */
 export async function runCalledTurnIntoCall(
   room: Room | null,
   captureSessionId: string,
@@ -264,12 +330,12 @@ export async function runCalledTurnIntoCall(
     crossingLineAlreadySaid?: boolean;
     declinedTexts?: string[];
     intent?: "ask" | "stop" | "replay";
+    priorTurns?: Array<{ question: string; answer: string }>;
   },
   authHeaders: () => HeadersInit
 ): Promise<CalledTurnClientResult> {
   try {
     await unlockVectorAudio();
-    const started = Date.now();
     const res = await fetch(
       `/api/capture/sessions/${captureSessionId}/vector/turn`,
       {
@@ -295,33 +361,42 @@ export async function runCalledTurnIntoCall(
     const ct = res.headers.get("Content-Type") || "";
     const headerText = res.headers.get("X-Vector-Text");
     const crossing = res.headers.get("X-Vector-Crossing") === "1";
+    const kind = res.headers.get("X-Vector-Kind") || undefined;
+    const grounding = res.headers.get("X-Vector-Grounding") || undefined;
 
-    if (ct.includes("audio") && headerText) {
-      const text = decodeURIComponent(headerText);
-      const elapsed = Date.now() - started;
-      if (elapsed >= 4000) {
-        return {
-          text,
-          spoken: false,
-          silent: false,
-          intent: "ask",
-          kind: res.headers.get("X-Vector-Kind") || undefined,
-          grounding: res.headers.get("X-Vector-Grounding") || undefined,
-          crossingSaid: crossing,
-        };
-      }
+    if (ct.includes("audio")) {
+      const text = headerText
+        ? decodeURIComponent(headerText)
+        : "Vector answered — check the strip.";
       const buf = await res.arrayBuffer();
-      const spoken =
-        elapsed < 2500 && buf.byteLength
-          ? await playDecodedIntoCall(room, buf)
-          : false;
+      let spoken = false;
+      if (buf.byteLength) {
+        spoken = await playDecodedIntoCall(room, buf);
+      }
+      if (!spoken && text.trim()) {
+        spoken = await speakTextLocally(text);
+      }
+      if (!spoken && text.trim()) {
+        const again = await speakVectorIntoCall(
+          room,
+          captureSessionId,
+          {
+            kind: "turn",
+            text,
+            offsetMs: body.offsetMs,
+            persist: false,
+          },
+          authHeaders
+        );
+        spoken = again.spoken;
+      }
       return {
         text,
         spoken,
         silent: false,
         intent: "ask",
-        kind: res.headers.get("X-Vector-Kind") || undefined,
-        grounding: res.headers.get("X-Vector-Grounding") || undefined,
+        kind,
+        grounding,
         crossingSaid: crossing,
       };
     }
@@ -331,24 +406,58 @@ export async function runCalledTurnIntoCall(
       intent?: "ask" | "stop" | "replay";
       text?: string;
       failure?: boolean;
+      speak?: boolean;
+      offer?: { kind?: string; grounding?: string };
     };
 
     if (json.silent) {
       return { text: "", spoken: false, silent: true, intent: "ask" };
     }
 
+    const text = (json.text || "").trim();
+    if (!text) {
+      return {
+        text: "",
+        spoken: false,
+        silent: true,
+        intent: json.intent || "ask",
+        failure: json.failure,
+      };
+    }
+
+    // JSON path (TTS failed server-side) — still speak on device
+    let spoken = await speakTextLocally(text);
+    if (!spoken) {
+      const again = await speakVectorIntoCall(
+        room,
+        captureSessionId,
+        {
+          kind: "turn",
+          text,
+          offsetMs: body.offsetMs,
+          persist: false,
+        },
+        authHeaders
+      );
+      spoken = again.spoken;
+    }
+
     return {
-      text: json.text || "",
-      spoken: false,
+      text,
+      spoken,
       silent: false,
       intent: json.intent || "ask",
       failure: json.failure,
+      kind: json.offer?.kind || kind,
+      grounding: json.offer?.grounding || grounding,
       crossingSaid: crossing,
     };
   } catch {
+    const fallback = "Couldn't get that — try again in a moment.";
+    const spoken = await speakTextLocally(fallback);
     return {
-      text: "Couldn't get that — try again in a moment.",
-      spoken: false,
+      text: fallback,
+      spoken,
       silent: false,
       intent: "ask",
       failure: true,
