@@ -1,6 +1,5 @@
 /**
- * Light cleanup for browser SpeechRecognition before segments hit the timeline.
- * Not a substitute for Whisper — just fixes the common barn / Vector mangling.
+ * Light cleanup for browser SpeechRecognition / Whisper before segments hit the timeline.
  */
 
 const PHRASE_FIXES: Array<[RegExp, string]> = [
@@ -34,6 +33,68 @@ const PHRASE_FIXES: Array<[RegExp, string]> = [
   [/\bpiaffe\b/gi, "piaffe"],
 ];
 
+/**
+ * Whisper silence / prompt-echo leftovers. Drop entirely (no transcript row).
+ */
+const HALLUCINATION_EXACT_RE =
+  /^(thanks?(?:\s+you)?\s+for\s+watching\.?|thanks?(?:\s+you)?\s+for\s+listening\.?|please\s+subscribe\.?|like\s+and\s+subscribe\.?|see\s+you\s+(?:next\s+time|later)\.?|subscribe\.?|thank\s+you\.?|thanks\.?|you\.?|bye\.?|goodbye\.?|music\.?|applause\.?|transcribe\s+only\s+clear\s+speech\.?|speakers?\s+may\s+say\b.*|equestrian\s+riding\s+lesson\b.*|\.{1,}|…)$/i;
+
+/** Substrings that mean the model echoed its own prompt or spun nonsense. */
+const HALLUCINATION_CONTAINS_RE =
+  /transcribe\s+only|speakers?\s+may\s+say|return\s+an\s+empty\s+transcript|never\s+invent\s+filler|thank(?:s| you)\s+for\s+watching|please\s+subscribe|like\s+and\s+subscribe|speech\s+violence|featuring\s+strangulation|violence\s+against\s+women|\[.?music.?\]|\[.?applause.?\]|字幕|subscribe\s+to\s+my/i;
+
+/** Comma-stacked gait lists = Whisper dumping the vocab prompt. */
+const VOCAB_DUMP_RE =
+  /\bwalk\b.*\btrot\b.*\bcanter\b|\btrot\b.*\bcanter\b.*\bhalt\b|\binside\s+leg\b.*\boutside\s+rein\b.*\b(contact|collection|tempo)\b/i;
+
+export function isWhisperHallucination(raw: string): boolean {
+  const text = raw.replace(/\s+/g, " ").trim();
+  if (!text) return true;
+  if (HALLUCINATION_EXACT_RE.test(text)) return true;
+  if (HALLUCINATION_CONTAINS_RE.test(text)) return true;
+  if (VOCAB_DUMP_RE.test(text)) return true;
+  if (/thank(?:s| you)\s+for\s+watching/i.test(text) && text.length < 48) {
+    return true;
+  }
+  if (
+    /please\s+subscribe|like\s+and\s+subscribe/i.test(text) &&
+    text.length < 64
+  ) {
+    return true;
+  }
+  // Prompt-shaped: long instructional sentence with no riding ask
+  if (
+    text.length > 40 &&
+    /\b(transcribe|transcript|speakers?\s+may|vocabulary|silent or only noise)\b/i.test(
+      text
+    )
+  ) {
+    return true;
+  }
+  // Very short non-riding crumbs Whisper invents on hiss
+  if (
+    text.length <= 12 &&
+    /^(the|a|and|so|to|of|in|it|is|this|that|yeah|yes|no)\.?$/i.test(text)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Text that must never start or fill a called turn — prompt echo, junk, etc.
+ */
+export function isGarbageTurnText(raw: string): boolean {
+  const text = raw.replace(/\s+/g, " ").trim();
+  if (!text) return true;
+  if (isWhisperHallucination(text)) return true;
+  // Wake-only with no residual handled elsewhere; here: pure noise phrases
+  if (/^(um+|uh+|ah+|oh+|hmm+|mm+|yeah|yep|ok|okay)\.?$/i.test(text)) {
+    return true;
+  }
+  return false;
+}
+
 /** Prefer the alternative that already says Vector / Hey Vector when present. */
 export function pickBestAsrAlternative(
   alts: Array<{ transcript: string; confidence?: number }>
@@ -45,6 +106,8 @@ export function pickBestAsrAlternative(
     if (/hey\s+vector/i.test(t)) score += 0.35;
     if (/\bvector\b/i.test(t)) score += 0.15;
     if (/\b(trot|canter|halt|rein|leg)\b/i.test(t)) score += 0.05;
+    // Penalize prompt-echo candidates
+    if (HALLUCINATION_CONTAINS_RE.test(t) || VOCAB_DUMP_RE.test(t)) score -= 0.8;
     return { t, score };
   });
   scored.sort((a, b) => b.score - a.score);
@@ -54,6 +117,7 @@ export function pickBestAsrAlternative(
 export function cleanAsrText(raw: string): string {
   let text = raw.replace(/\s+/g, " ").trim();
   if (!text) return text;
+  if (isWhisperHallucination(text)) return "";
 
   for (const [re, rep] of PHRASE_FIXES) {
     text = text.replace(re, rep);
@@ -69,5 +133,6 @@ export function cleanAsrText(raw: string): string {
     text = text.replace(/\bVector Equine\b/gi, "Vector Equine");
   }
 
+  if (isWhisperHallucination(text)) return "";
   return text.trim();
 }

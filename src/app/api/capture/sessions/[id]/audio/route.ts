@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { waitUntil } from "@vercel/functions";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyGuestCaptureToken } from "@/lib/capture/guest-token";
-import { applyWhisperChunk } from "@/lib/capture/apply-whisper-chunk";
+import { applyWhisperBytes } from "@/lib/capture/apply-whisper-bytes";
 import { isWhisperConfigured } from "@/lib/capture/whisper";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-const BUCKET = "session-videos";
-const MAX_BYTES = 24 * 1024 * 1024; // Whisper limit is 25MB
+const MAX_BYTES = 24 * 1024 * 1024;
+/** Wait this long for Whisper so the client can paint lines without an extra poll. */
+const WHISPER_WAIT_MS = 8_000;
 
 /**
- * Upload a lesson mic chunk for Whisper re-transcription on polish.
- * Form fields: file, speaker (rider|trainer), sync_offset_ms, chunk_id
+ * Accept a mic chunk, Whisper it, return segments when ready.
+ * Storage skipped — bucket create was stalling lab rides.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
@@ -70,21 +70,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const form = await request.formData();
     const file = form.get("file");
-    const formSpeaker = String(form.get("speaker") || speaker);
-    if (formSpeaker === "rider" || formSpeaker === "trainer") {
-      // Guests are always trainer; riders always rider — ignore spoof from peer role
-      if (guestToken) speaker = "trainer";
-      else speaker = "rider";
-    }
+    if (guestToken) speaker = "trainer";
+    else speaker = "rider";
 
     const syncOffsetMs = Math.max(
       0,
       Number.parseInt(String(form.get("sync_offset_ms") || "0"), 10) || 0
     );
-    const chunkId = String(form.get("chunk_id") || crypto.randomUUID()).replace(
-      /[^a-zA-Z0-9_-]/g,
-      ""
-    ).slice(0, 80);
+    const chunkId = String(form.get("chunk_id") || crypto.randomUUID())
+      .replace(/[^a-zA-Z0-9_-]/g, "")
+      .slice(0, 80);
 
     if (!(file instanceof Blob) || file.size < 64) {
       return NextResponse.json({ error: "Empty audio" }, { status: 400 });
@@ -97,67 +92,50 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const mime = file.type || "audio/webm";
-    const ext = mime.includes("mp4") || mime.includes("m4a") ? "mp4" : "webm";
-    const path = `capture-audio/${id}/${speaker}/${syncOffsetMs}-${chunkId}.${ext}`;
-
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const { error: upErr } = await admin.storage
-      .from(BUCKET)
-      .upload(path, bytes, {
-        contentType: mime,
-        upsert: true,
+
+    let whisperSegs: Array<{
+      text: string;
+      offset_ms: number;
+      ended_offset_ms: number;
+    }> = [];
+
+    if (isWhisperConfigured() && bytes.byteLength >= 256) {
+      const job = applyWhisperBytes({
+        captureSessionId: id,
+        audio: bytes,
+        speaker,
+        syncOffsetMs,
+        mediaType: mime,
+        windowMs: 10_000,
+        chunkPath: `capture-audio/${id}/${speaker}/${syncOffsetMs}-${chunkId}`,
       });
 
-    if (upErr) {
-      console.error("capture audio upload", upErr);
-      return NextResponse.json({ error: upErr.message }, { status: 400 });
-    }
+      const finished = await Promise.race([
+        job.then((r) => ({ ok: true as const, r })),
+        new Promise<{ ok: false }>((resolve) =>
+          setTimeout(() => resolve({ ok: false }), WHISPER_WAIT_MS)
+        ),
+      ]);
 
-    // Idempotent: one row per storage path
-    const { data: existing } = await admin
-      .from("session_media_assets")
-      .select("id")
-      .eq("capture_session_id", id)
-      .eq("storage_path", path)
-      .maybeSingle();
-
-    let assetId = existing?.id as string | undefined;
-    if (!assetId) {
-      const { data: inserted, error: insErr } = await admin
-        .from("session_media_assets")
-        .insert({
-          capture_session_id: id,
-          kind: "audio_recording",
-          storage_path: path,
-          sync_offset_ms: syncOffsetMs,
-        })
-        .select("id")
-        .single();
-      if (insErr) {
-        console.error("capture audio asset insert", insErr);
-        return NextResponse.json({ error: insErr.message }, { status: 400 });
+      if (finished.ok) {
+        whisperSegs = finished.r.segments;
+      } else {
+        // Still finish in background so poll can pick it up
+        void job.catch((e) => console.error("whisper bg", e));
       }
-      assetId = inserted.id;
-    }
-
-    // Correct the live timeline with Whisper after this chunk lands
-    if (isWhisperConfigured()) {
-      waitUntil(
-        applyWhisperChunk({
-          captureSessionId: id,
-          storagePath: path,
-          speaker,
-          syncOffsetMs,
-          windowMs: 50_000,
-        }).catch((e) => console.error("whisper chunk after", e))
-      );
     }
 
     return NextResponse.json({
-      id: assetId,
-      storage_path: path,
+      accepted: true,
       speaker,
       sync_offset_ms: syncOffsetMs,
+      segments: whisperSegs.map((s) => ({
+        offset_ms: s.offset_ms,
+        speaker,
+        text: s.text,
+        ended_offset_ms: s.ended_offset_ms,
+      })),
     });
   } catch (e) {
     console.error("capture audio POST", e);
