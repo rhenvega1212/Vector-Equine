@@ -15,6 +15,7 @@ export function RideDetailClient({
   metaLine,
   title,
   whoLine,
+  feelAsk = null,
   carryIn,
   moments,
   storyParagraphs = [],
@@ -32,6 +33,8 @@ export function RideDetailClient({
   metaLine: string;
   title: string;
   whoLine: string;
+  /** Unanswered feel — lives on debrief, identified to this ride. */
+  feelAsk?: React.ReactNode;
   carryIn: CarryIn | null;
   moments: RideMoment[];
   /** Fallback when polish wrote narrative but no timed cues */
@@ -86,7 +89,11 @@ export function RideDetailClient({
           {title}
         </h1>
         <p className="mt-[13px] text-[12.5px] text-cream-dim">{whoLine}</p>
+      </div>
 
+      {feelAsk}
+
+      <div className="px-[26px]">
         {carryIn ? (
           <div className="mt-[52px]">
             <p className="text-[10px] uppercase tracking-[0.28em] text-gold">

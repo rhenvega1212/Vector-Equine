@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { UserX, Loader2 } from "lucide-react";
 import { UploadProgressBar } from "@/components/shared/upload-progress-bar";
-import { FeelRatingSheet } from "@/components/train/feel-rating-sheet";
+import { FeelPendingRedirect } from "@/components/train/feel-rating-sheet";
 import { FeatureFlagsProvider } from "@/lib/flags/context";
 import { allFlagsOff, type EvaluatedFlags } from "@/lib/flags/registry";
 import { CurrentUserProvider } from "@/lib/auth/current-user-context";
@@ -125,7 +125,7 @@ export function MainLayoutClient({
       {/* Vector has its own RIDE · RIDES · HORSE · MORE nav */}
       {!onVector && <MobileNav profile={profile} />}
       <UploadProgressBar />
-      <FeelRatingSheet />
+      <FeelPendingRedirect />
     </div>
     </CurrentUserProvider>
     </FeatureFlagsProvider>

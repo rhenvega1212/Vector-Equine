@@ -66,7 +66,7 @@ export default async function RidePage({ params }: SessionPageProps) {
       : Promise.resolve({ data: null as { name: string; barn_name: string | null } | null }),
     supabase
       .from("capture_sessions")
-      .select("id, trainer_display_name, t0")
+      .select("id, trainer_display_name, t0, join_code")
       .eq("training_session_id", id)
       .maybeSingle(),
   ]);
@@ -206,12 +206,6 @@ export default async function RidePage({ params }: SessionPageProps) {
           />
         </div>
       )}
-      {isOwner && session.overall_feel == null ? (
-        <RideFeelAsk
-          rideId={session.id}
-          withTrainer={Boolean(trainerFirst)}
-        />
-      ) : null}
       {isOwner && (
         <DebriefShareActions
           score={session.overall_feel}
@@ -232,6 +226,18 @@ export default async function RidePage({ params }: SessionPageProps) {
     </>
   );
 
+  const feelAsk =
+    isOwner && session.overall_feel == null ? (
+      <RideFeelAsk
+        rideId={session.id}
+        withTrainer={Boolean(trainerFirst)}
+        horseName={horseShort}
+        title={title}
+        whenLabel={metaLine}
+        joinCode={capture?.join_code ?? null}
+      />
+    ) : null;
+
   return (
     <AtmosphereScreen className="min-h-[70vh] -mx-3 sm:-mx-4">
       <BriefPendingRefresh sessionId={session.id} pending={briefPending} />
@@ -240,6 +246,7 @@ export default async function RidePage({ params }: SessionPageProps) {
         metaLine={metaLine}
         title={title}
         whoLine={whoLine}
+        feelAsk={feelAsk}
         carryIn={briefPending ? null : carryIn}
         moments={briefPending ? [] : moments}
         storyParagraphs={storyParagraphs}

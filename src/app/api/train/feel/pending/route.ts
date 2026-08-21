@@ -27,11 +27,12 @@ export async function GET() {
     const { data, error } = await supabase
       .from("training_sessions")
       .select(
-        "id, session_date, horse, notes, overall_feel, feel_asked_at, feel_answered_at, feel_deferrals, created_at"
+        "id, session_date, session_title, horse, notes, overall_feel, feel_asked_at, feel_answered_at, feel_deferrals, created_at"
       )
       .eq("user_id", user.id)
       .is("overall_feel", null)
       .not("feel_asked_at", "is", null)
+      .lte("feel_asked_at", new Date().toISOString())
       .gte("feel_asked_at", cutoff)
       .order("feel_asked_at", { ascending: false })
       .limit(1)
@@ -51,11 +52,19 @@ export async function GET() {
       ? String(data.notes).replace(/^With\s+/i, "").trim()
       : null;
 
+    const { data: capture } = await supabase
+      .from("capture_sessions")
+      .select("join_code")
+      .eq("training_session_id", data.id)
+      .maybeSingle();
+
     return NextResponse.json({
       pending: {
         rideId: data.id,
         sessionDate: data.session_date,
+        sessionTitle: data.session_title,
         horse: data.horse,
+        joinCode: capture?.join_code ?? null,
         trainerName,
         withTrainer,
         deferrals: data.feel_deferrals ?? 0,

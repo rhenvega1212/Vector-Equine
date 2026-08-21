@@ -56,10 +56,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     if (parsed.data.action === "defer") {
+      // Push ask window out so the rider isn't yanked back immediately
+      const later = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
       const { error } = await supabase
         .from("training_sessions")
         .update({
           feel_deferrals: (row.feel_deferrals ?? 0) + 1,
+          feel_asked_at: later,
         })
         .eq("id", id)
         .eq("user_id", user.id);
