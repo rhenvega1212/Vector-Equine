@@ -36,7 +36,7 @@ export default async function SharedDebriefPage({ params }: SharedPageProps) {
   const { data: session } = await supabase
     .from("training_sessions")
     .select(
-      "id, session_date, session_title, session_type, overall_feel, summary, homework, horse, horse_id, user_id"
+      "id, session_date, session_title, session_type, overall_feel, feel_scale, summary, homework, horse, horse_id, user_id"
     )
     .eq("id", link.session_id)
     .maybeSingle();
@@ -86,8 +86,19 @@ export default async function SharedDebriefPage({ params }: SharedPageProps) {
         </header>
 
         <section className="rounded-xl border border-gold/25 bg-navy p-6 text-cream">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-cream/50">Execution score</p>
-          <p className="mt-2 font-serif text-5xl text-gold">{session.overall_feel}</p>
+          {session.overall_feel != null && (
+            <>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-cream/50">
+                {riderFirstName}&apos;s feel
+              </p>
+              <p className="mt-2 font-serif text-5xl text-gold">
+                {session.overall_feel}
+                <span className="ml-1 text-2xl text-cream/40">
+                  /{session.feel_scale === 10 ? 10 : 5}
+                </span>
+              </p>
+            </>
+          )}
           <p className="mt-3 font-serif text-lg italic text-gold-bright">{summary}</p>
         </section>
 

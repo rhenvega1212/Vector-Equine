@@ -21,7 +21,7 @@ const EXERCISES = [
   },
   {
     name: "Triangle to X",
-    why: "Then ask for the half-pirouette and Vector will score it.",
+    why: "Then ask for the half-pirouette and Vector reads the aids.",
   },
 ];
 
