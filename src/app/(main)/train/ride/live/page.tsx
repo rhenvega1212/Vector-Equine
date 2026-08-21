@@ -49,18 +49,53 @@ function CaptureLiveInner() {
   const [micReady, setMicReady] = useState(false);
   const [micHelp, setMicHelp] = useState<string | null>(null);
   const [micBusy, setMicBusy] = useState(false);
+  /** Live stream from the Allow tap — passed into CaptureRoom so Safari keeps the gesture. */
+  const [seedMicStream, setSeedMicStream] = useState<MediaStream | null>(null);
   /** After mic works, directions collapse; ? reopens them. */
   const [showMicDirections, setShowMicDirections] = useState(true);
+  /** Prior visit granted mic — collapse long Safari steps, still need a tap this visit. */
+  const [micKnown, setMicKnown] = useState(false);
+
+  function releaseMic() {
+    setSeedMicStream((prev) => {
+      prev?.getTracks().forEach((t) => {
+        try {
+          t.stop();
+        } catch {
+          /* ignore */
+        }
+      });
+      return null;
+    });
+    setMicReady(false);
+  }
 
   useEffect(() => {
-    const granted = isMicGrantedStored();
-    setMicReady(granted);
-    if (granted) setShowMicDirections(false);
+    return () => {
+      // Navigate away from Live — never leave the hardware mic open
+      releaseMic();
+    };
   }, []);
 
   useEffect(() => {
-    setRideMode(modeParam);
-  }, [modeParam]);
+    // Never autoStart from storage alone — Safari needs a gesture this visit
+    // or createLocalAudioTrack fails and solo sits on "Opening mic…".
+    if (isMicGrantedStored()) {
+      setMicKnown(true);
+      setShowMicDirections(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Lab / live without ?mode= — solo-first (Brief 14). Trainer is opt-in.
+    if (modeParam) {
+      setRideMode(modeParam);
+      return;
+    }
+    if (isTestLesson) {
+      setRideMode("solo");
+    }
+  }, [modeParam, isTestLesson]);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,8 +160,10 @@ function CaptureLiveInner() {
     return () => {
       cancelled = true;
     };
+    // horseId is read at start; omit from deps so loading the horse list
+    // does not tear down CaptureRoom mid-arm.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [horsesReady, horseId, isTestLesson, rideMode]);
+  }, [horsesReady, isTestLesson, rideMode]);
 
   const planHref = horseId
     ? `/train/ride/plan?horseId=${horseId}`
@@ -144,11 +181,18 @@ function CaptureLiveInner() {
     const result = await requestMicAccess();
     setMicBusy(false);
     if (result.ok) {
+      // Keep this stream — reopening in useEffect drops the Safari gesture and hangs.
+      setSeedMicStream((prev) => {
+        prev?.getTracks().forEach((t) => t.stop());
+        return result.stream;
+      });
       setMicReady(true);
+      setMicKnown(true);
       setMicHelp(null);
       setShowMicDirections(false);
       return;
     }
+    setMicReady(false);
     setMicHelp(result.message || MIC_BLOCKED_HELP);
     setShowMicDirections(true);
   }
@@ -157,6 +201,8 @@ function CaptureLiveInner() {
     training_session_id?: string;
     ended_by?: string;
   }) {
+    releaseMic();
+    setMicReady(false);
     if (result?.training_session_id) {
       setEnding(true);
       router.push(`/train/sessions/${result.training_session_id}`);
@@ -184,8 +230,9 @@ function CaptureLiveInner() {
     router.push(isTestLesson ? "/train/lab" : "/train");
   }
 
-  const effectiveMode =
-    parseRideMode(capture?.ride_mode) || rideMode || "with_trainer";
+  // Explicit choice wins — don't let a resumed row keep with_trainer after solo.
+  const effectiveMode = rideMode || parseRideMode(capture?.ride_mode) || "solo";
+  const isSoloRide = effectiveMode === "solo";
 
   return (
     <div className="relative space-y-4 pb-8">
@@ -198,7 +245,7 @@ function CaptureLiveInner() {
         <span className="text-[10px] uppercase tracking-[0.18em] text-cream/40">
           {isTestLesson
             ? "Test lesson"
-            : rideMode === "solo"
+            : isSoloRide
               ? "Solo ride"
               : "Live lesson"}
         </span>
@@ -223,18 +270,24 @@ function CaptureLiveInner() {
             ) : null}
           </div>
           <p className="text-sm text-cream/85">
-            Vector needs the mic for your headset call and conversation
-            timeline. Tap Allow now — before you start the call — so Safari
-            asks while you can still read these steps.
+            {isSoloRide
+              ? "Vector needs this phone’s mic for your transcript and Hey Vector. Tap Allow — capture starts as soon as the mic is open."
+              : "Vector needs the mic for your headset call and conversation timeline. Tap Allow now — before you start the call — so Safari asks while you can still read these steps."}
           </p>
-          <ol className="list-decimal space-y-1 pl-4 text-xs text-cream/70">
-            <li>Tap Allow microphone below</li>
-            <li>Choose Allow in the Safari prompt</li>
-            <li>
-              If you already denied it: Settings → Apps → Safari → Microphone
-              → Allow, then return here
-            </li>
-          </ol>
+          {showMicDirections || !micKnown ? (
+            <ol className="list-decimal space-y-1 pl-4 text-xs text-cream/70">
+              <li>Tap Allow microphone below</li>
+              <li>Choose Allow in the browser prompt</li>
+              <li>
+                If you already denied it: Settings → Apps → Safari → Microphone
+                → Allow, then return here
+              </li>
+            </ol>
+          ) : (
+            <p className="text-xs text-cream/55">
+              One tap opens the mic for this ride.
+            </p>
+          )}
           {micHelp && (
             <p className="text-sm text-destructive whitespace-pre-wrap">{micHelp}</p>
           )}
@@ -245,7 +298,11 @@ function CaptureLiveInner() {
               onClick={() => void allowMic()}
               className="w-full rounded-lg bg-gold px-4 py-3 text-sm font-semibold text-navy hover:bg-gold-bright disabled:opacity-50"
             >
-              {micBusy ? "Asking Safari…" : "Allow microphone"}
+              {micBusy
+                ? "Asking…"
+                : isSoloRide
+                  ? "Allow microphone — start capture"
+                  : "Allow microphone"}
             </button>
           ) : (
             <p className="text-xs text-cream/55">Microphone is ready on this phone.</p>
@@ -265,7 +322,7 @@ function CaptureLiveInner() {
         </div>
       )}
 
-      {!rideMode && !capture ? (
+      {!rideMode && !capture && !isTestLesson ? (
         <RideModeChooser onChoose={chooseMode} />
       ) : null}
 
@@ -298,6 +355,8 @@ function CaptureLiveInner() {
           onEnd={endLesson}
           ending={ending}
           autoStart={micReady}
+          seedMicStream={seedMicStream}
+          onReleaseMic={releaseMic}
           isTestLesson={isTestLesson}
           riderFirstName={null}
           trainerFirstName={null}

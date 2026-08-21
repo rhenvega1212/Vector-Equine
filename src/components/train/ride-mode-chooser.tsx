@@ -20,8 +20,8 @@ export function RideModeChooser({
           Solo, or with your trainer?
         </p>
         <p className="text-sm leading-relaxed text-cream/55">
-          Solo arms Vector as soon as you&apos;re on the call. With a trainer,
-          capture waits until they join.
+          Solo opens the mic on this phone and arms Vector. With a trainer,
+          capture waits until they join the call.
         </p>
       </div>
 

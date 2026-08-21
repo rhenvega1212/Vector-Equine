@@ -39,6 +39,9 @@ export function MicWarmLink({
       // but keep instructions visible here first
       return;
     }
+    if (result.ok) {
+      result.stream.getTracks().forEach((t) => t.stop());
+    }
     setBusy(false);
     router.push(href);
   }

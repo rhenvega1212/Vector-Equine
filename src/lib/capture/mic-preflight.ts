@@ -31,12 +31,16 @@ export function clearMicGranted() {
 }
 
 export type MicPreflightResult =
-  | { ok: true }
+  | { ok: true; stream: MediaStream }
   | { ok: false; blocked: boolean; message: string };
 
 export const MIC_BLOCKED_HELP =
   "Microphone is blocked. On iPhone: Settings → Apps → Safari → Microphone → Allow, then return here and tap Allow microphone again. On other phones: check the site permission lock icon in the address bar.";
 
+/**
+ * Open the mic during a user gesture and keep the stream alive.
+ * Callers own the stream — do not stop tracks until capture ends.
+ */
 export async function requestMicAccess(): Promise<MicPreflightResult> {
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
     return {
@@ -47,12 +51,16 @@ export async function requestMicAccess(): Promise<MicPreflightResult> {
   }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: 1,
+      },
       video: false,
     });
-    stream.getTracks().forEach((t) => t.stop());
     markMicGranted();
-    return { ok: true };
+    return { ok: true, stream };
   } catch (e) {
     const name = e instanceof DOMException ? e.name : "";
     const msg = e instanceof Error ? e.message : String(e);

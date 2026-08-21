@@ -42,6 +42,9 @@ export function HomeStartDial({
             setHelp(result.message || MIC_BLOCKED_HELP);
             return;
           }
+          if (result.ok) {
+            result.stream.getTracks().forEach((t) => t.stop());
+          }
           setChooseMode(true);
         }}
       />
