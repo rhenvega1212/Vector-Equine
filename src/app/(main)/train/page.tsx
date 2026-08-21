@@ -13,6 +13,7 @@ import {
 import { CoachShareApproval } from "@/components/train/coach-share-approval";
 import { VECTOR_CONFIG } from "@/lib/vector/config";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { isFlagEnabled } from "@/lib/flags/server";
 import { createClient } from "@/lib/supabase/server";
 
 interface VectorHomeProps {
@@ -250,6 +251,7 @@ export default async function VectorHomePage({ searchParams }: VectorHomeProps) 
   const displayName = activeHorse.barn_name?.trim() || activeHorse.name;
   const planHref = `/train/ride/plan?horseId=${activeHorse.id}`;
   const liveHref = `/train/ride/live?horseId=${activeHorse.id}`;
+  const planEnabled = await isFlagEnabled("video_analysis", profile);
 
   const dateLine = formatInHomeTz(new Date(), "EEEE · MMM d").toUpperCase();
 
@@ -351,14 +353,16 @@ export default async function VectorHomePage({ searchParams }: VectorHomeProps) 
 
         <HomeStartDial horseName={displayName} liveHref={liveHref} />
 
-        <div className="mt-6 text-center">
-          <Link
-            href={planHref}
-            className="text-[12.5px] tracking-[0.04em] text-gold hover:text-gold-bright"
-          >
-            Or plan it first →
-          </Link>
-        </div>
+        {planEnabled ? (
+          <div className="mt-6 text-center">
+            <Link
+              href={planHref}
+              className="text-[12.5px] tracking-[0.04em] text-gold hover:text-gold-bright"
+            >
+              Or plan it first →
+            </Link>
+          </div>
+        ) : null}
       </div>
 
       {pendingApprovals.length > 0 ? (
@@ -401,15 +405,17 @@ export default async function VectorHomePage({ searchParams }: VectorHomeProps) 
                   {insightLine}.
                 </p>
               </div>
-              <div className="mt-3.5">
-                <Link
-                  href={planHref}
-                  className="text-[12.5px] tracking-[0.04em] hover:opacity-80"
-                  style={{ color: "#9A7526" }}
-                >
-                  Work on it →
-                </Link>
-              </div>
+              {planEnabled ? (
+                <div className="mt-3.5">
+                  <Link
+                    href={planHref}
+                    className="text-[12.5px] tracking-[0.04em] hover:opacity-80"
+                    style={{ color: "#9A7526" }}
+                  >
+                    Work on it →
+                  </Link>
+                </div>
+              ) : null}
             </div>
             <div className="h-[34px]" />
             <div

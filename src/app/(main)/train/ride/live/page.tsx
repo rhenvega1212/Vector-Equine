@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CaptureRoom } from "@/components/capture/capture-room";
+import { useFeatureFlag } from "@/lib/flags/context";
 import {
   MIC_BLOCKED_HELP,
   isMicGrantedStored,
@@ -168,6 +169,7 @@ function CaptureLiveInner() {
   const planHref = horseId
     ? `/train/ride/plan?horseId=${horseId}`
     : "/train/ride/plan";
+  const planEnabled = useFeatureFlag("video_analysis");
 
   function chooseMode(mode: RideMode) {
     const q = new URLSearchParams(searchParams.toString());
@@ -238,8 +240,11 @@ function CaptureLiveInner() {
     <div className="relative space-y-4 pb-8">
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="sm" asChild className="text-cream/70">
-          <Link href={planHref} className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Plan
+          <Link
+            href={planEnabled ? planHref : "/train"}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" /> {planEnabled ? "Plan" : "Back"}
           </Link>
         </Button>
         <span className="text-[10px] uppercase tracking-[0.18em] text-cream/40">

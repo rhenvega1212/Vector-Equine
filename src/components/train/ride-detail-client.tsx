@@ -47,7 +47,8 @@ export function RideDetailClient({
   videoKind?: "native" | "external" | null;
   /** Asset start relative to capture t0 (ms). */
   videoSyncOffsetMs?: number;
-  planHref: string;
+  /** Null when Plan is flagged off — the link is absent, not disabled. */
+  planHref: string | null;
   askHref: string;
   tools: React.ReactNode;
 }) {
@@ -387,12 +388,14 @@ export function RideDetailClient({
           >
             Ask Vector about this ride →
           </Link>
-          <Link
-            href={planHref}
-            className="text-[12.5px] tracking-[0.04em] text-gold hover:text-gold-bright"
-          >
-            Plan tomorrow from this →
-          </Link>
+          {planHref ? (
+            <Link
+              href={planHref}
+              className="text-[12.5px] tracking-[0.04em] text-gold hover:text-gold-bright"
+            >
+              Plan tomorrow from this →
+            </Link>
+          ) : null}
         </div>
 
         <div className="mt-10">

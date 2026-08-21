@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AtmosphereScreen } from "@/components/train/atmosphere-screen";
+import { useFeatureFlag } from "@/lib/flags/context";
 import { groupRidesByDate } from "@/lib/train/group-rides";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ export function RidesListClient({
   rides: RidesListItem[];
 }) {
   const router = useRouter();
+  const planEnabled = useFeatureFlag("video_analysis");
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -94,7 +96,7 @@ export function RidesListClient({
               ? "No rides yet."
               : "No rides match that title."}
           </p>
-          {rides.length === 0 ? (
+          {rides.length === 0 && planEnabled ? (
             <Link
               href="/train/ride/plan"
               className="mt-4 inline-block text-[12.5px] tracking-[0.04em] text-gold hover:text-gold-bright"

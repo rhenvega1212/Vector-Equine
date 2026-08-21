@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { isFlagEnabled } from "@/lib/flags/server";
 import { Pencil } from "lucide-react";
 import { SessionDeleteButton } from "@/components/train/session-delete-button";
 import { DebriefShareActions } from "@/components/train/debrief-share-actions";
@@ -32,7 +33,7 @@ interface SessionPageProps {
 
 export default async function RidePage({ params }: SessionPageProps) {
   const { id } = await params;
-  const [{ user }, supabase] = await Promise.all([
+  const [{ user, profile }, supabase] = await Promise.all([
     getCurrentProfile(),
     createClient(),
   ]);
@@ -174,9 +175,11 @@ export default async function RidePage({ params }: SessionPageProps) {
       : "/train/sessions?range=all"
     : `/profile/coach/${session.user_id}`;
 
-  const planHref = session.horse_id
-    ? `/train/ride/plan?horseId=${session.horse_id}`
-    : "/train/ride/plan";
+  const planHref = (await isFlagEnabled("video_analysis", profile))
+    ? session.horse_id
+      ? `/train/ride/plan?horseId=${session.horse_id}`
+      : "/train/ride/plan"
+    : null;
 
   const shareLine =
     carryIn?.text || moments[0]?.text || "Lesson notes from this ride.";
