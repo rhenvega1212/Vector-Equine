@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
+import { timingSafeEqual } from "crypto";
 import { runBotSeedBackfill } from "@/lib/bots/seed-orchestrator";
 import { runEngagementPass } from "@/lib/bots/engine";
 
@@ -17,13 +18,29 @@ import { runEngagementPass } from "@/lib/bots/engine";
  * Manual triggers: same URL with POST and optional `?force=1` (reserved; same as GET for now).
  */
 async function verifyCronAuth(): Promise<boolean> {
+  const secret = process.env.CRON_SECRET?.trim();
+  // A missing secret is a misconfiguration, not an invitation. This route seeds
+  // posts and runs an engagement pass, so open in production means anyone can
+  // fill the feed on demand. Local dev still runs without one.
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("CRON_SECRET is not set — refusing to run seed-posts.");
+      return false;
+    }
+    return true;
+  }
+
   const headersList = await headers();
   const authHeader =
     headersList.get("authorization") ?? headersList.get("Authorization");
-  const secret = process.env.CRON_SECRET?.trim();
-  if (!secret) return true;
   const token = authHeader?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
-  return token === secret;
+  if (!token) return false;
+
+  const provided = Buffer.from(token);
+  const expected = Buffer.from(secret);
+  return (
+    provided.length === expected.length && timingSafeEqual(provided, expected)
+  );
 }
 
 function checkSupabaseEnv(): NextResponse | null {
