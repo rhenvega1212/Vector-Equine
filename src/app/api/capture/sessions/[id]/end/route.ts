@@ -142,11 +142,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const startedAt = new Date(capture.t0);
+    // A lab test, or a capture that recorded nothing, is not a lesson.
+    const isTestRide = Boolean(capture.is_test) || list.length === 0;
     const stub = pendingCaptureBrief({
       horseFocus,
       horseName,
       startedAt,
       hasSpeech: list.length > 0,
+      isTest: isTestRide,
     });
 
     const started = startedAt.getTime();
@@ -185,6 +188,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         : null,
     };
     if (capture.horse_id) payload.horse_id = capture.horse_id;
+
+    // A second End (retry, double tap, or Lab clearing a leftover) must not
+    // write another ride — re-read the link after the slow work above.
+    const { data: linkCheck } = await db
+      .from("capture_sessions")
+      .select("training_session_id")
+      .eq("id", id)
+      .maybeSingle();
+    const alreadyLinked = (
+      linkCheck as { training_session_id?: string | null } | null
+    )?.training_session_id;
+    if (alreadyLinked) {
+      return NextResponse.json({
+        training_session_id: alreadyLinked,
+        capture_session_id: capture.id,
+        already_ended: true,
+        polish: true,
+      });
+    }
 
     let journal: { id: string } | null = null;
     let journalError: { message: string } | null = null;

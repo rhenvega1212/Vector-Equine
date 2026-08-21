@@ -29,7 +29,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from("capture_sessions")
       .select(
-        "id, horse_id, training_session_id, join_code, status, t0, started_at, ended_at, trainer_display_name"
+        "id, horse_id, training_session_id, join_code, status, t0, started_at, ended_at, trainer_display_name, is_test"
       )
       .eq("rider_id", user.id)
       .order("started_at", { ascending: false })
@@ -66,7 +66,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const parsed = startSchema.parse(body);
     const wantTest = parsed.is_test === true;
-    const rideMode = parsed.ride_mode ?? "with_trainer";
+    // Solo-first for Lab tests; product Live still defaults to trainer when omitted.
+    const rideMode =
+      parsed.ride_mode ?? (wantTest ? "solo" : "with_trainer");
 
     if (wantTest) {
       const { data: profile } = await supabase

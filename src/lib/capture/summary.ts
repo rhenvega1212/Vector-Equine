@@ -71,6 +71,7 @@ export function pendingCaptureBrief(opts?: {
   horseName?: string | null;
   startedAt?: Date | string | null;
   hasSpeech?: boolean;
+  isTest?: boolean;
 }): CaptureBrief {
   const title = deriveLessonTitle({
     corpus: "",
@@ -78,6 +79,7 @@ export function pendingCaptureBrief(opts?: {
     horseName: opts?.horseName,
     startedAt: opts?.startedAt,
     hasSpeech: opts?.hasSpeech,
+    isTest: opts?.isTest,
   });
   return {
     title,
@@ -153,6 +155,9 @@ export function summarizeCaptureTranscript(
   };
 }
 
+/** A ride with nothing in it is a test, and should read as one. */
+export const TEST_RIDE_TITLE = "Test";
+
 /**
  * Short creative list title from lesson themes (not “Capture lesson · datetime”).
  */
@@ -162,11 +167,16 @@ export function deriveLessonTitle(opts: {
   horseName?: string | null;
   startedAt?: Date | string | null;
   hasSpeech?: boolean;
+  isTest?: boolean;
 }): string {
+  if (opts.isTest || opts.hasSpeech === false) return TEST_RIDE_TITLE;
+
   const themes = themesFromText(opts.corpus);
   if (themes.length >= 2) return clip(`${themes[0]} & ${themes[1]}`, 60);
   if (themes.length === 1) return themes[0];
 
+  // Horse focus only titles a ride that actually happened — falling back to it
+  // on empty captures is what stamped every Lab test with the same name.
   const focusTitle = titleFromFocus(opts.horseFocus);
   if (focusTitle) return focusTitle;
 
@@ -175,8 +185,7 @@ export function deriveLessonTitle(opts: {
   if (horse && horse.toLowerCase() !== "horse") {
     return clip(`${when} with ${horse}`, 60);
   }
-  if (opts.hasSpeech) return `${when} schooling`;
-  return `${when} lesson`;
+  return `${when} schooling`;
 }
 
 function themesFromText(corpus: string): string[] {

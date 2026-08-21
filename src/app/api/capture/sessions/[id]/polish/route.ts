@@ -5,7 +5,10 @@ import {
   buildCoachCardSummary,
   cleanupTranscriptForJournal,
 } from "@/lib/capture/transcript-cleanup";
-import { summarizeCaptureTranscript } from "@/lib/capture/summary";
+import {
+  summarizeCaptureTranscript,
+  TEST_RIDE_TITLE,
+} from "@/lib/capture/summary";
 import { verifyGuestCaptureToken } from "@/lib/capture/guest-token";
 import { applyWhisperTranscript } from "@/lib/capture/apply-whisper";
 import {
@@ -137,10 +140,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Preserve any rider-highlight block already folded into summary
     const { data: existing } = await db
       .from("training_sessions")
-      .select("summary")
+      .select("summary, is_test")
       .eq("id", capture.training_session_id)
       .maybeSingle();
     const existingSummary = (existing?.summary as string) || "";
+    // A test stays labelled a test — polish must not dress it up as a lesson.
+    const isTestRide = Boolean((existing as { is_test?: boolean } | null)?.is_test);
+    const titleFor = (polished: string) =>
+      isTestRide ? TEST_RIDE_TITLE : polished;
     const markStart = existingSummary.indexOf("<<<rider_highlights>>>");
     const markEnd = existingSummary.indexOf("<<<end_rider_highlights>>>");
     let riderBlock = "";
@@ -168,7 +175,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       await db
         .from("training_sessions")
         .update({
-          session_title: fallback.title,
+          session_title: titleFor(fallback.title),
           summary: withMarks,
           homework: fallback.homework || null,
           exercises: fallback.exercises || null,
@@ -204,7 +211,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     await db
       .from("training_sessions")
       .update({
-        session_title: brief.title,
+        session_title: titleFor(brief.title),
         summary: withMarks,
         homework: brief.homework,
         exercises: brief.exercises,
