@@ -3,6 +3,8 @@
  * Level 2 inert; level 3 = follow-on corpus (Phase 5b).
  */
 
+import type { MovementTopic } from "@/lib/capture/movement-topics";
+
 export type GroundingLevel =
   | "this-trainer"
   | "other-trainer"
@@ -69,6 +71,21 @@ export type HomeworkContextRow = {
   overallFeel: number | null;
   feelScale: 5 | 10 | null;
 };
+
+/**
+ * Prior records that actually worked the movement being asked about.
+ * Everything else is noise — feeding it in is what made Vector answer
+ * a leg-yield question with the most recent canter homework.
+ */
+export function filterHomeworkByTopic(
+  rows: HomeworkContextRow[],
+  topic: MovementTopic | null
+): HomeworkContextRow[] {
+  if (!topic) return [];
+  return rows.filter((r) =>
+    topic.re.test(`${r.exercises || ""}\n${r.homework || ""}`)
+  );
+}
 
 /**
  * Assemble level-1 context from free-text homework (no exercise library).

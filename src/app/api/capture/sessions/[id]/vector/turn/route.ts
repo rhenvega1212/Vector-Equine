@@ -6,7 +6,11 @@ import { verifyGuestCaptureToken } from "@/lib/capture/guest-token";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { isFlagEnabled } from "@/lib/flags/server";
 import { generateCalledTurn } from "@/lib/capture/generate-called-turn";
-import type { HomeworkContextRow } from "@/lib/capture/vector-turn";
+import {
+  filterHomeworkByTopic,
+  type HomeworkContextRow,
+} from "@/lib/capture/vector-turn";
+import { primaryMovementTopic } from "@/lib/capture/movement-topics";
 import { synthesizeAskSpeech } from "@/lib/ask/tts";
 import {
   classifyTurnIntent,
@@ -27,6 +31,16 @@ const bodySchema = z.object({
   declinedTexts: z.array(z.string().max(400)).max(12).optional(),
   /** Client already handled stop/replay — only ask hits generation. */
   intent: z.enum(["ask", "stop", "replay"]).optional(),
+  /** Recent exchanges so corrections read as conversation. */
+  priorTurns: z
+    .array(
+      z.object({
+        question: z.string().max(800),
+        answer: z.string().max(4000),
+      })
+    )
+    .max(3)
+    .optional(),
 });
 
 async function authorizeCapture(
@@ -79,12 +93,15 @@ async function authorizeCapture(
   return { ok: true, riderId: row.rider_id, isTest };
 }
 
+/** History is context, not a blocker — a slow read degrades to a general answer. */
+const HOMEWORK_TIMEOUT_MS = 2500;
+
 async function loadHomework(
   riderId: string | null | undefined
 ): Promise<HomeworkContextRow[]> {
   if (!riderId || !process.env.SUPABASE_SERVICE_ROLE_KEY) return [];
   const admin = createAdminClient();
-  const { data } = await admin
+  const query = admin
     .from("training_sessions")
     .select(
       "id, session_date, homework, exercises, overall_feel, feel_scale, notes, user_id"
@@ -92,6 +109,13 @@ async function loadHomework(
     .eq("user_id", riderId)
     .order("session_date", { ascending: false })
     .limit(40);
+
+  const { data } = await Promise.race([
+    query,
+    new Promise<{ data: null }>((resolve) =>
+      setTimeout(() => resolve({ data: null }), HOMEWORK_TIMEOUT_MS)
+    ),
+  ]);
 
   const rows = (data || []) as Array<{
     id: string;
@@ -179,15 +203,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       riderId = (cap as { rider_id?: string } | null)?.rider_id;
     }
 
+    const priorTurns = parsed.data.priorTurns || [];
+    const topic =
+      primaryMovementTopic(question) ||
+      primaryMovementTopic(priorTurns[priorTurns.length - 1]?.question || "");
     const homeworkRows = await loadHomework(riderId);
+    // Only records that worked this movement — unrelated homework is what
+    // turned a leg-yield ask into a canter pirouette progression.
+    const topicRows = filterHomeworkByTopic(homeworkRows, topic).slice(0, 6);
+
     const result = await generateCalledTurn({
       question,
       askedBy: parsed.data.askedBy,
       riderFirst: parsed.data.riderFirst ?? null,
       trainerFirst: parsed.data.trainerFirst ?? null,
-      homeworkRows,
+      homeworkRows: topicRows,
       crossingLineAlreadySaid: Boolean(parsed.data.crossingLineAlreadySaid),
       declinedTexts: parsed.data.declinedTexts,
+      priorTurns,
     });
 
     const spokenText = [result.crossingLine, result.offer.text]
@@ -195,36 +228,42 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .join(" ");
 
     const offsetMs = parsed.data.offsetMs ?? 0;
-    await db.from("session_transcript_segments").insert({
-      capture_session_id: id,
-      offset_ms: offsetMs,
-      speaker: "vector",
-      text: spokenText,
-      client_id: `vector:turn:${offsetMs}:${Date.now()}`,
-      excluded_from_corpus: true,
-      addressed_to_vector: false,
-      raw_json: {
-        kind: "called_turn",
-        grounding: result.offer.grounding,
-        offerKind: result.offer.kind,
-        model: result.model,
-        latencyMs: result.latencyMs,
-        provenance: result.offer.provenance,
-        attribution: result.offer.attribution ?? null,
-        question,
-        askedBy: parsed.data.askedBy,
-      },
-    });
+    // Speech and the timeline write race each other — a slow DB must not
+    // delay the answer the rider is waiting to hear.
+    const [audio] = await Promise.all([
+      synthesizeAskSpeech(spokenText),
+      db
+        .from("session_transcript_segments")
+        .insert({
+          capture_session_id: id,
+          offset_ms: offsetMs,
+          speaker: "vector",
+          text: spokenText,
+          client_id: `vector:turn:${offsetMs}:${Date.now()}`,
+          excluded_from_corpus: true,
+          addressed_to_vector: false,
+          raw_json: {
+            kind: "called_turn",
+            grounding: result.offer.grounding,
+            offerKind: result.offer.kind,
+            model: result.model,
+            latencyMs: result.latencyMs,
+            provenance: result.offer.provenance,
+            attribution: result.offer.attribution ?? null,
+            question,
+            askedBy: parsed.data.askedBy,
+          },
+        })
+        .then(
+          (r) => r,
+          (e) => {
+            console.error("vector turn insert", e);
+            return null;
+          }
+        ),
+    ]);
 
     const elapsed = Date.now() - t0;
-    // Under 2.5s → speak; 2.5–4s → screen only; past 4s → still return text (client may skip TTS)
-    const speak = elapsed < 2500;
-    const abandonAudio = elapsed >= 4000;
-
-    let audio: ArrayBuffer | null = null;
-    if (speak && !abandonAudio) {
-      audio = await synthesizeAskSpeech(spokenText);
-    }
 
     if (audio && audio.byteLength) {
       return new NextResponse(Buffer.from(audio), {
@@ -244,10 +283,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       intent: "ask",
       silent: false,
-      speak: false,
+      speak: true,
       text: spokenText,
       offer: result.offer,
-      crossingLine: result.crossingLine,
+      crossingSaid: Boolean(result.crossingLine),
       latencyMs: elapsed,
     });
   } catch (e) {

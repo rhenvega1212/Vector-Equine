@@ -9,6 +9,12 @@ import {
   type VectorOffer,
   stripOtherRiderIdentity,
 } from "@/lib/capture/vector-turn";
+import {
+  isOffTopicReply,
+  mentionsTopic,
+  primaryMovementTopic,
+  type MovementTopic,
+} from "@/lib/capture/movement-topics";
 
 const offerSchema = z.object({
   kind: z.enum(["answer", "exercise"]),
@@ -21,12 +27,28 @@ const offerSchema = z.object({
   sourceSessionId: z.string().nullable(),
 });
 
+export type PriorTurn = {
+  question: string;
+  answer: string;
+};
+
 export type CalledTurnResult = {
   offer: VectorOffer;
   crossingLine: string | null;
   model: string;
   latencyMs: number;
 };
+
+/** Spoken exercises stay rideable in one hearing. */
+const EXERCISE_WORD_CAP = 130;
+const ANSWER_WORD_CAP = 28;
+
+function capWords(text: string, cap: number): string {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length <= cap) return text;
+  const trimmed = words.slice(0, cap).join(" ");
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
 
 /**
  * Generate one called-turn reply. Levels 2–3 inert in v1.
@@ -37,9 +59,12 @@ export async function generateCalledTurn(opts: {
   askedBy: "rider" | "trainer";
   riderFirst: string | null;
   trainerFirst: string | null;
+  /** Already filtered to records that worked the movement being asked about. */
   homeworkRows: HomeworkContextRow[];
   crossingLineAlreadySaid: boolean;
   declinedTexts?: string[];
+  /** Recent exchanges so a correction lands as conversation, not a fresh ask. */
+  priorTurns?: PriorTurn[];
 }): Promise<CalledTurnResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) {
@@ -55,12 +80,25 @@ export async function generateCalledTurn(opts: {
     opts.homeworkRows.map((r) => r.sessionId).filter(Boolean)
   );
 
+  const priorTurns = (opts.priorTurns || []).slice(-3);
+  // A correction refers back to the previous ask ("that's not a leg yield")
+  const topic: MovementTopic | null =
+    primaryMovementTopic(opts.question) ||
+    primaryMovementTopic(priorTurns[priorTurns.length - 1]?.question || "");
+
+  const topicRule = topic
+    ? `The rider asked about ${topic.label}. Every word of the reply must be about ${topic.label}, and the reply must name ${topic.label}. Never substitute a different movement. If no prior record below worked ${topic.label}, give a general ${topic.label} exercise from your own knowledge — do not refuse.`
+    : `Answer exactly what was asked. Never substitute a different movement or a different question.`;
+
   const anthropic = createAnthropic({ apiKey });
-  const { object } = await generateObject({
-    model: anthropic(modelId),
-    schema: offerSchema,
-    temperature: 0.4,
-    system: `You are Vector in a live riding lesson. You assist the trainer; you never replace them.
+
+  const system = `You are Vector in a live riding lesson. You assist the trainer; you never replace them.
+
+Accuracy first:
+- ${topicRule}
+- Prior records below are only usable if they worked that same movement. If none do, answer generally — never repurpose unrelated homework.
+- Wrong movement is the only unacceptable answer. Empty records are not a reason to refuse: answer generally instead.
+- "Nothing on record" is only for questions about what someone previously said or did. If the rider asks for an exercise or how to ride something, always give one.
 
 Voice rules (absolute):
 - Never use the string "AI".
@@ -68,27 +106,82 @@ Voice rules (absolute):
 - Sensors/history are facts only — no diagnosis, injury, lameness, prescribe, abnormal.
 - Never grade the rider (no score/grade/verdict).
 - Never name another rider. Strip other-rider identity.
-- Level "this-trainer" only when homework context supports the reply; otherwise grounding must be "general".
+- Level "this-trainer" only when a prior record below worked this movement; otherwise grounding must be "general".
+- When a record below worked this movement, build the reply from it and set grounding "this-trainer" with that record's sourceSessionId. Do this even when no person's name is available — leave attributionPersonName null and do not invent one. The rider's own record always beats a generic answer.
 - General answers MUST open with a clear marker clause such as "Generally —" or "Nothing on record for this —".
 - Answer kind: under 25 words, one breath.
-- Exercise kind: full steps, spoken end to end, paced with short beats between steps. No artificial length cap.
+- Exercise kind: 3 to 5 concrete steps a rider can ride immediately, under ${EXERCISE_WORD_CAP} words total.
 - attributionPersonName only when sourceSessionId is one of the supplied session ids. Otherwise null.
 - Do not invent sourceSessionId values.
 
 Trainer on channel: ${trainerLabel}.
 Asker: ${opts.askedBy}.
-Rider first name: ${opts.riderFirst || "unknown"}.`,
-    prompt: `Question from the arena:
+Rider first name: ${opts.riderFirst || "unknown"}.`;
+
+  const conversationBlock = priorTurns.length
+    ? priorTurns
+        .map((t) => `Rider: ${t.question}\nVector: ${t.answer}`)
+        .join("\n\n")
+    : "(this is the first exchange)";
+
+  const prompt = `Earlier in this conversation:
+${conversationBlock}
+
+Question from the arena:
 ${opts.question}
 
-Past free-text exercises / homework for this rider (may be empty):
+Prior records for this rider that worked ${topic ? topic.label : "this"} (may be empty):
 ${homeworkBlock || "(none on record)"}
 
 Already declined this session (do not re-offer these):
 ${(opts.declinedTexts || []).join("\n") || "(none)"}
 
-Return one offer.`,
-  });
+Return one offer.`;
+
+  async function callModel(extraRule?: string) {
+    const { object } = await generateObject({
+      model: anthropic(modelId),
+      schema: offerSchema,
+      temperature: 0.3,
+      maxOutputTokens: 500,
+      system: extraRule ? `${system}\n\n${extraRule}` : system,
+      prompt,
+    });
+    return object;
+  }
+
+  let object = await callModel();
+
+  // On-topic guard — repair to a general exercise for the movement actually
+  // asked. Refusing is the last resort, never the shortcut.
+  if (topic && isOffTopicReply(object.text, topic)) {
+    if (process.env.VECTOR_TURN_DEBUG) {
+      console.log(`[off-topic retry] ${topic.label} <- "${object.text}"`);
+    }
+    object = await callModel(
+      `Your previous attempt did not work ${topic.label}. Give a general ${topic.label} exercise in 3 to 5 concrete steps, opening with "Generally —". The reply must name ${topic.label}. Do not refuse and do not mention any other movement.`
+    );
+    if (!mentionsTopic(object.text, topic)) {
+      object = {
+        ...object,
+        kind: "answer" as const,
+        grounding: "general" as const,
+        sourceSessionId: null,
+        attributionPersonName: null,
+        text: `Nothing on record for ${topic.label} — bring it to your next lesson.`,
+      };
+    }
+  }
+
+  if (process.env.VECTOR_TURN_DEBUG) {
+    console.log("[raw model]", {
+      grounding: object.grounding,
+      sourceSessionId: object.sourceSessionId,
+      attributionPersonName: object.attributionPersonName,
+      allowed: Array.from(allowedSessionIds),
+      hasLibrary,
+    });
+  }
 
   let grounding: GroundingLevel = object.grounding;
   let text = stripOtherRiderIdentity(object.text.trim());
@@ -98,6 +191,27 @@ Return one offer.`,
       : undefined;
   let personName = object.attributionPersonName?.trim() || undefined;
 
+  // A name is only ever echoed back, never invented. "Emma" from a record is
+  // fine; "Emma Winter" when we only ever knew "Emma" is not, and neither is
+  // the placeholder the model reaches for when no name was supplied.
+  if (personName) {
+    const known = [
+      opts.trainerFirst,
+      ...opts.homeworkRows.map((r) => r.trainerName),
+    ]
+      .map((n) => n?.trim().toLowerCase())
+      .filter((n): n is string => Boolean(n));
+    const tokens = personName.toLowerCase().split(/\s+/).filter(Boolean);
+    const isPlaceholder = /^(the|your|my)?\s*(trainer|coach|instructor|unknown)$/i.test(
+      personName
+    );
+    const vouched = known.some((k) => {
+      const kt = new Set(k.split(/\s+/));
+      return tokens.every((t) => kt.has(t));
+    });
+    if (isPlaceholder || !vouched) personName = undefined;
+  }
+
   if (!hasLibrary || grounding !== "this-trainer" || !sourceSessionId) {
     grounding = "general";
     sourceSessionId = undefined;
@@ -105,14 +219,15 @@ Return one offer.`,
     if (!/^(generally|nothing on record)/i.test(text)) {
       text = `Generally — ${text.replace(/^(generally\s*[—–-]\s*)/i, "")}`;
     }
+  } else {
+    // Grounded in the rider's own record — "Generally" would misdescribe it
+    text = text.replace(/^generally\s*[—–-]\s*/i, "");
   }
 
-  if (object.kind === "answer") {
-    const words = text.split(/\s+/).filter(Boolean);
-    if (words.length > 28) {
-      text = words.slice(0, 25).join(" ");
-    }
-  }
+  text =
+    object.kind === "answer"
+      ? capWords(text, ANSWER_WORD_CAP)
+      : capWords(text, EXERCISE_WORD_CAP);
 
   const offer: VectorOffer = {
     kind: object.kind,
@@ -144,8 +259,11 @@ Return one offer.`,
   }
 
   let crossingLine: string | null = null;
+  // "That's everything they've given you" only makes sense once the rider has
+  // actually turned something down — on a first ask it is a non-sequitur.
   if (
     hasLibrary &&
+    (opts.declinedTexts?.length || 0) > 0 &&
     offer.grounding === "general" &&
     !opts.crossingLineAlreadySaid
   ) {
