@@ -4,11 +4,17 @@ import {
   transcribeLessonAudio,
   type WhisperSeg,
 } from "@/lib/capture/whisper";
+import { whisperProvenance } from "@/lib/capture/asr-provenance";
 import { cleanAsrText } from "@/lib/capture/asr-cleanup";
 
 /**
- * Whisper raw mic bytes and insert timeline rows — no storage download required.
- * Used when the session-videos bucket is missing / upload fails.
+ * Whisper a mic chunk straight from the bytes in the request and write the
+ * timeline rows. Deliberately independent of storage: the chunk is uploaded in
+ * parallel, and a storage outage must cost the audio without costing the
+ * transcript.
+ *
+ * Writes verbatim `text` and a cleaned `text_cleaned`. Segments Whisper doubts
+ * are flagged with a reason, never dropped.
  */
 export async function applyWhisperBytes(opts: {
   captureSessionId: string;
@@ -17,7 +23,7 @@ export async function applyWhisperBytes(opts: {
   syncOffsetMs: number;
   mediaType?: string;
   windowMs?: number;
-  chunkPath?: string | null;
+  chunkId?: string | null;
 }): Promise<{ inserted: number; segments: WhisperSeg[] }> {
   if (!isWhisperConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return { inserted: 0, segments: [] };
@@ -56,52 +62,76 @@ export async function applyWhisperBytes(opts: {
     .gte("offset_ms", winStart)
     .lte("offset_ms", winEnd);
 
-  const toDelete = (existing || []).filter((row) => {
-    const eng = (row.raw_json as { engine?: string } | null)?.engine;
-    return eng !== "whisper";
-  });
-
-  if (toDelete.length) {
-    await admin
-      .from("session_transcript_segments")
-      .delete()
-      .in(
-        "id",
-        toDelete.map((r) => r.id)
-      );
-  }
+  // client_id must not be derived from text: raw text can repeat across
+  // overlapping chunks, and a collision on the unique index used to fail the
+  // whole batch. Chunk identity plus position within the chunk is stable
+  // across retries and unique across chunks.
+  const chunkKey = opts.chunkId?.trim() || String(opts.syncOffsetMs);
 
   const rows = segs
-    .map((s) => ({
-      capture_session_id: opts.captureSessionId,
-      offset_ms: s.offset_ms,
-      ended_offset_ms: s.ended_offset_ms,
-      speaker: opts.speaker,
-      text: cleanAsrText(s.text),
-      client_id: `whisper:${opts.speaker}:${s.offset_ms}:${s.text.slice(0, 20)}`,
-      excluded_from_corpus: false,
-      raw_json: {
-        engine: "whisper",
-        model: "whisper-1",
-        confidence: s.confidence,
-        chunk_path: opts.chunkPath ?? null,
-      },
-    }))
-    .filter((r) => r.text.length > 0);
+    .map((s, i) => {
+      const cleaned = cleanAsrText(s.text);
+      return {
+        capture_session_id: opts.captureSessionId,
+        offset_ms: s.offset_ms,
+        ended_offset_ms: s.ended_offset_ms,
+        speaker: opts.speaker,
+        text: s.text,
+        text_cleaned: cleaned || null,
+        client_id: `whisper:${opts.speaker}:${chunkKey}:${i}`,
+        excluded_from_corpus: s.excluded_from_corpus,
+        raw_json: {
+          ...whisperProvenance(),
+          confidence: s.confidence,
+          // Not a storage path. The upload runs in parallel with this write and
+          // may fail, and a path recorded here would claim audio exists when it
+          // might not. The asset row is the only claim that audio was stored;
+          // its storage_path embeds this same chunk id.
+          audio_chunk_id: chunkKey,
+          quality: s.quality,
+          exclusion_reason: s.exclusion_reason,
+        },
+      };
+    })
+    .filter((r) => r.text.trim().length > 0);
 
   if (!rows.length) return { inserted: 0, segments: [] };
 
+  // Upsert rather than insert: one duplicate must not discard the whole chunk.
   const { error: insErr } = await admin
     .from("session_transcript_segments")
-    .insert(rows);
+    .upsert(rows, {
+      onConflict: "capture_session_id,client_id",
+      ignoreDuplicates: true,
+    });
 
   if (insErr) {
     console.error("whisper bytes insert", insErr);
     return { inserted: 0, segments: segs };
   }
 
-  return {
-    inserted: rows.length,
-    segments: segs.map((s) => ({ ...s, text: cleanAsrText(s.text) })),
-  };
+  // Only now that the Whisper rows exist: the live browser guess for the same
+  // speech stops being displayed. Flagged, never deleted — two independent
+  // transcriptions of the same audio is the comparison this section exists to
+  // make possible. Done after the insert so a failed write cannot leave the
+  // timeline with neither version.
+  const superseded = (existing || []).filter((row) => {
+    const prior = (row.raw_json as { engine?: string } | null) || {};
+    return prior.engine !== "whisper";
+  });
+
+  for (const row of superseded) {
+    const prior = (row.raw_json as Record<string, unknown> | null) || {};
+    const { error } = await admin
+      .from("session_transcript_segments")
+      .update({
+        excluded_from_corpus: true,
+        raw_json: { ...prior, exclusion_reason: "superseded_by_whisper" },
+      })
+      .eq("id", row.id);
+    if (error) console.error("supersede browser row", row.id, error.message);
+  }
+
+  // Verbatim on the way out too. Callers that display these clean them.
+  return { inserted: rows.length, segments: segs };
 }

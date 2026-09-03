@@ -71,7 +71,7 @@ export function LabEdgePair() {
       <p className="text-sm text-cream/70">
         Pair a device so it can attach to the open lesson and share{" "}
         <code className="text-gold/80">t0</code>. See{" "}
-        <code className="text-gold/80">docs/edge-sync.md</code>.
+        <code className="text-gold/80">docs/02-architecture/edge-sync.md</code>.
       </p>
       <Button
         type="button"

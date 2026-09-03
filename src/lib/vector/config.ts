@@ -10,6 +10,14 @@ export const VECTOR_CONFIG = {
   CAPTURE_LAB: true,
   /** Prefer LiveKit when env is configured; otherwise transcript-only join still works. */
   CAPTURE_REQUIRE_LIVEKIT: false,
+  /**
+   * How long raw lesson audio is kept, in days. Zero means keep forever, which
+   * is the current decision: audio is small next to video and it is the
+   * training corpus. Recorded here so a change is a decision rather than an
+   * accident of never deleting anything. Nothing enforces it yet — there is no
+   * deletion job and no lifecycle rule.
+   */
+  SESSION_AUDIO_RETENTION_DAYS: 0,
 } as const;
 
 /** Trainer Business SKU — back-office only; not shown in GA coach UI until real. */

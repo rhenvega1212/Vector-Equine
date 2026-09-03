@@ -4,6 +4,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyGuestCaptureToken } from "@/lib/capture/guest-token";
 import { applyWhisperBytes } from "@/lib/capture/apply-whisper-bytes";
 import { isWhisperConfigured } from "@/lib/capture/whisper";
+import { cleanAsrText } from "@/lib/capture/asr-cleanup";
+import { storeAudioChunk } from "@/lib/capture/audio-storage";
+import { waitUntil } from "@vercel/functions";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -15,7 +18,9 @@ const WHISPER_WAIT_MS = 8_000;
 
 /**
  * Accept a mic chunk, Whisper it, return segments when ready.
- * Storage skipped — bucket create was stalling lab rides.
+ *
+ * The chunk is also stored, outside the response path: the ride must not wait
+ * on storage, and a storage outage must cost the audio and nothing else.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
@@ -94,10 +99,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const mime = file.type || "audio/webm";
     const bytes = new Uint8Array(await file.arrayBuffer());
 
+    // Outside the response path. waitUntil keeps the function alive after the
+    // response so the upload finishes, and storeAudioChunk never throws.
+    waitUntil(
+      storeAudioChunk({
+        captureSessionId: id,
+        speaker,
+        syncOffsetMs,
+        chunkId,
+        bytes,
+        mime,
+      })
+    );
+
     let whisperSegs: Array<{
       text: string;
       offset_ms: number;
       ended_offset_ms: number;
+      excluded_from_corpus: boolean;
     }> = [];
 
     if (isWhisperConfigured() && bytes.byteLength >= 256) {
@@ -108,7 +127,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         syncOffsetMs,
         mediaType: mime,
         windowMs: 10_000,
-        chunkPath: `capture-audio/${id}/${speaker}/${syncOffsetMs}-${chunkId}`,
+        chunkId,
       });
 
       const finished = await Promise.race([
@@ -121,21 +140,30 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       if (finished.ok) {
         whisperSegs = finished.r.segments;
       } else {
-        // Still finish in background so poll can pick it up
-        void job.catch((e) => console.error("whisper bg", e));
+        // Still finish after the response so the poll picks it up. waitUntil,
+        // not a bare void: the function can be frozen once the response is
+        // sent, and a dropped job here is lost speech.
+        waitUntil(job.catch((e) => console.error("whisper bg", e)));
       }
     }
+
+    // The rows are already stored verbatim. What comes back here is painted on
+    // a phone, so it is cleaned and flagged segments are left out.
+    const display = whisperSegs
+      .filter((s) => !s.excluded_from_corpus)
+      .map((s) => ({
+        offset_ms: s.offset_ms,
+        speaker,
+        text: cleanAsrText(s.text),
+        ended_offset_ms: s.ended_offset_ms,
+      }))
+      .filter((s) => s.text.length > 0);
 
     return NextResponse.json({
       accepted: true,
       speaker,
       sync_offset_ms: syncOffsetMs,
-      segments: whisperSegs.map((s) => ({
-        offset_ms: s.offset_ms,
-        speaker,
-        text: s.text,
-        ended_offset_ms: s.ended_offset_ms,
-      })),
+      segments: display,
     });
   } catch (e) {
     console.error("capture audio POST", e);

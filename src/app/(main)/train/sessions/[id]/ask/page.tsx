@@ -5,6 +5,7 @@ import { sessionDisplayTitle } from "@/lib/train/format-session-when";
 import { formatHomeCalendarDate } from "@/lib/timezone";
 import { buildAskExamples } from "@/lib/ask/examples";
 import { deriveRideMoments } from "@/lib/train/ride-moments";
+import { readCleanedTranscript } from "@/lib/capture/transcript-read";
 import type { AskTurn } from "@/lib/ask/types";
 
 interface PageProps {
@@ -51,12 +52,8 @@ export default async function AskVectorPage({ params }: PageProps) {
   }[] = [];
 
   if (capture?.id) {
-    const { data: segments } = await supabase
-      .from("session_transcript_segments")
-      .select("offset_ms, speaker, text, raw_json")
-      .eq("capture_session_id", capture.id)
-      .order("offset_ms", { ascending: true });
-    timeline = (segments || []).map((s) => {
+    const { data: segments } = await readCleanedTranscript(supabase, capture.id);
+    timeline = segments.map((s) => {
       const raw = (s.raw_json || {}) as Record<string, unknown>;
       return {
         offset_ms: s.offset_ms,

@@ -5,24 +5,43 @@
  */
 
 import {
-  cleanAsrText,
-  isWhisperHallucination,
-} from "@/lib/capture/asr-cleanup";
+  emptyQualitySignals,
+  flagSegment,
+  readQualitySignals,
+  type QualitySignals,
+} from "@/lib/capture/asr-flags";
 
 /**
  * Whisper `prompt` is prior-text bias — never put "Hey Vector" or instructions
  * here; Whisper echoes them into silence as fake transcript / false wakes.
  */
+/**
+ * One definition, used both to build the request and to write provenance.
+ * `verbose_json` does not echo the model back, so this constant is the only
+ * thing that can keep the two honest.
+ */
+export const WHISPER_MODEL = "whisper-1";
+
 const EQUINE_VOCAB_PROMPT =
   "Walk, trot, canter, halt, half-halt, inside leg, outside rein, contact, " +
   "collection, tempo, rhythm, circle, diagonal, transition, seat, leg yield, " +
   "shoulder-in, pirouette, piaffe, passage.";
 
+/**
+ * Bump when the prompt above changes. A transcript that cannot be traced to the
+ * prompt that produced it cannot be compared to one made with a different one.
+ */
+export const EQUINE_VOCAB_PROMPT_VERSION = "equine-vocab-v1";
+
 export type WhisperSeg = {
+  /** Verbatim, as Whisper returned it. Cleanup happens at the storage boundary. */
   text: string;
   offset_ms: number;
   ended_offset_ms: number;
   confidence: number | null;
+  quality: QualitySignals;
+  excluded_from_corpus: boolean;
+  exclusion_reason: string | null;
 };
 
 export function isWhisperConfigured(): boolean {
@@ -136,7 +155,7 @@ export async function transcribeLessonAudio(opts: {
 
   const form = new FormData();
   form.append("file", blob, `chunk.${ext}`);
-  form.append("model", "whisper-1");
+  form.append("model", WHISPER_MODEL);
   form.append("language", "en");
   form.append("response_format", "verbose_json");
   form.append("temperature", "0");
@@ -159,49 +178,49 @@ export async function transcribeLessonAudio(opts: {
   const result = (await res.json()) as WhisperVerboseJson;
   const sync = Math.max(0, opts.syncOffsetMs | 0);
 
+  // Text is returned verbatim and low-quality segments are flagged, not
+  // dropped. Silence still produces nothing, but a segment this function
+  // doubts is the caller's to keep — see asr-flags.
   if (result.segments?.length) {
     return result.segments
       .map((s) => {
-        const raw = (s.text || "").trim();
-        if (!raw) return null;
-        if (typeof s.no_speech_prob === "number" && s.no_speech_prob > 0.35) {
-          return null;
-        }
-        if (typeof s.avg_logprob === "number" && s.avg_logprob < -0.85) {
-          return null;
-        }
-        if (
-          typeof s.compression_ratio === "number" &&
-          s.compression_ratio > 2.2
-        ) {
-          return null;
-        }
-        const text = cleanAsrText(raw);
-        if (!text || isWhisperHallucination(text)) return null;
+        // Not trimmed: `text` is stored byte-identical to the response, and
+        // Whisper's segments carry a leading space. Readers normalise.
+        const raw = s.text || "";
+        if (!raw.trim()) return null;
+        const quality = readQualitySignals(s);
+        const flag = flagSegment(raw, quality);
         const startMs = Math.round((s.start || 0) * 1000);
         const endMs = Math.round((s.end || s.start || 0) * 1000);
         return {
-          text,
+          text: raw,
           offset_ms: sync + startMs,
           ended_offset_ms: sync + Math.max(startMs, endMs),
           confidence: null as number | null,
+          quality,
+          excluded_from_corpus: flag.excluded,
+          exclusion_reason: flag.reason,
         };
       })
       .filter((s): s is WhisperSeg => !!s);
   }
 
-  const raw = (result.text || "").trim();
-  const text = cleanAsrText(raw);
-  if (!text || isWhisperHallucination(text)) return [];
+  const raw = result.text || "";
+  if (!raw.trim()) return [];
 
+  const quality = emptyQualitySignals();
+  const flag = flagSegment(raw, quality);
   const durationMs = result.duration ? Math.round(result.duration * 1000) : 0;
 
   return [
     {
-      text,
+      text: raw,
       offset_ms: sync,
       ended_offset_ms: sync + durationMs,
       confidence: null,
+      quality,
+      excluded_from_corpus: flag.excluded,
+      exclusion_reason: flag.reason,
     },
   ];
 }

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pendingCaptureBrief } from "@/lib/capture/summary";
 import { verifyGuestCaptureToken } from "@/lib/capture/guest-token";
+import { readCleanedTranscript } from "@/lib/capture/transcript-read";
 import { calendarDateInHomeTz } from "@/lib/timezone";
 
 interface RouteParams {
@@ -106,18 +107,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    const { data: segments } = await db
-      .from("session_transcript_segments")
-      .select("id, speaker, text, offset_ms, raw_json")
-      .eq("capture_session_id", id)
-      .order("offset_ms", { ascending: true });
-
-    const list = (segments || []).map((s) => ({
-      id: s.id as string,
-      speaker: s.speaker as string,
-      text: s.text as string,
-      offset_ms: s.offset_ms as number,
-      raw_json: (s.raw_json as Record<string, unknown> | null) || null,
+    // Feeds the journal summary a rider reads, so: cleaned, and no vector rows.
+    const transcript = await readCleanedTranscript(db, id, {
+      includeVector: false,
+    });
+    const list = transcript.data.map((s) => ({
+      id: s.id,
+      speaker: s.speaker,
+      text: s.text,
+      offset_ms: s.offset_ms,
+      raw_json: s.raw_json,
     }));
 
     const { data: videoAsset } = await db

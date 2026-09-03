@@ -47,20 +47,38 @@ const HALLUCINATION_CONTAINS_RE =
 const VOCAB_DUMP_RE =
   /\bwalk\b.*\btrot\b.*\bcanter\b|\btrot\b.*\bcanter\b.*\bhalt\b|\binside\s+leg\b.*\boutside\s+rein\b.*\b(contact|collection|tempo)\b/i;
 
-export function isWhisperHallucination(raw: string): boolean {
+/**
+ * Rule names are stored on flagged rows and queried in `transcript_flag_audit`.
+ * Renaming one orphans the history that proves whether the rule is any good.
+ */
+export type HallucinationRule =
+  | "empty"
+  | "boilerplate"
+  | "prompt_echo"
+  | "vocab_dump"
+  | "watermark_short"
+  | "subscribe_short"
+  | "prompt_shaped"
+  | "short_crumb";
+
+/**
+ * Which rule considers this text a hallucination, or null for none.
+ * Every rule here has false positives — flag on it, never delete on it.
+ */
+export function classifyHallucination(raw: string): HallucinationRule | null {
   const text = raw.replace(/\s+/g, " ").trim();
-  if (!text) return true;
-  if (HALLUCINATION_EXACT_RE.test(text)) return true;
-  if (HALLUCINATION_CONTAINS_RE.test(text)) return true;
-  if (VOCAB_DUMP_RE.test(text)) return true;
+  if (!text) return "empty";
+  if (HALLUCINATION_EXACT_RE.test(text)) return "boilerplate";
+  if (HALLUCINATION_CONTAINS_RE.test(text)) return "prompt_echo";
+  if (VOCAB_DUMP_RE.test(text)) return "vocab_dump";
   if (/thank(?:s| you)\s+for\s+watching/i.test(text) && text.length < 48) {
-    return true;
+    return "watermark_short";
   }
   if (
     /please\s+subscribe|like\s+and\s+subscribe/i.test(text) &&
     text.length < 64
   ) {
-    return true;
+    return "subscribe_short";
   }
   // Prompt-shaped: long instructional sentence with no riding ask
   if (
@@ -69,16 +87,21 @@ export function isWhisperHallucination(raw: string): boolean {
       text
     )
   ) {
-    return true;
+    return "prompt_shaped";
   }
-  // Very short non-riding crumbs Whisper invents on hiss
+  // Very short non-riding crumbs Whisper invents on hiss.
+  // Highest false-positive rate of any rule here — a real "No." looks like this.
   if (
     text.length <= 12 &&
     /^(the|a|and|so|to|of|in|it|is|this|that|yeah|yes|no)\.?$/i.test(text)
   ) {
-    return true;
+    return "short_crumb";
   }
-  return false;
+  return null;
+}
+
+export function isWhisperHallucination(raw: string): boolean {
+  return classifyHallucination(raw) !== null;
 }
 
 /**

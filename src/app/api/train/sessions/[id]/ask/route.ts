@@ -4,6 +4,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { formatOffset } from "@/lib/capture/summary";
+import { readCleanedTranscript } from "@/lib/capture/transcript-read";
 import type { AskSource, AskTurn } from "@/lib/ask/types";
 
 interface RouteParams {
@@ -192,13 +193,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     let transcript = "";
     if (capture?.id) {
-      const { data: segments } = await supabase
-        .from("session_transcript_segments")
-        .select("speaker, text, offset_ms")
-        .eq("capture_session_id", capture.id)
-        .order("offset_ms", { ascending: true })
-        .limit(80);
-      transcript = (segments || [])
+      const { data: segments } = await readCleanedTranscript(
+        supabase,
+        capture.id,
+        { limit: 80 }
+      );
+      transcript = segments
         .map(
           (s) =>
             `${s.speaker} · ${formatOffset(s.offset_ms)} · ${s.text.trim()}`

@@ -446,7 +446,9 @@ ${lines}`,
         text,
         raw_json: {
           ...prevRaw,
-          ...(changed ? { asr_text: s.text, cleaned: true } : {}),
+          // Not the ASR text — `text` still holds that. This is what the
+          // cleaned rendering looked like before polish rewrote it.
+          ...(changed ? { pre_polish_text: s.text, cleaned: true } : {}),
           ...(featured ? { featured_quote: true } : {}),
         },
       };

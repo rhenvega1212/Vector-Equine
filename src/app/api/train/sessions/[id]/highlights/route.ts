@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mergeRiderHighlightsIntoSummary } from "@/lib/capture/transcript-cleanup";
+import { readCleanedTranscript } from "@/lib/capture/transcript-read";
 import { z } from "zod";
 
 interface RouteParams {
@@ -84,13 +85,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: updErr.message }, { status: 400 });
     }
 
-    const { data: allSegs } = await db
-      .from("session_transcript_segments")
-      .select("id, offset_ms, speaker, text, raw_json")
-      .eq("capture_session_id", capture.id)
-      .order("offset_ms", { ascending: true });
+    // Quoted into the rider's summary, so cleaned.
+    const { data: allSegs } = await readCleanedTranscript(db, capture.id);
 
-    const highlighted = (allSegs || []).filter((s) => {
+    const highlighted = allSegs.filter((s) => {
       const raw = s.raw_json as Record<string, unknown> | null;
       return !!raw?.rider_highlight;
     });

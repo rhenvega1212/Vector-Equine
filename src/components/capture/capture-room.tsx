@@ -1777,20 +1777,31 @@ export function CaptureRoom({
 
   pullSegmentsRef.current = pullSegments;
 
+  /**
+   * Takes the raw utterance. The cleaned version drives what appears on this
+   * phone and what the peer sees; the raw version is what gets stored. The
+   * server cleans it again from the raw text — this cleaned value must never
+   * become the stored one, or there are two cleaning implementations to drift
+   * apart.
+   */
   function postSegment(text: string, confidence?: number) {
-    const cleaned = cleanAsrText(text);
-    if (!cleaned) return;
+    const raw = text.trim();
+    if (!raw) return;
+    const cleaned = cleanAsrText(raw);
     const offset_ms = Math.max(0, Date.now() - t0Ms.current);
     const client_id = newClientId();
-    const localSeg: Segment = { offset_ms, speaker, text: cleaned };
-    setSegments((prev) => mergeSegments(prev, [localSeg]));
-    broadcastSegment(localSeg);
+
+    if (cleaned) {
+      const localSeg: Segment = { offset_ms, speaker, text: cleaned };
+      setSegments((prev) => mergeSegments(prev, [localSeg]));
+      broadcastSegment(localSeg);
+    }
 
     outboxRef.current?.enqueue({
       client_id,
       offset_ms,
       speaker,
-      text: cleaned,
+      text: raw,
       confidence: confidence ?? null,
     });
   }
@@ -1907,15 +1918,14 @@ export function CaptureRoom({
             text: "",
             interim: true,
           });
+          // Wake detection keeps working off the cleaned text — PHRASE_FIXES is
+          // what turns "hey victor" into a wake — but the raw utterance is what
+          // gets stored, including ones cleanup would blank.
           const cleanedFinal = cleanAsrText(transcript);
-          if (!cleanedFinal) continue;
+          if (cleanedFinal) calledTurnRef.current?.onAsrFinal(cleanedFinal);
           // While Vector speaks: only listen for stop — don't paint TTS echo
-          if (vectorTalking) {
-            calledTurnRef.current?.onAsrFinal(cleanedFinal);
-            continue;
-          }
-          calledTurnRef.current?.onAsrFinal(cleanedFinal);
-          void postSegment(cleanedFinal, result[0]?.confidence);
+          if (vectorTalking) continue;
+          void postSegment(transcript, result[0]?.confidence);
         } else if (i >= event.resultIndex) {
           // Raw partials — don't clean mid-word (keeps the caret moving with speech)
           interimText += (interimText ? " " : "") + transcript;

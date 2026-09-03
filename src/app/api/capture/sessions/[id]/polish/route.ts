@@ -10,7 +10,6 @@ import {
   TEST_RIDE_TITLE,
 } from "@/lib/capture/summary";
 import { verifyGuestCaptureToken } from "@/lib/capture/guest-token";
-import { applyWhisperTranscript } from "@/lib/capture/apply-whisper";
 import {
   countVectorLeak,
   fetchTrainerCorpusSegments,
@@ -89,7 +88,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const db = admin || (await createClient());
 
     // Brief 14: corpus chokepoint — never polish on vector speaker rows.
-    const corpus = await fetchTrainerCorpusSegments(db, id);
+    // Cleaned: this text goes to a model and ends up in a rider-facing journal.
+    const corpus = await fetchTrainerCorpusSegments(db, id, "cleaned");
     if (corpus.error) {
       return NextResponse.json({ error: corpus.error }, { status: 400 });
     }
@@ -101,19 +101,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const browserList = corpus.data.map((s) => ({
+    // Re-transcription from stored audio is deliberately NOT wired here.
+    // The previous implementation deleted every segment for each speaker it
+    // re-transcribed. It was inert only because no audio_recording assets
+    // existed; once audio is retained it would wipe a full transcript on the
+    // first polish. Reviving it needs a non-destructive design (A2b/A3) —
+    // see git history for the old version.
+    const list = corpus.data.map((s) => ({
       id: s.id,
       speaker: s.speaker,
       text: s.text,
       offset_ms: s.offset_ms,
       raw_json: s.raw_json,
     }));
-
-    // Prefer Whisper over live browser ASR when mic chunks were uploaded
-    const { segments: list } = await applyWhisperTranscript({
-      captureSessionId: id,
-      existing: browserList,
-    });
 
     let horseFocus: string | null = null;
     let horseName = "Horse";
@@ -184,17 +184,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ polished: false, fallback: true });
     }
 
+    // Polish writes the cleaned rendering, never `text`. `text` is the verbatim
+    // ASR record and overwriting it is how the original wording gets lost.
     const toPersist = cleaned.filter((s) => s.id && s.raw_json);
     if (toPersist.length > 0) {
-      await Promise.all(
+      const results = await Promise.all(
         toPersist.map((s) =>
           db
             .from("session_transcript_segments")
-            .update({ text: s.text, raw_json: s.raw_json })
+            .update({ text_cleaned: s.text, raw_json: s.raw_json })
             .eq("id", s.id!)
             .eq("capture_session_id", id)
         )
       );
+      const failed = results.find(
+        (r) => (r as { error?: { message?: string } | null }).error
+      ) as { error?: { message?: string } } | undefined;
+      if (failed?.error) {
+        console.error("polish segment write", failed.error.message);
+      }
     }
 
     const cardBody = buildCoachCardSummary({

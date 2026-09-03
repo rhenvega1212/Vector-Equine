@@ -969,12 +969,16 @@ export type Database = {
           offset_ms: number;
           ended_offset_ms: number | null;
           speaker: "rider" | "trainer" | "system" | "vector";
+          /** Verbatim ASR. Never write a cleaned value here. */
           text: string;
+          text_cleaned: string | null;
           confidence: number | null;
           client_id: string | null;
           raw_json: Json | null;
           addressed_to_vector: boolean;
           excluded_from_corpus: boolean;
+          /** Generated from raw_json.exclusion_reason — read only. */
+          flag_reason: string | null;
           created_at: string;
         };
         Insert: {
@@ -984,6 +988,7 @@ export type Database = {
           ended_offset_ms?: number | null;
           speaker: "rider" | "trainer" | "system" | "vector";
           text: string;
+          text_cleaned?: string | null;
           confidence?: number | null;
           client_id?: string | null;
           raw_json?: Json | null;
@@ -998,6 +1003,7 @@ export type Database = {
           ended_offset_ms?: number | null;
           speaker?: "rider" | "trainer" | "system" | "vector";
           text?: string;
+          text_cleaned?: string | null;
           confidence?: number | null;
           client_id?: string | null;
           raw_json?: Json | null;

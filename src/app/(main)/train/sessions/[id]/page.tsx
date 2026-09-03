@@ -26,6 +26,10 @@ import {
   parseCoachCardSummary,
 } from "@/lib/capture/transcript-cleanup";
 import { resolveRideVideo } from "@/lib/capture/resolve-ride-video";
+import {
+  readCleanedTranscript,
+  type TranscriptRow,
+} from "@/lib/capture/transcript-read";
 
 interface SessionPageProps {
   params: Promise<{ id: string }>;
@@ -87,13 +91,8 @@ export default async function RidePage({ params }: SessionPageProps) {
 
   const [segmentsRes, rideVideo] = await Promise.all([
     capture?.id
-      ? supabase
-          .from("session_transcript_segments")
-          .select("id, offset_ms, ended_offset_ms, speaker, text, raw_json")
-          .eq("capture_session_id", capture.id)
-          .order("offset_ms", { ascending: true })
-          .limit(400)
-      : Promise.resolve({ data: null as null }),
+      ? readCleanedTranscript(supabase, capture.id, { limit: 400 })
+      : Promise.resolve({ data: [] as TranscriptRow[] }),
     resolveRideVideo({
       captureSessionId: capture?.id,
       videoLinkUrl: session.video_link_url,
@@ -101,7 +100,7 @@ export default async function RidePage({ params }: SessionPageProps) {
     }),
   ]);
 
-  const timeline = (segmentsRes.data || []).map((s) => {
+  const timeline = segmentsRes.data.map((s) => {
     const raw = (s.raw_json || {}) as Record<string, unknown>;
     return {
       id: s.id,
