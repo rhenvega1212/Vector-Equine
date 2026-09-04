@@ -1,5 +1,11 @@
-/** Public site trainers open from cellular or any Wi-Fi. Never localhost / LAN. */
-export const DEFAULT_PUBLIC_APP_ORIGIN = "https://vectorequine.com";
+/** Live app trainers open — not the waitlist site on vectorequine.com. */
+export const DEFAULT_PUBLIC_APP_ORIGIN = "https://vector-equine.vercel.app";
+
+/** Marketing/waitlist host — no /join route, so a QR there is a dead end. */
+function isMarketingHost(hostname: string): boolean {
+  const h = hostname.replace(/^www\./, "").toLowerCase();
+  return h === "vectorequine.com";
+}
 
 export function isLoopbackHost(hostname: string): boolean {
   const h = hostname.replace(/^\[|\]$/g, "").toLowerCase();
@@ -30,6 +36,15 @@ export function isPrivateLanHost(hostname: string): boolean {
   return false;
 }
 
+/** @deprecated Use isPrivateLanHost — kept so old bundles don't crash on HMR. */
+export function isPrivateLanOrigin(origin: string): boolean {
+  try {
+    return isPrivateLanHost(new URL(origin).hostname);
+  } catch {
+    return isPrivateLanHost(origin);
+  }
+}
+
 export function originFromHref(href: string): string | null {
   try {
     const u = new URL(href.includes("://") ? href : `https://${href}`);
@@ -40,7 +55,7 @@ export function originFromHref(href: string): string | null {
   }
 }
 
-/** HTTPS host a phone can open from any network. */
+/** HTTPS host a phone can open that actually serves /join. */
 export function isPublicJoinOrigin(origin: string): boolean {
   const parsed = originFromHref(origin);
   if (!parsed) return false;
@@ -49,6 +64,7 @@ export function isPublicJoinOrigin(origin: string): boolean {
     if (u.protocol !== "https:") return false;
     if (isLoopbackHost(u.hostname)) return false;
     if (isPrivateLanHost(u.hostname)) return false;
+    if (isMarketingHost(u.hostname)) return false;
     return true;
   } catch {
     return false;
@@ -71,20 +87,72 @@ export function trainerJoinUrl(origin: string, code: string): string {
   return `${base}/join/${code.toUpperCase()}`;
 }
 
+/** Phone on the same Wi-Fi can open this — http or https on a private LAN IP. */
+export function isLanJoinOrigin(origin: string): boolean {
+  const parsed = originFromHref(origin);
+  if (!parsed) return false;
+  try {
+    const u = new URL(parsed);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+    return isPrivateLanHost(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
 /**
- * QR value: a public https URL. Localhost and LAN IPs are skipped so the
- * trainer can be on cellular.
+ * URL encoded in the trainer QR. Always public https — iPhone will not
+ * open the microphone on http://192.168… so LAN must never go in the QR.
  */
 export function resolveTrainerJoinUrl(opts: {
   joinCode: string;
   pageOrigin?: string | null;
   serverJoinUrl?: string | null;
   publicOrigin?: string | null;
+  lanJoinUrl?: string | null;
 }): string {
-  const origin = pickPublicJoinOrigin(
-    opts.pageOrigin,
-    opts.serverJoinUrl,
-    opts.publicOrigin
+  return trainerJoinUrl(
+    pickPublicJoinOrigin(
+      opts.pageOrigin,
+      opts.serverJoinUrl,
+      opts.publicOrigin
+    ),
+    opts.joinCode
   );
-  return trainerJoinUrl(origin, opts.joinCode);
+}
+
+/** Cellular / off-Wi-Fi copy of the join link. Always public https. */
+export function publicTrainerJoinUrl(opts: {
+  joinCode: string;
+  pageOrigin?: string | null;
+  serverJoinUrl?: string | null;
+  publicOrigin?: string | null;
+}): string {
+  return trainerJoinUrl(
+    pickPublicJoinOrigin(
+      opts.pageOrigin,
+      opts.serverJoinUrl,
+      opts.publicOrigin
+    ),
+    opts.joinCode
+  );
+}
+
+/**
+ * Same-machine join for lab tests. Localhost is a secure context; a LAN
+ * IP is not, so iPhone must never be sent there.
+ */
+export function localTrainerJoinUrl(opts: {
+  joinCode: string;
+  pageOrigin?: string | null;
+}): string | null {
+  const origin = opts.pageOrigin;
+  if (!origin) return null;
+  try {
+    const u = new URL(origin);
+    if (!isLoopbackHost(u.hostname)) return null;
+    return trainerJoinUrl(origin.replace(/\/$/, ""), opts.joinCode);
+  } catch {
+    return null;
+  }
 }

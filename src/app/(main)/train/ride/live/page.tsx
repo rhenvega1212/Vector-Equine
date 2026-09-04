@@ -22,6 +22,7 @@ type CaptureStart = {
   id: string;
   join_code: string;
   join_url: string;
+  join_url_lan?: string | null;
   t0: string;
   status: string;
   ride_mode?: RideMode | null;
@@ -355,6 +356,9 @@ function CaptureLiveInner() {
             effectiveMode === "solo" ? undefined : capture.join_code
           }
           joinUrl={effectiveMode === "solo" ? undefined : capture.join_url}
+          joinUrlLan={
+            effectiveMode === "solo" ? undefined : capture.join_url_lan
+          }
           peerLabel="trainer"
           rideMode={effectiveMode}
           onEnd={endLesson}

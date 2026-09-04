@@ -9,6 +9,10 @@ import { Label } from "@/components/ui/label";
 import { CaptureRoom } from "@/components/capture/capture-room";
 import { AtmosphereScreen } from "@/components/train/atmosphere-screen";
 import { createClient } from "@/lib/supabase/client";
+import {
+  MIC_NEEDS_HTTPS,
+  micAccessUnavailableMessage,
+} from "@/lib/capture/mic-preflight";
 import { Loader2 } from "lucide-react";
 
 type Preview = {
@@ -71,6 +75,11 @@ export default function GuestJoinPage() {
   const [showClaim, setShowClaim] = useState(false);
   const [claimTeaser, setClaimTeaser] = useState<ClaimTeaser | null>(null);
   const [claimLoading, setClaimLoading] = useState(false);
+  const [insecureMic, setInsecureMic] = useState(false);
+
+  useEffect(() => {
+    setInsecureMic(Boolean(micAccessUnavailableMessage()));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -170,6 +179,11 @@ export default function GuestJoinPage() {
     setJoining(true);
     setError(null);
     try {
+      const unavailable = micAccessUnavailableMessage();
+      if (unavailable) {
+        setError(unavailable);
+        return;
+      }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
@@ -424,6 +438,14 @@ export default function GuestJoinPage() {
                 }. No account needed.`
               : "Enter your name to join."}
         </p>
+        {preview && preview.livekit_configured === false ? (
+          <p className="text-sm text-watch">
+            Headset call is not set up on this server yet.
+          </p>
+        ) : null}
+        {insecureMic ? (
+          <p className="text-sm text-watch">{MIC_NEEDS_HTTPS}</p>
+        ) : null}
       </header>
 
       {error && (
@@ -456,7 +478,7 @@ export default function GuestJoinPage() {
       <div className="space-y-2">
         <Button
           onClick={join}
-          disabled={joining}
+          disabled={joining || insecureMic}
           className="w-full bg-gold text-navy font-semibold hover:bg-gold-bright"
         >
           {joining ? (

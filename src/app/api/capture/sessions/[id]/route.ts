@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { joinUrlFromRequest } from "@/lib/capture/join-url-server";
+import { joinUrlsFromRequest } from "@/lib/capture/join-url-server";
 import { getLiveKitUrl, isLiveKitConfigured, mintLiveKitToken } from "@/lib/capture/livekit";
 
 interface RouteParams {
@@ -33,6 +33,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Session ended" }, { status: 410 });
     }
 
+    const joins = joinUrlsFromRequest(request, capture.join_code);
     const token = await mintLiveKitToken({
       roomName: capture.livekit_room,
       identity: `rider_${user.id}`,
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({
       ...capture,
-      join_url: joinUrlFromRequest(request, capture.join_code),
+      ...joins,
       livekit: {
         configured: isLiveKitConfigured(),
         url: getLiveKitUrl(),

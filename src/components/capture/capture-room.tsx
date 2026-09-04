@@ -35,7 +35,15 @@ import {
   type CalledTurnRuntime,
 } from "@/lib/capture/called-turn-runtime";
 import { splitWakeUtterance } from "@/lib/capture/wake-word";
-import { resolveTrainerJoinUrl } from "@/lib/capture/join-url";
+import {
+  localTrainerJoinUrl,
+  publicTrainerJoinUrl,
+  resolveTrainerJoinUrl,
+} from "@/lib/capture/join-url";
+import {
+  MIC_NEEDS_HTTPS,
+  micAccessUnavailableMessage,
+} from "@/lib/capture/mic-preflight";
 import { useFeatureFlag } from "@/lib/flags/context";
 
 type LivekitCreds = {
@@ -152,6 +160,12 @@ function micErrorMessage(err: unknown): string {
   const name = err instanceof DOMException ? err.name : "";
   const msg = err instanceof Error ? err.message : String(err);
   if (
+    /mediaDevices|getUserMedia|secure context|https page/i.test(msg) ||
+    (typeof window !== "undefined" && !window.isSecureContext)
+  ) {
+    return MIC_NEEDS_HTTPS;
+  }
+  if (
     name === "NotAllowedError" ||
     /not allowed by the user agent|permission/i.test(msg)
   ) {
@@ -161,6 +175,10 @@ function micErrorMessage(err: unknown): string {
     return "No microphone found. Plug in headphones with a mic and try again.";
   }
   return msg || "Could not start call";
+}
+
+function isFatalMicError(msg: string): boolean {
+  return /Microphone blocked|No microphone|needs an https page/i.test(msg);
 }
 
 function unlockSafariScroll() {
@@ -180,6 +198,10 @@ function unlockSafariScroll() {
 async function acquireMicStream(
   preferredDeviceId?: string
 ): Promise<MediaStream> {
+  const unavailable = micAccessUnavailableMessage();
+  if (unavailable) {
+    throw new Error(unavailable);
+  }
   const withDevice: MediaTrackConstraints = {
     ...CALL_AUDIO_CONSTRAINTS,
     ...(preferredDeviceId ? { deviceId: { ideal: preferredDeviceId } } : {}),
@@ -206,6 +228,7 @@ export function CaptureRoom({
   guestToken,
   joinCode,
   joinUrl,
+  joinUrlLan,
   peerLabel,
   onEnd,
   ending,
@@ -233,6 +256,7 @@ export function CaptureRoom({
   guestToken?: string | null;
   joinCode?: string;
   joinUrl?: string;
+  joinUrlLan?: string | null;
   peerLabel: string;
   onEnd?: (result: {
     training_session_id?: string;
@@ -270,8 +294,21 @@ export function CaptureRoom({
           joinCode,
           pageOrigin,
           serverJoinUrl: joinUrl,
+          lanJoinUrl: joinUrlLan,
         })
       : undefined;
+  const publicJoinHref =
+    joinCode && !isSolo
+      ? publicTrainerJoinUrl({
+          joinCode,
+          pageOrigin,
+          serverJoinUrl: joinUrl,
+        })
+      : undefined;
+  const labJoinHref =
+    joinCode && !isSolo
+      ? localTrainerJoinUrl({ joinCode, pageOrigin })
+      : null;
   const [roomState, setRoomState] = useState<
     "idle" | "connecting" | "connected" | "reconnecting" | "error"
   >("idle");
@@ -395,6 +432,7 @@ export function CaptureRoom({
 
   const refreshDevices = useCallback(async () => {
     try {
+      if (!navigator.mediaDevices?.enumerateDevices) return;
       const devices = await navigator.mediaDevices.enumerateDevices();
       const micList = devices
         .filter((d) => d.kind === "audioinput")
@@ -622,16 +660,22 @@ export function CaptureRoom({
           );
         }
 
+        const micUnavailable = micAccessUnavailableMessage();
+        if (micUnavailable) {
+          callDesiredRef.current = false;
+          throw new Error(micUnavailable);
+        }
+
         // Mic unlock — may fail silently on pure reconnect while backgrounded
         try {
           const preview = await acquireMicStream(micIdRef.current || undefined);
           preview.getTracks().forEach((t) => t.stop());
           await refreshDevices();
         } catch (micErr) {
-          if (!opts?.reconnect) {
-            throw micErr instanceof Error
-              ? micErr
-              : new Error(micErrorMessage(micErr));
+          const micMsg = micErrorMessage(micErr);
+          if (isFatalMicError(micMsg) || !opts?.reconnect) {
+            if (isFatalMicError(micMsg)) callDesiredRef.current = false;
+            throw new Error(micMsg);
           }
           /* reconnect may resume without re-prompt */
         }
@@ -833,7 +877,7 @@ export function CaptureRoom({
       } catch (e) {
         teardownRoom();
         const msg = micErrorMessage(e);
-        const micBlocked = /Microphone blocked|No microphone/i.test(msg);
+        const micBlocked = isFatalMicError(msg);
         if (micBlocked) {
           setScreenHint(true);
           callDesiredRef.current = false;
@@ -2478,10 +2522,30 @@ export function CaptureRoom({
             {joinCode}
           </p>
           <JoinQr url={trainerJoinHref} />
-          <p className="break-all text-xs text-cream/45">{trainerJoinHref}</p>
+          <p className="break-all text-xs text-cream/45">
+            <a href={trainerJoinHref} className="hover:text-gold">
+              {trainerJoinHref}
+            </a>
+          </p>
+          {labJoinHref && labJoinHref !== trainerJoinHref ? (
+            <p className="break-all text-xs text-cream/45">
+              On this computer:{" "}
+              <a href={labJoinHref} className="hover:text-gold">
+                {labJoinHref}
+              </a>
+            </p>
+          ) : null}
+          {publicJoinHref && publicJoinHref !== trainerJoinHref ? (
+            <p className="break-all text-xs text-cream/45">
+              Off this Wi-Fi:{" "}
+              <a href={publicJoinHref} className="hover:text-gold">
+                {publicJoinHref}
+              </a>
+            </p>
+          ) : null}
           <p className="text-xs text-cream/50">
-            Trainer opens the link on their phone — cellular or Wi-Fi, no
-            account. Capture starts when both of you are on the call.
+            Trainer scans this https link on their phone, enters a name, and
+            joins the call. You hear each other as soon as they are in.
           </p>
         </div>
       ) : joinCode && trainerJoinHref && !isSolo && peerConnected ? (

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { flagGuardForApi } from "@/lib/flags/guards";
 import { generateJoinCode } from "@/lib/capture/guest-token";
-import { joinUrlFromRequest } from "@/lib/capture/join-url-server";
+import { joinUrlsFromRequest } from "@/lib/capture/join-url-server";
 import { getLiveKitUrl, isLiveKitConfigured, mintLiveKitToken } from "@/lib/capture/livekit";
 import { VECTOR_CONFIG } from "@/lib/vector/config";
 import { z } from "zod";
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
           (existing as { ride_mode?: string }).ride_mode = parsed.ride_mode;
         }
       }
-      const joinUrl = joinUrlFromRequest(request, existing.join_code);
+      const joins = joinUrlsFromRequest(request, existing.join_code);
       const token = await mintLiveKitToken({
         roomName: existing.livekit_room,
         identity: `rider_${user.id}`,
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
         ...existing,
         ride_mode:
           (existing as { ride_mode?: string }).ride_mode || rideMode,
-        join_url: joinUrl,
+        ...joins,
         resumed: true,
         edge: {
           attach: "/api/edge/sessions/attach",
@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
           .single();
         if (!retry.error && retry.data) {
           const created = retry.data;
-          const joinUrl = joinUrlFromRequest(request, created.join_code);
+          const joins = joinUrlsFromRequest(request, created.join_code);
           const token = await mintLiveKitToken({
             roomName: created.livekit_room,
             identity: `rider_${user.id}`,
@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
               ...created,
               is_test: wantTest,
               ride_mode: rideMode,
-              join_url: joinUrl,
+              ...joins,
               edge: {
                 attach: "/api/edge/sessions/attach",
                 note: "Jetson: attach after Start to share this session t0",
@@ -240,7 +240,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (!error && created) {
-        const joinUrl = joinUrlFromRequest(request, created.join_code);
+        const joins = joinUrlsFromRequest(request, created.join_code);
 
         const token = await mintLiveKitToken({
           roomName: created.livekit_room,
@@ -254,7 +254,7 @@ export async function POST(request: NextRequest) {
             ...created,
             ride_mode:
               (created as { ride_mode?: string }).ride_mode || rideMode,
-            join_url: joinUrl,
+            ...joins,
             edge: {
               attach: "/api/edge/sessions/attach",
               note: "Jetson: attach after Start to share this session t0",
