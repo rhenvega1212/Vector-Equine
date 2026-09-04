@@ -95,9 +95,8 @@ export function mentionsTopic(text: string, topic: MovementTopic): boolean {
 }
 
 /**
- * Named school movements. Everything else in the list (walk, rhythm, bend,
- * circles…) shows up inside a correct answer for any movement, so it cannot
- * be used as evidence that the reply drifted.
+ * Named school movements. Walk / trot / circles show up inside a correct
+ * answer for any of these, so they are not used as drift evidence.
  */
 const SPECIFIC_KEYS = new Set([
   "leg-yield",
@@ -112,14 +111,40 @@ const SPECIFIC_KEYS = new Set([
   "rein-back",
 ]);
 
+export function isSpecificSchoolMovement(topic: MovementTopic): boolean {
+  return SPECIFIC_KEYS.has(topic.key);
+}
+
 /**
- * The failure this guards is answering a different movement — a leg-yield ask
- * coming back as a canter pirouette. A reply that simply describes the aids
- * without repeating the label is not wrong, so it is not a retry.
+ * The failure this guards is answering a different movement — a shoulder-in
+ * ask coming back as a 20m circle warmup. For a named school movement, the
+ * reply must mention that movement. For gaits and qualities, only a *different*
+ * school movement counts as drift.
  */
 export function isOffTopicReply(text: string, topic: MovementTopic): boolean {
   if (mentionsTopic(text, topic)) return false;
+  if (SPECIFIC_KEYS.has(topic.key)) return true;
   return MOVEMENT_TOPICS.some(
     (t) => t.key !== topic.key && SPECIFIC_KEYS.has(t.key) && t.re.test(text)
   );
+}
+
+const EXERCISE_ASK_RE =
+  /\b(exercise|exercises|give me something|give me one|what should i (do|ride)|work on|something to ride)\b/i;
+
+/** "Give me exercises" with no movement yet — do not invent a warmup. */
+export function isExerciseAskNeedingMovement(text: string): boolean {
+  const t = (text || "").replace(/\s+/g, " ").trim();
+  if (!t) return false;
+  if (primaryMovementTopic(t)) return false;
+  return EXERCISE_ASK_RE.test(t);
+}
+
+/** Follow-up that is basically just naming the movement. */
+export function isMovementNameUtterance(text: string): boolean {
+  const t = (text || "").replace(/\s+/g, " ").trim();
+  if (!t) return false;
+  if (!primaryMovementTopic(t)) return false;
+  const words = t.replace(/[.,!?]/g, "").split(/\s+/).filter(Boolean);
+  return words.length <= 6;
 }

@@ -25,6 +25,10 @@ import {
   isStopPhrase,
   splitWakeUtterance,
 } from "@/lib/capture/wake-word";
+import {
+  isExerciseAskNeedingMovement,
+  isMovementNameUtterance,
+} from "@/lib/capture/movement-topics";
 import type { Room } from "livekit-client";
 
 const SILENCE_MS = 1600;
@@ -41,6 +45,7 @@ const COOLDOWN_MS = 600;
 
 const ACK_LINE = "Yes?";
 const ANYTHING_ELSE_LINE = "Anything else?";
+const WHICH_MOVEMENT_LINE = "Which movement?";
 
 /** Rider pushing back on the answer — always earns a reply. */
 const CORRECTION_RE =
@@ -96,6 +101,9 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
   let history: Array<{ question: string; answer: string }> = [];
   /** What Vector is saying right now, so the mic doesn't quote it back. */
   let speakingLine = "";
+  let askedWhichMovement = false;
+  /** Movement named while the first ask was still in flight. */
+  let queuedFollowUp = "";
 
   /** The open mic hears Vector too — that is not the rider talking. */
   function isEchoOfVector(piece: string): boolean {
@@ -141,6 +149,8 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
     const wasOpen = awaitingMore || collecting;
     awaitingMore = false;
     followUpUntil = 0;
+    askedWhichMovement = false;
+    queuedFollowUp = "";
     clearAnythingElseTimer();
     resetCollect();
     setIdleStrip();
@@ -240,6 +250,21 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
     }, ANYTHING_ELSE_MS);
   }
 
+  async function askWhichMovement(stem: string) {
+    askedWhichMovement = true;
+    beginCollect(stem);
+    await speakLine(WHICH_MOVEMENT_LINE);
+    if (disposed || !collecting) return;
+    bumpSilence();
+  }
+
+  function composeAsk(stem: string, follow: string): string {
+    if (isMovementNameUtterance(follow) && isExerciseAskNeedingMovement(stem)) {
+      return `${stem} ${follow}`.replace(/\s+/g, " ").trim();
+    }
+    return follow;
+  }
+
   async function submitQuestion(question: string) {
     const intent = classifyTurnIntent(question);
     if (intent === "stop") {
@@ -255,7 +280,16 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
       if (!awaitingMore) setIdleStrip();
       return;
     }
+    if (isExerciseAskNeedingMovement(question)) {
+      if (askedWhichMovement) {
+        closeTurn();
+        return;
+      }
+      await askWhichMovement(question);
+      return;
+    }
 
+    askedWhichMovement = false;
     busy = true;
     awaitingMore = false;
     clearAnythingElseTimer();
@@ -285,6 +319,15 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
         },
         opts.getAuthHeaders
       );
+
+      if (queuedFollowUp) {
+        const follow = queuedFollowUp;
+        queuedFollowUp = "";
+        stopVectorPlayback();
+        busy = false;
+        await submitQuestion(composeAsk(question, follow));
+        return;
+      }
 
       if (result.silent || !result.text) {
         closeTurn();
@@ -325,6 +368,7 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
     const t = q.replace(/\s+/g, " ").trim().toLowerCase();
     if (!t) return false;
     if (/[?]$/.test(t)) return false;
+    if (isExerciseAskNeedingMovement(t)) return true;
     return /(?:\b(?:for|to|a|an|the|my|your|about|on|with|and|or|of)\s*$)/.test(
       t
     );
@@ -334,9 +378,11 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
     if (silenceTimer != null) window.clearTimeout(silenceTimer);
     const q = questionSoFar();
     const wait = q
-      ? looksIncomplete(q)
-        ? SILENCE_INCOMPLETE_MS
-        : SILENCE_MS
+      ? isExerciseAskNeedingMovement(q)
+        ? SILENCE_EMPTY_MS
+        : looksIncomplete(q)
+          ? SILENCE_INCOMPLETE_MS
+          : SILENCE_MS
       : SILENCE_EMPTY_MS;
     silenceTimer = window.setTimeout(() => finishCollect(), wait);
   }
@@ -456,7 +502,17 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
         return;
       }
 
-      if (busy) return;
+      if (busy) {
+        const { hit, residual } = splitWakeUtterance(cleaned);
+        const piece = sanitizePiece(hit ? residual : cleaned);
+        if (
+          piece &&
+          (isMovementNameUtterance(piece) || isIntelligibleQuestion(piece))
+        ) {
+          queuedFollowUp = piece;
+        }
+        return;
+      }
 
       if (collecting) {
         const { hit, residual } = splitWakeUtterance(cleaned);
@@ -490,10 +546,11 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
         }
         const { hit, residual } = splitWakeUtterance(cleaned);
         const q = sanitizePiece(hit ? residual : cleaned);
-        if (q && isIntelligibleQuestion(q)) {
+        if (q && (isIntelligibleQuestion(q) || isMovementNameUtterance(q))) {
           stopVectorPlayback();
           clearAnythingElseTimer();
-          beginCollect(q);
+          const lastQ = history[history.length - 1]?.question || "";
+          beginCollect(composeAsk(lastQ, q));
           return;
         }
         return;
@@ -516,11 +573,18 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
         if (isAddressedToVector(cleaned)) {
           const { residual } = splitWakeUtterance(cleaned);
           const q = residual || cleaned.replace(/\bvector\b/gi, "").trim();
-          if (isIntelligibleQuestion(q)) void submitQuestion(q);
+          if (isIntelligibleQuestion(q) || isMovementNameUtterance(q)) {
+            const lastQ = history[history.length - 1]?.question || "";
+            void submitQuestion(composeAsk(lastQ, q));
+          }
           return;
         }
-        if (!isVectorPlaying() && isIntelligibleQuestion(cleaned)) {
-          void submitQuestion(cleaned);
+        if (
+          !isVectorPlaying() &&
+          (isIntelligibleQuestion(cleaned) || isMovementNameUtterance(cleaned))
+        ) {
+          const lastQ = history[history.length - 1]?.question || "";
+          void submitQuestion(composeAsk(lastQ, cleaned));
           return;
         }
         return;

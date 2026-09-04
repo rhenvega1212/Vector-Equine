@@ -11,6 +11,7 @@ import {
 } from "@/lib/capture/vector-turn";
 import {
   isOffTopicReply,
+  isExerciseAskNeedingMovement,
   mentionsTopic,
   primaryMovementTopic,
   type MovementTopic,
@@ -40,7 +41,7 @@ export type CalledTurnResult = {
 };
 
 /** Spoken exercises stay rideable in one hearing. */
-const EXERCISE_WORD_CAP = 130;
+const EXERCISE_WORD_CAP = 90;
 const ANSWER_WORD_CAP = 28;
 
 function capWords(text: string, cap: number): string {
@@ -86,6 +87,21 @@ export async function generateCalledTurn(opts: {
     primaryMovementTopic(opts.question) ||
     primaryMovementTopic(priorTurns[priorTurns.length - 1]?.question || "");
 
+  if (isExerciseAskNeedingMovement(opts.question) && !topic) {
+    return {
+      offer: {
+        kind: "answer",
+        text: "Which movement?",
+        grounding: "general",
+        spokenCategory: "clarify",
+        provenance: { model: modelId },
+      },
+      crossingLine: null,
+      model: modelId,
+      latencyMs: Date.now() - started,
+    };
+  }
+
   const topicRule = topic
     ? `The rider asked about ${topic.label}. Every word of the reply must be about ${topic.label}, and the reply must name ${topic.label}. Never substitute a different movement. If no prior record below worked ${topic.label}, give a general ${topic.label} exercise from your own knowledge — do not refuse.`
     : `Answer exactly what was asked. Never substitute a different movement or a different question.`;
@@ -98,7 +114,7 @@ Accuracy first:
 - ${topicRule}
 - Prior records below are only usable if they worked that same movement. If none do, answer generally — never repurpose unrelated homework.
 - Wrong movement is the only unacceptable answer. Empty records are not a reason to refuse: answer generally instead.
-- "Nothing on record" is only for questions about what someone previously said or did. If the rider asks for an exercise or how to ride something, always give one.
+- "Nothing on record" is only for questions about what someone previously said or did. If the rider asks for an exercise or how to ride something, always give one — for that movement.
 
 Voice rules (absolute):
 - Never use the string "AI".
@@ -110,7 +126,8 @@ Voice rules (absolute):
 - When a record below worked this movement, build the reply from it and set grounding "this-trainer" with that record's sourceSessionId. Do this even when no person's name is available — leave attributionPersonName null and do not invent one. The rider's own record always beats a generic answer.
 - General answers MUST open with a clear marker clause such as "Generally —" or "Nothing on record for this —".
 - Answer kind: under 25 words, one breath.
-- Exercise kind: 3 to 5 concrete steps a rider can ride immediately, under ${EXERCISE_WORD_CAP} words total.
+- Exercise kind: 3 to 5 short commands a rider can ride in the next 30 seconds, under ${EXERCISE_WORD_CAP} words. Second person, imperative. Name the movement. Arena language — inside leg, outside rein, track, steps, circle. No numbered warmup essay. No "focus on even tempo." Never walk-trot-canter laps unless they asked for a warmup.
+- Shape (content changes with the movement): "Generally — 10m circle at the letter. As the shoulders hit the track, keep the bend and ride forward — that's shoulder-in. Inside leg to outside rein. Three or four steps. Straighten."
 - attributionPersonName only when sourceSessionId is one of the supplied session ids. Otherwise null.
 - Do not invent sourceSessionId values.
 
@@ -159,7 +176,7 @@ Return one offer.`;
       console.log(`[off-topic retry] ${topic.label} <- "${object.text}"`);
     }
     object = await callModel(
-      `Your previous attempt did not work ${topic.label}. Give a general ${topic.label} exercise in 3 to 5 concrete steps, opening with "Generally —". The reply must name ${topic.label}. Do not refuse and do not mention any other movement.`
+      `Your previous attempt did not work ${topic.label}. Give a general ${topic.label} exercise in 3 to 5 short commands a rider can ride now, opening with "Generally —". Name ${topic.label}. Imperative, second person. Do not refuse, do not mention any other school movement, and do not give a walk-trot-canter warmup.`
     );
     if (!mentionsTopic(object.text, topic)) {
       object = {

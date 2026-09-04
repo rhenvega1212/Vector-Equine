@@ -31,6 +31,7 @@ describe("isIntelligibleQuestion", () => {
   it("accepts a riding ask after the wake is stripped", () => {
     expect(isIntelligibleQuestion("how do I sit the trot")).toBe(true);
     expect(isIntelligibleQuestion("can you give me an exercise")).toBe(true);
+    expect(isIntelligibleQuestion("shoulder-in")).toBe(true);
   });
 
   it("rejects a bare wake leftover", () => {

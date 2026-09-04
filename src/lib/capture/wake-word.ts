@@ -141,7 +141,7 @@ export function looksLikeRidingAsk(text: string): boolean {
     return true;
   }
   if (
-    /\b(trot|canter|walk|gallop|halt|half-halt|rein|leg|seat|hands|circle|diagonal|pirouette|piaffe|passage|yield|transition|tempo|rhythm|collection|contact|bend|shoulder-in|haunches|flying change|balance|forward|straight|aid|aids|horse|ride|riding|lesson)\b/.test(
+    /\b(trot|canter|walk|gallop|halt|half-halt|rein|leg|seat|hands|circle|diagonal|pirouette|piaffe|passage|yield|transition|tempo|rhythm|collection|contact|bend|shoulder[-\s]?in|haunches|flying change|balance|forward|straight|aid|aids|horse|ride|riding|lesson)\b/.test(
       t
     )
   ) {

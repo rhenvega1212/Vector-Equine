@@ -27,6 +27,7 @@ const PHRASE_FIXES: Array<[RegExp, string]> = [
   [/\bhalve?\s*halt\b/gi, "half-halt"],
   [/\bhalf\s+halt\b/gi, "half-halt"],
   [/\bleg\s+ye?ild\b/gi, "leg yield"],
+  [/\bshoulder(?:[-\s]+shoulder)+[-\s]?in\b/gi, "shoulder-in"],
   [/\bshoulder\s+in\b/gi, "shoulder-in"],
   [/\bhaunches\s+in\b/gi, "haunches-in"],
   [/\bcounter\s+canter\b/gi, "counter-canter"],
