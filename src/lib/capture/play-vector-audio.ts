@@ -45,7 +45,6 @@ function getVectorAudioContext(): AudioContext {
 }
 
 function primeMediaEl(el: HTMLAudioElement) {
-  el.playsInline = true;
   el.setAttribute("playsinline", "true");
   el.preload = "auto";
 }

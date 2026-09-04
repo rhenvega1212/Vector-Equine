@@ -245,7 +245,7 @@ export async function measureAudioCoverage(
   rmSync(work, { recursive: true, force: true });
   mkdirSync(work, { recursive: true });
 
-  for (const [speaker, list] of grouped) {
+  for (const [speaker, list] of Array.from(grouped.entries())) {
     list.sort((a, b) => a.syncOffsetMs - b.syncOffsetMs);
     const timed: AlignedChunk[] = [];
     let unreadable = 0;
