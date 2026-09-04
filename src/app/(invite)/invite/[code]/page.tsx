@@ -34,19 +34,21 @@ export default function InviteAcceptPage() {
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    async function load() {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUserId(user?.id ?? null);
+    let cancelled = false;
+    const ac = new AbortController();
+    const kill = window.setTimeout(() => ac.abort(), 10000);
 
+    async function load() {
       try {
-        const res = await fetch(`/api/connections/invites/${code}`);
-        const data = await res.json();
+        const res = await fetch(`/api/connections/invites/${code}`, {
+          signal: ac.signal,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
         if (!res.ok) {
-          setError(data.error || "This invite link is invalid or has already been used.");
-          setLoading(false);
+          setError(
+            data.error || "This invite link is invalid or has already been used."
+          );
           return;
         }
         setInvite(data.invite);
@@ -55,14 +57,34 @@ export default function InviteAcceptPage() {
         } else if (data.inviter?.username) {
           setInviterName(`@${data.inviter.username}`);
         }
-      } catch {
-        setError("Could not load this invite.");
-      } finally {
         setLoading(false);
+
+        // Optional — don't block the invite card on Auth.
+        try {
+          const supabase = createClient();
+          const raced = await Promise.race([
+            supabase.auth.getUser(),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
+          ]);
+          if (!raced || cancelled) return;
+          setUserId(raced.data?.user?.id ?? null);
+        } catch {
+          if (!cancelled) setUserId(null);
+        }
+      } catch {
+        if (!cancelled) setError("Could not load this invite.");
+      } finally {
+        window.clearTimeout(kill);
+        if (!cancelled) setLoading(false);
       }
     }
 
     load();
+    return () => {
+      cancelled = true;
+      ac.abort();
+      window.clearTimeout(kill);
+    };
   }, [code]);
 
   async function accept() {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyGuestCaptureToken } from "@/lib/capture/guest-token";
-import { cleanAsrText } from "@/lib/capture/asr-cleanup";
+import { displayTranscriptText } from "@/lib/capture/asr-cleanup";
 import { emptyQualitySignals, flagSegment } from "@/lib/capture/asr-flags";
 import { browserProvenance } from "@/lib/capture/asr-provenance";
 import { z } from "zod";
@@ -93,7 +93,7 @@ async function insertIdempotent(
       const raw = s.text.trim();
       const asr = isAsrSpeaker(sp);
       const flag = asr ? flagSegment(raw) : { excluded: false, reason: null };
-      const cleaned = asr ? cleanAsrText(raw) : raw;
+      const cleaned = asr ? displayTranscriptText(raw) : raw;
       return {
         capture_session_id: captureSessionId,
         client_id: s.client_id?.trim() || null,
@@ -101,7 +101,7 @@ async function insertIdempotent(
         ended_offset_ms: s.ended_offset_ms ?? null,
         speaker: sp,
         text: raw,
-        text_cleaned: cleaned || null,
+        text_cleaned: cleaned || raw,
         confidence: s.confidence ?? null,
         addressed_to_vector: s.addressed_to_vector ?? false,
         excluded_from_corpus:
@@ -241,7 +241,7 @@ function toSavedRows(rows: SavedRow[]) {
     const reason = (r.raw_json as { exclusion_reason?: unknown } | null)
       ?.exclusion_reason;
     if (typeof reason === "string" && reason) continue;
-    const text = r.text_cleaned?.trim() || cleanAsrText(r.text);
+    const text = displayTranscriptText(r.text, r.text_cleaned);
     if (!text) continue;
     out.push({
       id: r.id,
@@ -351,8 +351,10 @@ function toDisplayRows(rows: Array<Record<string, unknown>>) {
         ?.exclusion_reason as string | undefined) ||
       null;
     if (flag) continue;
-    const cleanedCol = (r.text_cleaned as string | null)?.trim();
-    const text = cleanedCol || cleanAsrText(String(r.text ?? ""));
+    const text = displayTranscriptText(
+      String(r.text ?? ""),
+      r.text_cleaned as string | null
+    );
     if (!text) continue;
     out.push({
       id: r.id,

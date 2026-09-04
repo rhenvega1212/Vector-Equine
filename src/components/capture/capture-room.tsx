@@ -29,15 +29,13 @@ import {
   isVectorPlaying,
 } from "@/lib/capture/play-vector-audio";
 import { openBookendLine } from "@/lib/capture/vector-session";
-import {
-  cleanAsrText,
-  isWhisperHallucination,
-} from "@/lib/capture/asr-cleanup";
+import { cleanAsrText } from "@/lib/capture/asr-cleanup";
 import {
   createCalledTurnRuntime,
   type CalledTurnRuntime,
 } from "@/lib/capture/called-turn-runtime";
 import { splitWakeUtterance } from "@/lib/capture/wake-word";
+import { resolveTrainerJoinUrl } from "@/lib/capture/join-url";
 import { useFeatureFlag } from "@/lib/flags/context";
 
 type LivekitCreds = {
@@ -262,6 +260,18 @@ export function CaptureRoom({
       ? vectorInSessionProp
       : isTestLesson || Boolean(guestToken) || flagVector;
   const isSolo = rideMode === "solo";
+  const [pageOrigin, setPageOrigin] = useState<string | null>(null);
+  useEffect(() => {
+    setPageOrigin(window.location.origin);
+  }, []);
+  const trainerJoinHref =
+    joinCode && !isSolo
+      ? resolveTrainerJoinUrl({
+          joinCode,
+          pageOrigin,
+          serverJoinUrl: joinUrl,
+        })
+      : undefined;
   const [roomState, setRoomState] = useState<
     "idle" | "connecting" | "connected" | "reconnecting" | "error"
   >("idle");
@@ -909,6 +919,7 @@ export function CaptureRoom({
           unlockVectorAudio(),
           new Promise((r) => setTimeout(r, 1500)),
         ]);
+        void playKeepAliveAudio();
         void startKeepAwake();
         if (abandoned || intentionalEndRef.current) return;
 
@@ -986,6 +997,7 @@ export function CaptureRoom({
         unlockVectorAudio(),
         new Promise((r) => setTimeout(r, 1500)),
       ]);
+      void playKeepAliveAudio();
       void startKeepAwake();
       let track = localMicRef.current;
       if (!track && seedMicStream) {
@@ -1420,9 +1432,7 @@ export function CaptureRoom({
 
       for (const s of rows) {
         if (s.speaker !== speakerRoleRef.current || !s.text?.trim()) continue;
-        if (isWhisperHallucination(s.text)) continue;
-        const cleaned = cleanAsrText(s.text);
-        if (!cleaned) continue;
+        const cleaned = cleanAsrText(s.text) || s.text.trim();
         // Don't paint Vector's own voice back as rider lines
         if (isVectorPlaying()) {
           const { hit } = splitWakeUtterance(cleaned);
@@ -1761,9 +1771,7 @@ export function CaptureRoom({
       });
       for (const s of rows) {
         if (s.speaker !== speakerRoleRef.current || !s.text?.trim()) continue;
-        if (isWhisperHallucination(s.text)) continue;
-        const cleaned = cleanAsrText(s.text);
-        if (!cleaned) continue;
+        const cleaned = cleanAsrText(s.text) || s.text.trim();
         const key = s.id || `${s.offset_ms}:${cleaned}`;
         if (whisperWakeFedRef.current.has(key)) continue;
         whisperWakeFedRef.current.add(key);
@@ -1787,7 +1795,7 @@ export function CaptureRoom({
   function postSegment(text: string, confidence?: number) {
     const raw = text.trim();
     if (!raw) return;
-    const cleaned = cleanAsrText(raw);
+    const cleaned = cleanAsrText(raw) || raw;
     const offset_ms = Math.max(0, Date.now() - t0Ms.current);
     const client_id = newClientId();
 
@@ -1871,11 +1879,8 @@ export function CaptureRoom({
           setListening(false);
           return;
         }
-        // Brief pause only — long waits make the transcript feel dead
-        if (isVectorPlaying()) {
-          scheduleRestart(220);
-          return;
-        }
+        // Keep listening during Vector speech — a hung TTS used to loop
+        // here forever, which killed Hey Vector and called turns.
         try {
           recognition.start();
           setListening(true);
@@ -1920,8 +1925,8 @@ export function CaptureRoom({
           });
           // Wake detection keeps working off the cleaned text — PHRASE_FIXES is
           // what turns "hey victor" into a wake — but the raw utterance is what
-          // gets stored, including ones cleanup would blank.
-          const cleanedFinal = cleanAsrText(transcript);
+          // gets stored.
+          const cleanedFinal = cleanAsrText(transcript) || transcript;
           if (cleanedFinal) calledTurnRef.current?.onAsrFinal(cleanedFinal);
           // While Vector speaks: only listen for stop — don't paint TTS echo
           if (vectorTalking) continue;
@@ -2453,7 +2458,7 @@ export function CaptureRoom({
         </div>
       )}
 
-      {joinCode && joinUrl && !isSolo && (showConnectHelp || !peerConnected) ? (
+      {joinCode && trainerJoinHref && !isSolo && (showConnectHelp || !peerConnected) ? (
         <div className="rounded-xl border border-gold/20 bg-[#131C31] p-4 space-y-3 text-center">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] uppercase tracking-[0.18em] text-cream/40">
@@ -2472,14 +2477,14 @@ export function CaptureRoom({
           <p className="font-serif text-3xl tracking-[0.2em] text-gold">
             {joinCode}
           </p>
-          <JoinQr url={joinUrl} />
-          <p className="break-all text-xs text-cream/45">{joinUrl}</p>
+          <JoinQr url={trainerJoinHref} />
+          <p className="break-all text-xs text-cream/45">{trainerJoinHref}</p>
           <p className="text-xs text-cream/50">
-            Trainer opens the link on their phone — headset call, no account.
-            Capture starts when both of you are on the call.
+            Trainer opens the link on their phone — cellular or Wi-Fi, no
+            account. Capture starts when both of you are on the call.
           </p>
         </div>
-      ) : joinCode && joinUrl && !isSolo && peerConnected ? (
+      ) : joinCode && trainerJoinHref && !isSolo && peerConnected ? (
         <div className="flex justify-end">
           <button
             type="button"

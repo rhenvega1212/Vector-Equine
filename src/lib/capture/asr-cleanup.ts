@@ -1,5 +1,12 @@
 /**
- * Light cleanup for browser SpeechRecognition / Whisper before segments hit the timeline.
+ * Two jobs, two functions. They must not share a return value.
+ *
+ * - `classifyHallucination` names a rule. It never rewrites text.
+ * - `cleanAsrText` rewrites wording. It never decides a line is junk and
+ *   never turns a real utterance into an empty string.
+ *
+ * Readers choose what to do with a flag. Cleanup must not make that choice
+ * by returning nothing.
  */
 
 const PHRASE_FIXES: Array<[RegExp, string]> = [
@@ -34,69 +41,68 @@ const PHRASE_FIXES: Array<[RegExp, string]> = [
 ];
 
 /**
- * Whisper silence / prompt-echo leftovers. Drop entirely (no transcript row).
+ * Whole-segment Whisper leftovers. Kept as a regex because some entries are
+ * prefix shapes (`speakers may say…`) that still describe the entire line.
  */
 const HALLUCINATION_EXACT_RE =
   /^(thanks?(?:\s+you)?\s+for\s+watching\.?|thanks?(?:\s+you)?\s+for\s+listening\.?|please\s+subscribe\.?|like\s+and\s+subscribe\.?|see\s+you\s+(?:next\s+time|later)\.?|subscribe\.?|thank\s+you\.?|thanks\.?|you\.?|bye\.?|goodbye\.?|music\.?|applause\.?|transcribe\s+only\s+clear\s+speech\.?|speakers?\s+may\s+say\b.*|equestrian\s+riding\s+lesson\b.*|\.{1,}|…)$/i;
 
-/** Substrings that mean the model echoed its own prompt or spun nonsense. */
-const HALLUCINATION_CONTAINS_RE =
-  /transcribe\s+only|speakers?\s+may\s+say|return\s+an\s+empty\s+transcript|never\s+invent\s+filler|thank(?:s| you)\s+for\s+watching|please\s+subscribe|like\s+and\s+subscribe|speech\s+violence|featuring\s+strangulation|violence\s+against\s+women|\[.?music.?\]|\[.?applause.?\]|字幕|subscribe\s+to\s+my/i;
+/**
+ * Prompt-echo phrases, matched only as the whole segment after case and
+ * whitespace (and a trailing stop) are normalised. A human quoting one of
+ * these inside a longer line must not match. watermark_short / subscribe_short
+ * lived here as unreachable extras; their phrases are this list.
+ */
+const PROMPT_ECHO_PHRASES = [
+  "transcribe only",
+  "transcribe only clear speech",
+  "speakers may say",
+  "return an empty transcript",
+  "never invent filler",
+  "thanks for watching",
+  "thank you for watching",
+  "thanks for listening",
+  "thank you for listening",
+  "please subscribe",
+  "like and subscribe",
+  "speech violence",
+  "featuring strangulation",
+  "violence against women",
+  "[music]",
+  "[applause]",
+  "字幕",
+  "subscribe to my",
+];
 
-/** Comma-stacked gait lists = Whisper dumping the vocab prompt. */
-const VOCAB_DUMP_RE =
-  /\bwalk\b.*\btrot\b.*\bcanter\b|\btrot\b.*\bcanter\b.*\bhalt\b|\binside\s+leg\b.*\boutside\s+rein\b.*\b(contact|collection|tempo)\b/i;
+function normalizePhrase(raw: string): string {
+  return raw
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
+    .replace(/[.!?]+$/g, "")
+    .trim();
+}
+
+const PROMPT_ECHO_EXACT = new Set(PROMPT_ECHO_PHRASES.map(normalizePhrase));
 
 /**
  * Rule names are stored on flagged rows and queried in `transcript_flag_audit`.
  * Renaming one orphans the history that proves whether the rule is any good.
+ * Retired names (short_crumb, vocab_dump, prompt_shaped, watermark_short,
+ * subscribe_short, empty) must not be reused for a different test.
  */
-export type HallucinationRule =
-  | "empty"
-  | "boilerplate"
-  | "prompt_echo"
-  | "vocab_dump"
-  | "watermark_short"
-  | "subscribe_short"
-  | "prompt_shaped"
-  | "short_crumb";
+export type HallucinationRule = "boilerplate" | "prompt_echo";
 
 /**
  * Which rule considers this text a hallucination, or null for none.
- * Every rule here has false positives — flag on it, never delete on it.
+ * Never rewrites the string. Empty input is not a hallucination rule —
+ * `flagSegment` names that `empty`.
  */
 export function classifyHallucination(raw: string): HallucinationRule | null {
   const text = raw.replace(/\s+/g, " ").trim();
-  if (!text) return "empty";
+  if (!text) return null;
   if (HALLUCINATION_EXACT_RE.test(text)) return "boilerplate";
-  if (HALLUCINATION_CONTAINS_RE.test(text)) return "prompt_echo";
-  if (VOCAB_DUMP_RE.test(text)) return "vocab_dump";
-  if (/thank(?:s| you)\s+for\s+watching/i.test(text) && text.length < 48) {
-    return "watermark_short";
-  }
-  if (
-    /please\s+subscribe|like\s+and\s+subscribe/i.test(text) &&
-    text.length < 64
-  ) {
-    return "subscribe_short";
-  }
-  // Prompt-shaped: long instructional sentence with no riding ask
-  if (
-    text.length > 40 &&
-    /\b(transcribe|transcript|speakers?\s+may|vocabulary|silent or only noise)\b/i.test(
-      text
-    )
-  ) {
-    return "prompt_shaped";
-  }
-  // Very short non-riding crumbs Whisper invents on hiss.
-  // Highest false-positive rate of any rule here — a real "No." looks like this.
-  if (
-    text.length <= 12 &&
-    /^(the|a|and|so|to|of|in|it|is|this|that|yeah|yes|no)\.?$/i.test(text)
-  ) {
-    return "short_crumb";
-  }
+  if (PROMPT_ECHO_EXACT.has(normalizePhrase(text))) return "prompt_echo";
   return null;
 }
 
@@ -106,6 +112,7 @@ export function isWhisperHallucination(raw: string): boolean {
 
 /**
  * Text that must never start or fill a called turn — prompt echo, junk, etc.
+ * This is not a transcript reader. It refuses to open a Vector turn.
  */
 export function isGarbageTurnText(raw: string): boolean {
   const text = raw.replace(/\s+/g, " ").trim();
@@ -129,19 +136,23 @@ export function pickBestAsrAlternative(
     if (/hey\s+vector/i.test(t)) score += 0.35;
     if (/\bvector\b/i.test(t)) score += 0.15;
     if (/\b(trot|canter|halt|rein|leg)\b/i.test(t)) score += 0.05;
-    // Penalize prompt-echo candidates
-    if (HALLUCINATION_CONTAINS_RE.test(t) || VOCAB_DUMP_RE.test(t)) score -= 0.8;
+    if (classifyHallucination(t)) score -= 0.8;
     return { t, score };
   });
   scored.sort((a, b) => b.score - a.score);
   return scored[0]?.t || alts[0].transcript.trim();
 }
 
+/**
+ * Tidies wording. Never classifies. Never returns empty when the input had
+ * a non-whitespace character — if a rewrite would collapse the line, the
+ * original wording is kept.
+ */
 export function cleanAsrText(raw: string): string {
-  let text = raw.replace(/\s+/g, " ").trim();
-  if (!text) return text;
-  if (isWhisperHallucination(text)) return "";
+  const original = raw.replace(/\s+/g, " ").trim();
+  if (!original) return raw;
 
+  let text = original;
   for (const [re, rep] of PHRASE_FIXES) {
     text = text.replace(re, rep);
   }
@@ -156,6 +167,21 @@ export function cleanAsrText(raw: string): string {
     text = text.replace(/\bVector Equine\b/gi, "Vector Equine");
   }
 
-  if (isWhisperHallucination(text)) return "";
-  return text.trim();
+  return text.trim() || original;
+}
+
+/**
+ * Wording a person should read. Uses the stored cleaned column when present,
+ * otherwise tidies `text` at read time. Falls back to verbatim if tidy would
+ * have nothing to show — readers must not treat an empty string as a delete.
+ */
+export function displayTranscriptText(
+  raw: string,
+  textCleaned?: string | null
+): string {
+  const fromCol = textCleaned?.replace(/\s+/g, " ").trim();
+  if (fromCol) return fromCol;
+  const cleaned = cleanAsrText(raw);
+  if (cleaned) return cleaned;
+  return raw.replace(/\s+/g, " ").trim();
 }

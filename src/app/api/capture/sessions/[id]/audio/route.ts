@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyGuestCaptureToken } from "@/lib/capture/guest-token";
 import { applyWhisperBytes } from "@/lib/capture/apply-whisper-bytes";
 import { isWhisperConfigured } from "@/lib/capture/whisper";
-import { cleanAsrText } from "@/lib/capture/asr-cleanup";
+import { displayTranscriptText } from "@/lib/capture/asr-cleanup";
 import { storeAudioChunk } from "@/lib/capture/audio-storage";
 import { waitUntil } from "@vercel/functions";
 
@@ -148,13 +148,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // The rows are already stored verbatim. What comes back here is painted on
-    // a phone, so it is cleaned and flagged segments are left out.
+    // a phone, so flagged segments are left out. Cleanup tidies wording only.
     const display = whisperSegs
       .filter((s) => !s.excluded_from_corpus)
       .map((s) => ({
         offset_ms: s.offset_ms,
         speaker,
-        text: cleanAsrText(s.text),
+        text: displayTranscriptText(s.text),
         ended_offset_ms: s.ended_offset_ms,
       }))
       .filter((s) => s.text.length > 0);

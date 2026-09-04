@@ -14,7 +14,7 @@
  *                           person reads or a model is given.
  */
 
-import { cleanAsrText } from "@/lib/capture/asr-cleanup";
+import { displayTranscriptText } from "@/lib/capture/asr-cleanup";
 
 export type TranscriptRow = {
   id: string;
@@ -38,8 +38,8 @@ export type ReadOptions = {
   /** Vector's own spoken lines. Excluded for corpus and trainer-method reads. */
   includeVector?: boolean;
   /**
-   * Rows a rule flagged. Defaults to true on a raw read (that is the audit) and
-   * is always false on a cleaned read. Corpus reads must pass false.
+   * Rows a rule flagged. Defaults to true on a raw read (the audit) and false
+   * on a cleaned / display read. Corpus readers pass this explicitly.
    */
   includeFlagged?: boolean;
   limit?: number;
@@ -149,9 +149,8 @@ export async function readRawTranscript(
 }
 
 /**
- * Display text with flagged rows removed. `text_cleaned` when present,
- * otherwise cleaned at read time — cleanup is idempotent, so rows written
- * before the raw/cleaned split render exactly as they always did.
+ * Display wording. Flagged rows are hidden unless `includeFlagged` is true.
+ * Cleanup never blanks a line — an empty stored `text` is the only skip.
  */
 export async function readCleanedTranscript(
   db: TranscriptClient,
@@ -161,12 +160,13 @@ export async function readCleanedTranscript(
   const { rows, error } = await fetchRows(db, captureSessionId, opts);
   if (error) return { data: [], error, variant: "cleaned" };
 
+  const includeFlagged = opts.includeFlagged === true;
   const data: TranscriptRow[] = [];
   for (const r of rows) {
     // Filters on the rule, not on excluded_from_corpus: Vector's own lines are
     // excluded from the corpus by design and still belong on screen.
-    if (flagOf(r)) continue;
-    const text = r.text_cleaned?.trim() || cleanAsrText(r.text);
+    if (flagOf(r) && !includeFlagged) continue;
+    const text = displayTranscriptText(r.text, r.text_cleaned);
     if (!text) continue;
     data.push({
       id: r.id,
@@ -176,7 +176,7 @@ export async function readCleanedTranscript(
       ended_offset_ms: r.ended_offset_ms,
       confidence: r.confidence,
       raw_json: r.raw_json,
-      flag_reason: null,
+      flag_reason: includeFlagged ? flagOf(r) : null,
     });
   }
 

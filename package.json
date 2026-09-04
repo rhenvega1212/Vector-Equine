@@ -9,6 +9,8 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:capture": "CAPTURE_E2E=1 dotenv -e .env.local -- vitest run src/lib/capture/__tests__/capture-e2e.test.ts",
+    "verify:session": "dotenv -e .env.local -- npx tsx scripts/verify-session.ts",
     "db:push": "supabase db push"
   },
   "dependencies": {

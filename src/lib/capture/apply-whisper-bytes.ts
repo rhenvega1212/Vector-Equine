@@ -5,7 +5,7 @@ import {
   type WhisperSeg,
 } from "@/lib/capture/whisper";
 import { whisperProvenance } from "@/lib/capture/asr-provenance";
-import { cleanAsrText } from "@/lib/capture/asr-cleanup";
+import { displayTranscriptText } from "@/lib/capture/asr-cleanup";
 
 /**
  * Whisper a mic chunk straight from the bytes in the request and write the
@@ -70,14 +70,14 @@ export async function applyWhisperBytes(opts: {
 
   const rows = segs
     .map((s, i) => {
-      const cleaned = cleanAsrText(s.text);
+      const cleaned = displayTranscriptText(s.text);
       return {
         capture_session_id: opts.captureSessionId,
         offset_ms: s.offset_ms,
         ended_offset_ms: s.ended_offset_ms,
         speaker: opts.speaker,
         text: s.text,
-        text_cleaned: cleaned || null,
+        text_cleaned: cleaned,
         client_id: `whisper:${opts.speaker}:${chunkKey}:${i}`,
         excluded_from_corpus: s.excluded_from_corpus,
         raw_json: {

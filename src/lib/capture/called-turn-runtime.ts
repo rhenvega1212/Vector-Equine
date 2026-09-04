@@ -20,6 +20,7 @@ import {
   isAddressedToVector,
   isAffirmativeReply,
   isIntelligibleQuestion,
+  isLikelyVectorEcho,
   isNegativeReply,
   isStopPhrase,
   splitWakeUtterance,
@@ -96,21 +97,10 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
   /** What Vector is saying right now, so the mic doesn't quote it back. */
   let speakingLine = "";
 
-  function normalizeForEcho(s: string): string {
-    return s
-      .toLowerCase()
-      .replace(/[^a-z0-9 ]/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
   /** The open mic hears Vector too — that is not the rider talking. */
   function isEchoOfVector(piece: string): boolean {
     if (!speakingLine || !isVectorPlaying()) return false;
-    const p = normalizeForEcho(piece);
-    const line = normalizeForEcho(speakingLine);
-    if (!p || !line) return false;
-    return line.includes(p) || p.includes(line);
+    return isLikelyVectorEcho(piece, speakingLine);
   }
 
   function questionSoFar(): string {
@@ -162,9 +152,9 @@ export function createCalledTurnRuntime(opts: CalledTurnRuntimeOpts) {
     followUpUntil = Date.now() + FOLLOW_UP_MS;
   }
 
-  /** Vector still talking counts as open — the rider can cut in. */
+  /** Reply window after an answer — not the open bookend, not any TTS. */
   function inFollowUp(): boolean {
-    return Date.now() < followUpUntil || isVectorPlaying() || awaitingMore;
+    return Date.now() < followUpUntil || awaitingMore;
   }
 
   function broadcastTurn(text: string) {

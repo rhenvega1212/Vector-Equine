@@ -54,6 +54,8 @@ export function readQualitySignals(s: {
 /**
  * Decide whether a segment is corpus-eligible. Quality thresholds are checked
  * before text rules so the reason names the cheapest explanation.
+ *
+ * Never rewrites `rawText`. A flag is a name, not a blank string.
  */
 export function flagSegment(
   rawText: string,

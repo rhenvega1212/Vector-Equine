@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { flagGuardForApi } from "@/lib/flags/guards";
 import { generateJoinCode } from "@/lib/capture/guest-token";
+import { joinUrlFromRequest } from "@/lib/capture/join-url-server";
 import { getLiveKitUrl, isLiveKitConfigured, mintLiveKitToken } from "@/lib/capture/livekit";
 import { VECTOR_CONFIG } from "@/lib/vector/config";
 import { z } from "zod";
@@ -138,11 +139,7 @@ export async function POST(request: NextRequest) {
           (existing as { ride_mode?: string }).ride_mode = parsed.ride_mode;
         }
       }
-      const origin =
-        request.headers.get("origin") ||
-        process.env.NEXT_PUBLIC_APP_URL ||
-        "http://localhost:3000";
-      const joinUrl = `${origin.replace(/\/$/, "")}/join/${existing.join_code}`;
+      const joinUrl = joinUrlFromRequest(request, existing.join_code);
       const token = await mintLiveKitToken({
         roomName: existing.livekit_room,
         identity: `rider_${user.id}`,
@@ -213,11 +210,7 @@ export async function POST(request: NextRequest) {
           .single();
         if (!retry.error && retry.data) {
           const created = retry.data;
-          const origin =
-            request.headers.get("origin") ||
-            process.env.NEXT_PUBLIC_APP_URL ||
-            "http://localhost:3000";
-          const joinUrl = `${origin.replace(/\/$/, "")}/join/${created.join_code}`;
+          const joinUrl = joinUrlFromRequest(request, created.join_code);
           const token = await mintLiveKitToken({
             roomName: created.livekit_room,
             identity: `rider_${user.id}`,
@@ -247,11 +240,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (!error && created) {
-        const origin =
-          request.headers.get("origin") ||
-          process.env.NEXT_PUBLIC_APP_URL ||
-          "http://localhost:3000";
-        const joinUrl = `${origin.replace(/\/$/, "")}/join/${created.join_code}`;
+        const joinUrl = joinUrlFromRequest(request, created.join_code);
 
         const token = await mintLiveKitToken({
           roomName: created.livekit_room,

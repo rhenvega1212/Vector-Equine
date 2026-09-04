@@ -36,6 +36,32 @@ export function isAffirmativeReply(text: string): boolean {
   return AFFIRMATIVE_RE.test(text.replace(/\s+/g, " ").trim());
 }
 
+function normalizeForEcho(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * The open mic hears Vector too. Drop a fragment of the line being spoken —
+ * not a longer rider ask that happens to contain "yes" / "vector".
+ */
+export function isLikelyVectorEcho(
+  heard: string,
+  speakingLine: string
+): boolean {
+  const p = normalizeForEcho(heard);
+  const line = normalizeForEcho(speakingLine);
+  if (!p || !line) return false;
+  if (p === line) return true;
+  // Rider said more than Vector did — that's the question, not the echo
+  if (p.length > line.length + 6) return false;
+  if (line.includes(p) && p.length >= Math.min(12, line.length)) return true;
+  return p.includes(line) && line.length >= 12;
+}
+
 /** Residual after stripping the wake phrase (may be empty). */
 export function splitWakeUtterance(raw: string): {
   hit: boolean;

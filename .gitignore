@@ -43,3 +43,6 @@ supabase/.temp
 
 # Bot media originals (already uploaded to Supabase Storage)
 scripts/bot-media/
+
+# Derived local artifacts (session verify, assembled audio)
+/tmp/

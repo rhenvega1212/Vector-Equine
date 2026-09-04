@@ -23,6 +23,19 @@ export async function updateSession(request: NextRequest) {
       request: { headers: requestHeaders },
     });
 
+  // Guest scan-in / invite / share: paint the page without waiting on Auth.
+  // Camera-opened Safari was hanging on getUser() before /join ever loaded.
+  const skipSessionPaths = [
+    "/join",
+    "/invite",
+    "/shared",
+    "/api/capture/join",
+    "/api/connections/invites",
+  ];
+  if (skipSessionPaths.some((path) => pathname.startsWith(path))) {
+    return nextWithPath();
+  }
+
   let supabaseResponse = nextWithPath();
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

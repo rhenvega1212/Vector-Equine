@@ -72,9 +72,13 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     let viewerIsRider = false;
     try {
       const authed = await createClient();
-      const {
-        data: { user },
-      } = await authed.auth.getUser();
+      const raced = await Promise.race([
+        authed.auth.getUser(),
+        new Promise<{ data: { user: null } }>((resolve) =>
+          setTimeout(() => resolve({ data: { user: null } }), 1500)
+        ),
+      ]);
+      const user = raced.data?.user;
       viewerIsRider = Boolean(user && user.id === capture.rider_id);
     } catch {
       /* public preview */
@@ -109,7 +113,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body = joinBodySchema.parse(await request.json().catch(() => ({})));
     const admin = createAdminClient();
 
-    // Optional auth — signed-in coach path.
+    // Optional auth — signed-in coach path. Don't stall guests if Auth hangs.
     let authUser: { id: string } | null = null;
     let profile: {
       display_name: string | null;
@@ -117,9 +121,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     } | null = null;
     try {
       const supabase = await createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const raced = await Promise.race([
+        supabase.auth.getUser(),
+        new Promise<{ data: { user: null } }>((resolve) =>
+          setTimeout(() => resolve({ data: { user: null } }), 2000)
+        ),
+      ]);
+      const user = raced.data?.user;
       if (user) {
         authUser = user;
         const { data } = await admin

@@ -10,9 +10,10 @@
  * work wants `raw`; anything a person reads or a model is given wants
  * `cleaned`. See transcript-read for why there is no fallback between them.
  *
- * Flagged rows never appear in either variant here — a consumer that got them
- * would train on hallucinations. The `trainer_corpus_segments` view enforces
- * the same two exclusions for SQL-side consumers.
+ * Flagged rows never appear in either variant here unless a caller passes
+ * `includeFlagged: true` on the reader — a consumer that got them would train
+ * on hallucinations. The `trainer_corpus_segments` view enforces the same
+ * exclusions for SQL-side consumers, and skips `is_test` captures.
  */
 
 import {
@@ -43,6 +44,7 @@ export async function fetchTrainerCorpusSegments(
         })
       : await readCleanedTranscript(db, captureSessionId, {
           includeVector: false,
+          includeFlagged: false,
         });
 
   if (read.error) return { data: [], error: read.error };

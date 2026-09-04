@@ -1,3 +1,5 @@
+const isProd = Boolean(process.env.VERCEL);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Local: alternate dir avoids OneDrive/sync issues with `.next` (readlink errors).
@@ -23,11 +25,17 @@ const nextConfig = {
         // Apply to all routes
         source: '/:path*',
         headers: [
-          // Prevent clickjacking
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
-          },
+          ...(isProd
+            ? [
+                // Keep production out of other sites' iframes. Locally this
+                // blocks Cursor's Simple Browser and makes login look dead.
+                { key: "X-Frame-Options", value: "DENY" },
+                {
+                  key: "Strict-Transport-Security",
+                  value: "max-age=31536000; includeSubDomains",
+                },
+              ]
+            : []),
           // Prevent MIME type sniffing
           {
             key: 'X-Content-Type-Options',
@@ -49,11 +57,6 @@ const nextConfig = {
           {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(self), geolocation=()',
-          },
-          // Strict Transport Security (HTTPS only)
-          {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=31536000; includeSubDomains',
           },
           // New deployments show up sooner (don’t cache the app shell for a long time)
           {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { joinUrlFromRequest } from "@/lib/capture/join-url-server";
 import { getLiveKitUrl, isLiveKitConfigured, mintLiveKitToken } from "@/lib/capture/livekit";
 
 interface RouteParams {
@@ -7,7 +8,7 @@ interface RouteParams {
 }
 
 /** Rider re-fetches LiveKit credentials for an open capture. */
-export async function GET(_request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const supabase = await createClient();
@@ -32,7 +33,6 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Session ended" }, { status: 410 });
     }
 
-    const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const token = await mintLiveKitToken({
       roomName: capture.livekit_room,
       identity: `rider_${user.id}`,
@@ -42,7 +42,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({
       ...capture,
-      join_url: `${origin.replace(/\/$/, "")}/join/${capture.join_code}`,
+      join_url: joinUrlFromRequest(request, capture.join_code),
       livekit: {
         configured: isLiveKitConfigured(),
         url: getLiveKitUrl(),

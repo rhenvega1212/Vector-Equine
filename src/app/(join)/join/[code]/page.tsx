@@ -74,6 +74,9 @@ export default function GuestJoinPage() {
 
   useEffect(() => {
     let cancelled = false;
+    const ac = new AbortController();
+    const kill = window.setTimeout(() => ac.abort(), 10000);
+
     (async () => {
       try {
         // Resume trainer session after lock / Safari reload
@@ -96,50 +99,60 @@ export default function GuestJoinPage() {
           /* ignore */
         }
 
-        try {
-          const supabase = createClient();
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
-          if (user && !cancelled) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("display_name, role_trainer")
-              .eq("id", user.id)
-              .maybeSingle();
-            if (profile?.display_name) {
-              setAuthCoach({ displayName: profile.display_name });
-              setName(profile.display_name);
-            } else {
-              setAuthCoach({ displayName: "" });
-            }
-          }
-        } catch {
-          /* guest */
-        }
-
-        const res = await fetch(`/api/capture/join/${code}`);
-        const data = await res.json();
+        const res = await fetch(`/api/capture/join/${code}`, { signal: ac.signal });
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           if (!cancelled) setError(data.error || "Could not load lesson");
           return;
         }
-        if (!cancelled) {
-          setPreview(data);
-          // Rider on a second phone: unlock name — join as coach persona, not as yourself.
-          if (data.viewer_is_rider) {
-            setAuthCoach(null);
-            setName("");
+        if (cancelled) return;
+        setPreview(data);
+        setLoading(false);
+
+        // Rider on a second phone: unlock name — join as coach persona, not as yourself.
+        if (data.viewer_is_rider) {
+          setAuthCoach(null);
+          setName("");
+          return;
+        }
+
+        // Auth is optional. Camera-opened Safari can hang forever on getUser()
+        // if we await it before painting the join screen.
+        try {
+          const supabase = createClient();
+          const raced = await Promise.race([
+            supabase.auth.getUser(),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
+          ]);
+          if (!raced || cancelled) return;
+          const user = raced.data?.user;
+          if (!user) return;
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("display_name, role_trainer")
+            .eq("id", user.id)
+            .maybeSingle();
+          if (cancelled) return;
+          if (profile?.display_name) {
+            setAuthCoach({ displayName: profile.display_name });
+            setName(profile.display_name);
+          } else {
+            setAuthCoach({ displayName: "" });
           }
+        } catch {
+          /* guest */
         }
       } catch {
         if (!cancelled) setError("Could not load lesson");
       } finally {
+        window.clearTimeout(kill);
         if (!cancelled) setLoading(false);
       }
     })();
     return () => {
       cancelled = true;
+      ac.abort();
+      window.clearTimeout(kill);
     };
   }, [code]);
 

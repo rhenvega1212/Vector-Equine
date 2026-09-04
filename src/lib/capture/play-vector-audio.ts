@@ -4,18 +4,27 @@ import {
   type Room,
 } from "livekit-client";
 
-/** Shared AudioContext — must resume from a user gesture (Start / Join). */
+/** Shared AudioContext — LiveKit publish + Web Audio fallback. */
 let vectorAudioCtx: AudioContext | null = null;
-let audioUnlocked = false;
 
-/** Active Vector playback — barge-in / stop phrase. */
-let activePlayback: {
-  source: AudioBufferSourceNode;
-  published: LocalAudioTrack | null;
-  room: Room | null;
-  mediaTrack: MediaStreamTrack | null;
+/**
+ * Keep the iOS audio session alive. Solo never joins LiveKit, so without this
+ * the mute switch / a suspended context swallows Vector and can hang playback
+ * (onended never fires → ASR never restarts → Hey Vector dies).
+ */
+let holdEl: HTMLAudioElement | null = null;
+/** Reused for every mp3 — iOS often blocks a fresh Audio() after the gesture. */
+let speechEl: HTMLAudioElement | null = null;
+let speechObjectUrl: string | null = null;
+/** Barge-in / stop — don't start a fallback voice after the rider cuts in. */
+let playbackCancelled = false;
+
+type ActivePlayback = {
+  stop: () => void;
   resolve: (spoken: boolean) => void;
-} | null = null;
+};
+
+let activePlayback: ActivePlayback | null = null;
 
 /** Browser speechSynthesis fallback when ElevenLabs audio is unavailable. */
 let browserSpeechActive = false;
@@ -35,6 +44,50 @@ function getVectorAudioContext(): AudioContext {
   return vectorAudioCtx;
 }
 
+function primeMediaEl(el: HTMLAudioElement) {
+  el.playsInline = true;
+  el.setAttribute("playsinline", "true");
+  el.preload = "auto";
+}
+
+function ensureHoldEl(): HTMLAudioElement {
+  if (!holdEl) {
+    holdEl = new Audio("/silence.wav");
+    primeMediaEl(holdEl);
+    holdEl.loop = true;
+    holdEl.volume = 0.01;
+  }
+  return holdEl;
+}
+
+function ensureSpeechEl(): HTMLAudioElement {
+  if (!speechEl) {
+    speechEl = new Audio();
+    primeMediaEl(speechEl);
+  }
+  return speechEl;
+}
+
+function clearSpeechSrc() {
+  if (speechObjectUrl) {
+    try {
+      URL.revokeObjectURL(speechObjectUrl);
+    } catch {
+      /* ignore */
+    }
+    speechObjectUrl = null;
+  }
+  if (speechEl) {
+    try {
+      speechEl.pause();
+      speechEl.removeAttribute("src");
+      speechEl.load();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 /** Unlock autoplay + AudioContext on iOS/Safari — call once from a user gesture. */
 export async function unlockVectorAudio(): Promise<void> {
   if (typeof window === "undefined") return;
@@ -43,14 +96,10 @@ export async function unlockVectorAudio(): Promise<void> {
     if (ctx.state === "suspended") {
       await ctx.resume();
     }
-    if (!audioUnlocked) {
-      const a = new Audio();
-      a.src =
-        "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=";
-      a.volume = 0.01;
-      await a.play();
-      a.pause();
-      audioUnlocked = true;
+    const hold = ensureHoldEl();
+    ensureSpeechEl();
+    if (hold.paused) {
+      await hold.play();
     }
   } catch {
     /* gesture may still unlock later on first real play */
@@ -59,6 +108,29 @@ export async function unlockVectorAudio(): Promise<void> {
 
 export function isVectorPlaying(): boolean {
   return activePlayback != null || browserSpeechActive;
+}
+
+function haltPlayback(): void {
+  if (browserSpeechActive) {
+    browserSpeechActive = false;
+    if (browserSpeechTimer != null) {
+      window.clearTimeout(browserSpeechTimer);
+      browserSpeechTimer = null;
+    }
+    try {
+      window.speechSynthesis?.cancel();
+    } catch {
+      /* ignore */
+    }
+  }
+  const cur = activePlayback;
+  if (!cur) return;
+  activePlayback = null;
+  try {
+    cur.stop();
+  } catch {
+    /* ignore */
+  }
 }
 
 /**
@@ -71,7 +143,7 @@ export async function speakTextLocally(text: string): Promise<boolean> {
   if (!synth) return false;
 
   await unlockVectorAudio();
-  stopVectorPlayback();
+  haltPlayback();
 
   return new Promise((resolve) => {
     let settled = false;
@@ -108,28 +180,8 @@ export async function speakTextLocally(text: string): Promise<boolean> {
 
 /** Channel rule / stop phrase — halt TTS, keep text on screen. */
 export function stopVectorPlayback(): void {
-  if (browserSpeechActive) {
-    browserSpeechActive = false;
-    if (browserSpeechTimer != null) {
-      window.clearTimeout(browserSpeechTimer);
-      browserSpeechTimer = null;
-    }
-    try {
-      window.speechSynthesis?.cancel();
-    } catch {
-      /* ignore */
-    }
-  }
-  const cur = activePlayback;
-  if (!cur) return;
-  activePlayback = null;
-  try {
-    cur.source.stop();
-  } catch {
-    /* ignore */
-  }
-  void cleanupPublished(cur.room, cur.published, cur.mediaTrack);
-  cur.resolve(false);
+  playbackCancelled = true;
+  haltPlayback();
 }
 
 async function cleanupPublished(
@@ -157,70 +209,194 @@ async function cleanupPublished(
   }
 }
 
-/** Publish decoded mp3/wav bytes into the LiveKit shared mix + local monitor. */
-export async function playDecodedIntoCall(
-  room: Room | null,
-  buf: ArrayBuffer
-): Promise<boolean> {
-  stopVectorPlayback();
-  await unlockVectorAudio();
+function estimateMp3DurationMs(byteLength: number): number {
+  // 22.05 kHz / 32 kbps mp3 ≈ 4 bytes per ms; pad for headers + iOS lag
+  return Math.min(28_000, Math.max(1800, byteLength / 4 + 800));
+}
 
+/** Play ElevenLabs mp3 on the unlocked HTMLAudioElement (iOS-reliable). */
+function playMp3OnElement(buf: ArrayBuffer): Promise<boolean> {
+  return new Promise((resolve) => {
+    const el = ensureSpeechEl();
+    clearSpeechSrc();
+    const url = URL.createObjectURL(new Blob([buf], { type: "audio/mpeg" }));
+    speechObjectUrl = url;
+    el.loop = false;
+    el.volume = 1;
+    el.src = url;
+
+    let settled = false;
+    let timer: number | null = null;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      if (timer != null) window.clearTimeout(timer);
+      el.onended = null;
+      el.onerror = null;
+      if (activePlayback?.resolve === resolve) {
+        activePlayback = null;
+      }
+      clearSpeechSrc();
+      resolve(ok);
+    };
+
+    timer = window.setTimeout(
+      () => finish(true),
+      estimateMp3DurationMs(buf.byteLength)
+    );
+    el.onended = () => finish(true);
+    el.onerror = () => finish(false);
+
+    const stop = () => {
+      try {
+        el.pause();
+      } catch {
+        /* ignore */
+      }
+      finish(false);
+    };
+
+    activePlayback = { stop, resolve };
+    void el.play().then(
+      () => {
+        if (settled) return;
+        const dur = el.duration;
+        if (Number.isFinite(dur) && dur > 0) {
+          if (timer != null) window.clearTimeout(timer);
+          timer = window.setTimeout(() => finish(true), dur * 1000 + 700);
+        }
+      },
+      () => finish(false)
+    );
+  });
+}
+
+/** Last-resort: Web Audio destination if the HTML element cannot start. */
+async function playViaWebAudio(buf: ArrayBuffer): Promise<boolean> {
   const ctx = getVectorAudioContext();
   if (ctx.state === "suspended") {
     await ctx.resume();
   }
-
   const audioBuffer = await ctx.decodeAudioData(buf.slice(0));
   const source = ctx.createBufferSource();
   source.buffer = audioBuffer;
+  source.connect(ctx.destination);
 
-  const monitor = ctx.createGain();
-  monitor.gain.value = 1;
-  source.connect(monitor);
-  monitor.connect(ctx.destination);
-
-  const dest = ctx.createMediaStreamDestination();
-  source.connect(dest);
-
-  const mediaTrack = dest.stream.getAudioTracks()[0];
-  if (!mediaTrack) return false;
-
-  let published: LocalAudioTrack | null = null;
-  const canPublish =
-    room && room.state === "connected" && room.localParticipant;
-
-  if (canPublish) {
-    published = new LocalAudioTrack(mediaTrack, undefined, true, ctx);
-    await room!.localParticipant.publishTrack(published, {
-      name: "vector",
-      source: Track.Source.Unknown,
-    });
-  }
-
-  const spoken = await new Promise<boolean>((resolve) => {
-    activePlayback = {
-      source,
-      published,
-      room,
-      mediaTrack,
-      resolve,
-    };
-    source.onended = () => {
-      if (activePlayback?.source === source) {
-        activePlayback = null;
-        void cleanupPublished(room, published, mediaTrack);
-        resolve(true);
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      if (activePlayback?.resolve === resolve) activePlayback = null;
+      try {
+        source.stop();
+      } catch {
+        /* ignore */
       }
+      resolve(ok);
+    };
+    const timer = window.setTimeout(
+      () => finish(true),
+      audioBuffer.duration * 1000 + 700
+    );
+    source.onended = () => {
+      window.clearTimeout(timer);
+      finish(true);
+    };
+    activePlayback = {
+      stop: () => {
+        window.clearTimeout(timer);
+        finish(false);
+      },
+      resolve,
     };
     try {
       source.start(0);
     } catch {
-      activePlayback = null;
-      void cleanupPublished(room, published, mediaTrack);
-      resolve(false);
+      window.clearTimeout(timer);
+      finish(false);
     }
   });
+}
 
+async function publishIntoCall(
+  room: Room,
+  buf: ArrayBuffer
+): Promise<{
+  published: LocalAudioTrack | null;
+  mediaTrack: MediaStreamTrack | null;
+  source: AudioBufferSourceNode | null;
+}> {
+  const ctx = getVectorAudioContext();
+  if (ctx.state === "suspended") await ctx.resume();
+  const audioBuffer = await ctx.decodeAudioData(buf.slice(0));
+  const source = ctx.createBufferSource();
+  source.buffer = audioBuffer;
+  const dest = ctx.createMediaStreamDestination();
+  source.connect(dest);
+  const mediaTrack = dest.stream.getAudioTracks()[0] || null;
+  if (!mediaTrack) {
+    return { published: null, mediaTrack: null, source };
+  }
+  const published = new LocalAudioTrack(mediaTrack, undefined, true, ctx);
+  await room.localParticipant.publishTrack(published, {
+    name: "vector",
+    source: Track.Source.Unknown,
+  });
+  try {
+    source.start(0);
+  } catch {
+    /* local HTML audio still plays */
+  }
+  return { published, mediaTrack, source };
+}
+
+/**
+ * Speak ElevenLabs mp3 on this phone. Trainer sessions also publish into
+ * the LiveKit mix so the other headset hears it.
+ */
+export async function playDecodedIntoCall(
+  room: Room | null,
+  buf: ArrayBuffer
+): Promise<boolean> {
+  if (!buf.byteLength) return false;
+  haltPlayback();
+  await unlockVectorAudio();
+  playbackCancelled = false;
+
+  let published: LocalAudioTrack | null = null;
+  let mediaTrack: MediaStreamTrack | null = null;
+  let mixSource: AudioBufferSourceNode | null = null;
+  const canPublish = Boolean(
+    room && room.state === "connected" && room.localParticipant
+  );
+
+  if (room && canPublish) {
+    try {
+      const mix = await publishIntoCall(room, buf);
+      published = mix.published;
+      mediaTrack = mix.mediaTrack;
+      mixSource = mix.source;
+    } catch {
+      /* local play still matters */
+    }
+  }
+
+  let spoken = await playMp3OnElement(buf);
+  if (!spoken && !playbackCancelled) {
+    try {
+      spoken = await playViaWebAudio(buf);
+    } catch {
+      spoken = false;
+    }
+  }
+
+  try {
+    mixSource?.stop();
+  } catch {
+    /* ignore */
+  }
+  await cleanupPublished(room, published, mediaTrack);
   return spoken;
 }
 
@@ -296,7 +472,7 @@ export async function speakVectorIntoCall(
     }
 
     let spoken = await playDecodedIntoCall(room, buf);
-    if (!spoken) {
+    if (!spoken && !playbackCancelled) {
       spoken = await speakTextLocally(text);
     }
     return { text, spoken };
@@ -373,10 +549,10 @@ export async function runCalledTurnIntoCall(
       if (buf.byteLength) {
         spoken = await playDecodedIntoCall(room, buf);
       }
-      if (!spoken && text.trim()) {
+      if (!spoken && text.trim() && !playbackCancelled) {
         spoken = await speakTextLocally(text);
       }
-      if (!spoken && text.trim()) {
+      if (!spoken && text.trim() && !playbackCancelled) {
         const again = await speakVectorIntoCall(
           room,
           captureSessionId,
@@ -427,7 +603,7 @@ export async function runCalledTurnIntoCall(
 
     // JSON path (TTS failed server-side) — still speak on device
     let spoken = await speakTextLocally(text);
-    if (!spoken) {
+    if (!spoken && !playbackCancelled) {
       const again = await speakVectorIntoCall(
         room,
         captureSessionId,
